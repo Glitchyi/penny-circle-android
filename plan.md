@@ -1,14 +1,16 @@
 # Spending Buddy native implementation
 
-Implement the user's approved product brief in /home/ubuntu/spending-buddy/product-brief.md as a Kotlin/Jetpack Compose Android app, not an Expo app. Deliver a real signed APK and native source. The following undecided settings use privacy-preserving, editable defaults: on-device screenshot OCR; personal custom presets; category and reason for each purchase; honest-logging streaks, with no budget/nudge penalty; Monday–Sunday budgets; 10 AM Asia/Kolkata next-day grace; owner approval of budget suggestions.
+The current objective and actionable pending work are maintained in [TODO.md](TODO.md). Agent-specific product and engineering preferences are in [AGENTS.md](AGENTS.md). This file records the durable implementation direction; `TODO.md` records release status and follow-up work.
+
+Implement the user's approved product brief in /home/ubuntu/spending-buddy/product-brief.md as a Kotlin/Jetpack Compose Android app, not an Expo app. Deliver a real signed APK and native source. The product objective is to help two friends log every purchase or an explicit no-spend day, see daily/weekly limits, finish honestly, and encourage one another in a friendly notebook-like experience. The following defaults are privacy-preserving and editable: on-device screenshot OCR; personal custom presets; category and reason for each purchase; honest-logging streaks, with no budget/nudge penalty; Monday–Sunday budgets; 10 AM Asia/Kolkata next-day grace; owner approval of budget suggestions.
 
 ## Native structure
 
-The Gradle root pins AGP 8.13.0, Gradle 8.13 and Kotlin/Compose 2.2.10. app/ contains manifest/resources and com.spendingbuddy.app Kotlin files. Models.kt defines local domain records and strict rupee/paise and streak rules. BuddyRepository.kt stores confirmed records and import drafts privately, exposes observable state and optional authenticated sync. Screens.kt contains the phone-first UI. RotaryDial.kt owns pointer gestures, fixed stop, spring return and haptics. ScreenshotImporter.kt extracts local image text with a bundled ML Kit model, creates editable candidates, handles multiple screenshots and possible duplicates. ReminderWorker.kt handles approximate background reminders/sync and standard notifications. MainActivity.kt handles Android shared-image intents and app entry. Unit tests cover domain rules and parser safeguards.
+The Gradle root pins AGP 8.13.0, Gradle 8.13 and Kotlin/Compose 2.2.10. `app/` contains manifest/resources and the Android entry point; `core/` contains portable domain and sync protocol code. Models.kt defines local domain records and strict rupee/paise and streak rules. BuddyRepository.kt stores confirmed records and import drafts privately. The `ui/` package contains the phone-first screens. RotaryDial.kt owns the optional pointer gestures, fixed stop, spring return, and haptics. ScreenshotImporter.kt extracts local image text with a bundled ML Kit model, creates editable candidates, handles multiple screenshots and possible duplicates. The peer-sync package, BuddyLinkService, and workers handle direct iroh communication and approximate notifications. MainActivity.kt handles Android shared-image intents and app entry. Unit tests cover domain, protocol, transport, and parser safeguards.
 
-## Backend boundary
+## Peer-to-peer boundary
 
-Deploy an authenticated Manus-hosted sync API only if the user approves the pending request. Screenshots never go to it. Do not embed private server credentials in the APK. If a deployed endpoint is unavailable, local logging remains functional and Friend explicitly shows that synchronization needs setup, never a fake partner or a success message. Background WorkManager delivery is approximate and is not instant remote push. Instant push needs a configured provider and native credentials; disclose any gap.
+Use iroh QUIC for direct phone-to-phone synchronization. No hosted backend is required for the current architecture. Screenshots never leave the device. Do not embed server credentials in the APK. If the peer is unreachable, local logging remains functional and Buddy explicitly shows the real connection state, never a fake partner or a success message. Background WorkManager delivery is approximate and is not instant remote push; disclose any gap.
 
 ## Design
 
@@ -16,4 +18,4 @@ Use the requested playful, tactile rotary-phone interaction with forest-green, w
 
 ## Delivery constraints
 
-Use a newly generated release key, preserve it privately for updates, verify the APK with apksigner, and disclose that a valid signature does not establish Play Store trust or remove sideload warnings. Never disable Play Protect, antivirus or other security controls. Physical-phone notification/haptic behavior remains unverified until the users try the build.
+Use the existing private release key for compatible updates, preserve it outside GitHub, verify the APK with apksigner, and disclose that a valid signature does not establish Play Store trust or remove sideload warnings. Never disable Play Protect, antivirus or other security controls. Physical-phone notification, haptic, OCR, and peer-sync behavior remain pending until the users try the build on both phones; see [TODO.md](TODO.md).
