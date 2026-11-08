@@ -27,13 +27,12 @@ Models.kt defines INR/paise, expense records, import candidates, check-ins and s
 
 Temporary screenshot copies and raw OCR text are not included in synchronization payloads. All saved expense entries require review or explicit manual entry. Local app backup is disabled; uninstalling/clearing storage destroys un-synchronized data.
 
-## Optional backend
+## Peer-to-peer architecture
+The v0.2 build is local-first and uses iroh QUIC for direct peer-to-peer synchronization between the two phones. Pairing uses a short-lived `sb1.` invite containing an iroh ticket and a random pairing secret. Expense/check-in snapshots and approved events are exchanged directly; raw screenshots and OCR drafts stay on-device.
 
-The sibling sync-backend directory contains Node 22 / Express / MySQL source using Manus OAuth and per-pair authorization. See its README for runtime configuration, finite migration, native verifier challenge and route details. It has not been deployed merely by including the source.
+The Android app keeps a persistent iroh identity in Android Keystore-backed storage, runs a short foreground reachability window, and uses constrained background work for periodic reconciliation. Android battery policies can delay background sync and notifications; the app does not promise instant delivery or Android Live Updates. Unlinking clears the local peer relationship.
 
-A deployed HTTPS backend origin can be supplied at build time with `-PsyncBaseUrl=https://your-origin`, through the build script's SYNC_BASE_URL environment variable, or through the app's optional backend field in Settings. No private server credentials belong in the APK. Friend login, pairing, record synchronization, budget suggestions and remote nudges require a functioning deployed backend.
-
-Current remote notifications use foreground/background polling, not FCM. Do not describe them as instant push. Native on-device reminder timing is likewise not guaranteed by WorkManager. Friend-originated nudges are ordinary notifications and are not eligible to be promised as promoted Android Live Updates.
+No hosted backend or server credentials are required for the v0.2 peer flow.
 
 ## Tests and limits
 
