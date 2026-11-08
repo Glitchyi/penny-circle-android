@@ -1,0 +1,12 @@
+# Build outcomes
+
+These statuses describe implemented source/build outcomes. Physical-phone behavior remains unverified; see BUILD-EVIDENCE.md in the delivered source archive.
+
+- [x] A signed native Kotlin/Compose APK for Android 13+ including Android 16, with verified release certificate and an install guide; signing is not promised to remove sideload or Play Protect warnings.
+- [x] Every purchase and explicit no-spend confirmation persist locally in INR, with daily and weekly limits, category/reason presets and saved personal custom presets. Impulse is labelled in red and text. Over-budget entries are never blocked.
+- [x] The authentic rotary interaction commits digits 1–9 after clockwise drag to a fixed stop and release, springs home with haptics, and enters 0 via the centre tap. Amount appears above the wheel; undo, clear, keypad and decimal alternatives exist. Gesture math has unit coverage; tactile behavior needs phone testing.
+- [x] Android single/multiple image sharing opens a persistent local draft; bundled on-device OCR yields editable candidates. Add more screenshots keeps corrections and classification. Continue reviews all candidates before explicit saving. Suspected duplicates are flagged, not silently removed; failing images can be retried or removed. Parser unit tests passed; real Google Pay screenshots need device/layout testing.
+- [x] Check-ins use a 10 AM next-day grace cutoff in Asia/Kolkata and honest-logging streaks; late entries remain possible after streak loss. Grace completion can be synchronized for the friend to see once a backend is active. Late historical completion is not mislabelled as grace.
+- [x] Standard notification and in-app 30/60-minute nudge countdown source, approximate 10 PM check-in/nudge reminders, notification permission/settings controls and no false promoted Live Update claims. Local timing is approximate; remote delivery is not active without a backend and is not instant push.
+- [ ] Authenticated two-person expense/limit/status sharing, friend budget suggestions with owner acceptance, and nudges use a deployed backend only after approval. Offline/unconfigured state is explicit. No fake friend, instant push guarantee or screenshot upload. Native plumbing and backend source are implemented, but the backend has not been deployed and live OAuth/pair/sync behavior has not been tested.
+- [x] Source archive, build instructions and signing-key backup are delivered securely, with actual build/test evidence and remaining native/device/backend limitations. Keep the signing backup private.
