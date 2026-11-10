@@ -12,7 +12,7 @@ val INDIA_ZONE: ZoneId = ZoneId.of("Asia/Kolkata")
 val DEFAULT_CATEGORIES = listOf("Food", "Transport", "Shopping", "Bills", "Other")
 val DEFAULT_REASONS = listOf("Essential", "Convenience", "Social", "Impulse")
 const val IMPULSE = "Impulse"
-const val STATE_SCHEMA_VERSION = 2
+const val STATE_SCHEMA_VERSION = 3
 
 fun todayIndia(): LocalDate = LocalDate.now(INDIA_ZONE)
 fun rupees(paise: Long): String = (if (paise < 0) "-₹" else "₹") + java.text.NumberFormat.getNumberInstance(java.util.Locale("en", "IN")).apply {
@@ -63,18 +63,54 @@ data class ImportCandidate(
 @Serializable
 data class ImportImage(val id: String = UUID.randomUUID().toString(), val path: String = "", val status: String = "pending", val error: String = "")
 
-/** The single paired friend, identified by their iroh endpoint id (an ed25519 public key). */
+const val MAX_MEMBERS = 12
+const val MAX_DISPLAY_NAME = 40
+const val MEMBER_ACTIVE = "active"
+const val MEMBER_LEFT = "left"
+
+/** A Penny Circle: a small group of friends. [secret] is the group's own random secret; it is shared only with admitted members and is never placed in an invite code. */
 @Serializable
-data class PeerLink(
-    val endpointId: String,
-    val name: String = "",
-    val pairedAt: Long = 0,
-    /** Last known home relay URL and direct addresses; dialing by id alone also works via discovery. */
-    val relayUrl: String? = null,
-    val directAddresses: List<String> = emptyList()
+data class Group(
+    val id: String = "", val name: String = "", val secret: String = "", val createdAt: Long = 0,
+    /** The admin only approves join requests; they cannot remove anyone. */
+    val adminId: String = "",
+    /** Monotonically increasing; a claim about the admin with an epoch not above ours is stale and ignored. */
+    val adminEpoch: Long = 0
 )
 
-/** The friend's own data, as last received over the peer link. Read-only on this phone. */
+/** What a member shares with the circle. TOTALS_STATUS (default): totals, limits, check-in status and streak, no purchase records. FULL_DETAILS: reviewed records too. */
+@Serializable
+enum class Visibility { TOTALS_STATUS, FULL_DETAILS }
+
+/** A join request waiting for the admin's decision. Holds no data from the requester beyond a name and endpoint info. */
+@Serializable
+data class JoinRequest(
+    val id: String = "",
+    val endpointId: String = "",
+    val displayName: String = "",
+    val relayUrl: String? = null,
+    val directAddresses: List<String> = emptyList(),
+    val requestedAt: Long = 0,
+    val expiresAt: Long = 0
+)
+
+/**
+ * A group member, identified by their iroh endpoint id (an ed25519 public key). status is "active" or "left"
+ * (a tombstone: a left member never comes back under the same endpoint id).
+ */
+@Serializable
+data class Member(
+    val endpointId: String = "",
+    val displayName: String = "",
+    /** Last known home relay URL and direct addresses; dialing by id alone also works via discovery. */
+    val relayUrl: String? = null,
+    val directAddresses: List<String> = emptyList(),
+    val joinedAt: Long = 0,
+    val status: String = MEMBER_ACTIVE,
+    val leftAt: Long = 0
+) { val active: Boolean get() = status == MEMBER_ACTIVE }
+
+/** One member's own data, as last received from them. Read-only on this phone; each member owns their own limits. */
 @Serializable
 data class FriendSnapshot(
     val name: String = "",
@@ -82,15 +118,20 @@ data class FriendSnapshot(
     val checkIns: List<CheckIn> = emptyList(),
     val dailyLimitPaise: Long = 0,
     val weeklyLimitPaise: Long = 0,
-    /** Friend's own monotonically increasing data revision. */
+    /** The member's own monotonically increasing data revision. */
     val revision: Long = 0,
-    /** When this phone last received an exchange from the friend (epoch ms). */
-    val receivedAt: Long = 0
+    /** When this phone last received an exchange from the member (epoch ms). */
+    val receivedAt: Long = 0,
+    /** Totals and status the member shared (always present, even when [expenses] is empty under TOTALS_STATUS). */
+    val dailySpentPaise: Long = 0,
+    val weeklySpentPaise: Long = 0,
+    val streak: Int = 0,
+    val visibility: Visibility = Visibility.TOTALS_STATUS
 )
 
 /**
- * A one-off message queued in the outbox until the friend acknowledges it.
- * type: "nudge" | "budget_suggestion" | "suggestion_reply" | "unlink"
+ * A one-off message queued in the outbox until [target] acknowledges it.
+ * type: "nudge" | "budget_suggestion" | "suggestion_reply" | "leave". [target] is the addressee's endpoint id.
  */
 @Serializable
 data class PeerEvent(
@@ -101,10 +142,11 @@ data class PeerEvent(
     val dailyPaise: Long = 0,
     val weeklyPaise: Long = 0,
     val suggestionId: String = "",
-    val accepted: Boolean = false
+    val accepted: Boolean = false,
+    val target: String = ""
 )
 
-/** A nudge received from the friend. The countdown starts when it reaches this phone. */
+/** A nudge received from a member. The countdown starts when it reaches this phone. */
 @Serializable
 data class Nudge(
     val id: String,
@@ -112,19 +154,24 @@ data class Nudge(
     val minutes: Int = 30,
     val sentAt: Long = 0,
     val deliveredAt: Long = 0,
-    val endsAt: Long = 0
+    val endsAt: Long = 0,
+    val senderId: String = ""
 )
 
-/** A nudge this phone sent. deliveredAt == 0 means it is still waiting for the friend's phone. */
+/** A nudge this phone sent to [targetId]. deliveredAt == 0 means it is still waiting for their phone. */
 @Serializable
 data class OutgoingNudge(
     val id: String,
     val minutes: Int,
     val sentAt: Long,
-    val deliveredAt: Long = 0
+    val deliveredAt: Long = 0,
+    val targetId: String = ""
 ) { val endsAt: Long get() = if (deliveredAt == 0L) 0L else deliveredAt + minutes * 60_000L }
 
-/** status: "pending" | "accepted" | "declined" */
+/**
+ * status: "pending" | "accepted" | "declined". A suggestion is addressed to exactly one member ([targetId]);
+ * only that member may accept or decline it, and the reply is only honoured from them.
+ */
 @Serializable
 data class BudgetSuggestion(
     val id: String,
@@ -133,8 +180,21 @@ data class BudgetSuggestion(
     val sender: String = "",
     val createdAt: Long = 0,
     val status: String = "pending",
-    /** For suggestions this phone sent: whether the friend's phone has received it. */
-    val delivered: Boolean = false
+    /** For suggestions this phone sent: whether the target's phone has received it. */
+    val delivered: Boolean = false,
+    val senderId: String = "",
+    val targetId: String = ""
+)
+
+/** A personal quick-fill for the purchase form: [name] is the merchant or short reason text. Never synced to the circle. */
+@Serializable
+data class Preset(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = "",
+    val category: String = "Food",
+    val reason: String = "Essential",
+    /** At most one preset is the default; it pre-fills a new purchase. */
+    val isDefault: Boolean = false
 )
 
 @Serializable
@@ -151,28 +211,46 @@ data class BuddyState(
     val reminders: Boolean = true,
     val importImages: List<ImportImage> = emptyList(),
     val importCandidates: List<ImportCandidate> = emptyList(),
-    // v0.2 preferences
     val onboardingDone: Boolean = false,
     /** "keypad" | "dial" — the rotary dial is an optional, playful input mode. */
     val amountInput: String = "keypad",
     val lastCategory: String = "Food",
+    /** Personal presets (this phone only: not part of circle snapshots; included in the user's own backup). Older states load as empty. */
+    val presets: List<Preset> = emptyList(),
     val friendAlerts: Boolean = true,
     val stayReachable: Boolean = false,
-    // shared-data revision: increments whenever data the friend can see changes
+    // shared-data revision: increments whenever data the group can see changes
     val revision: Long = 0,
-    // peer-to-peer link (no hosted backend)
-    val peer: PeerLink? = null,
-    val friend: FriendSnapshot? = null,
+    // group (no hosted backend). selfId is this phone's iroh endpoint id; "" until [ensureSelf] runs.
+    val selfId: String = "",
+    val group: Group? = null,
+    /** All members including this phone and tombstoned (left) ones. */
+    val members: List<Member> = emptyList(),
+    /** Each other member's last received data, keyed by endpoint id. */
+    val friends: Map<String, FriendSnapshot> = emptyMap(),
     val outbox: List<PeerEvent> = emptyList(),
-    /** Event ids received from the friend (bounded), used to de-duplicate re-sent events. */
-    val seenEventIds: List<String> = emptyList(),
+    /** Event ids received per sender endpoint id (bounded), used to de-duplicate re-sent events and as acks. */
+    val seenEventIds: Map<String, List<String>> = emptyMap(),
+    /** The latest nudge received from any member. */
     val incomingNudge: Nudge? = null,
-    val outgoingNudge: OutgoingNudge? = null,
-    /** Suggestions the friend sent to this phone. */
+    val outgoingNudges: List<OutgoingNudge> = emptyList(),
+    /** Suggestions other members sent to this phone. */
     val suggestions: List<BudgetSuggestion> = emptyList(),
-    /** The latest suggestion this phone sent to the friend. */
-    val sentSuggestion: BudgetSuggestion? = null,
-    val lastNudgedDate: String = ""
+    /** Suggestions this phone sent. */
+    val sentSuggestions: List<BudgetSuggestion> = emptyList(),
+    val lastNudgedDate: String = "",
+    /** What this phone shares with the circle from now on. Switching only affects data sent afterwards. */
+    val visibility: Visibility = Visibility.TOTALS_STATUS,
+    /** Admin only: join requests awaiting approval (capped), endpoint ids declined, and the current code nonce. */
+    val pendingJoins: List<JoinRequest> = emptyList(),
+    val declinedJoinIds: List<String> = emptyList(),
+    val joinNonce: String = "",
+    val joinNonceExpiresAt: Long = 0,
+    /** Sender endpoint id -> Asia/Kolkata date of the last nudge accepted from them (one per day). */
+    val lastNudgeFrom: Map<String, String> = emptyMap(),
+    /** Broadcast sequencing: our last used sequence number, and the highest seen from each member. */
+    val outSeq: Long = 0,
+    val lastSeqSeen: Map<String, Long> = emptyMap()
 )
 
 fun netSpending(expenses: List<Expense>): Long = expenses.sumOf { if (it.kind == "refund") -it.amountPaise else if (it.kind == "transfer") 0L else it.amountPaise }

@@ -16,6 +16,21 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.math.max
 
+const val INCOMING_WARNING = "Incoming/refund transaction; do not count automatically"
+
+/** Incoming candidates are saved as refunds, never as plain expenses. */
+fun ImportCandidate.isIncoming(): Boolean = warning.contains(INCOMING_WARNING)
+fun kindFor(candidate: ImportCandidate): String = if (candidate.isIncoming()) "refund" else "expense"
+
+/** Marks imports left mid-processing (e.g. after the app was killed) as failed so they can be retried. */
+fun recoverInterruptedImports(images: List<ImportImage>): List<ImportImage> = images.map {
+    when (it.status) {
+        "processing" -> it.copy(status = "failed", error = "Import was interrupted. Retry or remove this screenshot.")
+        "error" -> it.copy(status = "failed") // legacy spelling
+        else -> it
+    }
+}
+
 /** Imports a shared screenshot without sending the image or its OCR text off-device. */
 class ScreenshotImporter(private val context: Context) {
     private val appContext = context.applicationContext
@@ -168,7 +183,7 @@ object TransactionParser {
         "dec" to 12, "december" to 12
     )
     private val transactionWords = Regex("""(?i)\b(paid|pay|payment|sent|send|debited|debit|transferred|transfer|purchase)\b""")
-    private val incomingWords = Regex("""(?i)\b(received|receive|credited|credit|refund|refunded|cashback|reversal|reversed|returned|from)\b""")
+    private val incomingWords = Regex("""(?i)\b(received|receive|credited|credit|refund|refunded|cashback|reversal|reversed|returned)\b""")
     private val terminalWords = Regex("""(?i)\b(failed|failure|cancelled|canceled|declined)\b""")
     private val metadataHeading = Regex("""(?i)^(?:total|balance|transaction\s+history|transactions?|search(?:ing)?|upi\s*id|status|date|time|phone(?:\s+number)?|account|bank)\b.*$""")
     private val statusLine = Regex("""(?i)^(?:successful?|completed?|pending|processing|failed|failure|cancelled|canceled|declined|paid|payment)\b.*$""")
@@ -185,8 +200,10 @@ object TransactionParser {
             amountPattern.findAll(line).forEach { match ->
                 val window = transactionWindow(lines, lineIndex)
                 val localText = window.joinToString("\n")
-                if (terminalWords.containsMatchIn(localText)) return@forEach
-                val incoming = incomingWords.containsMatchIn(localText)
+                val trailing = trailingStatusLines(lines, lineIndex)
+                val statusText = localText + "\n" + trailing.joinToString("\n")
+                if (terminalWords.containsMatchIn(statusText)) return@forEach
+                val incoming = incomingWords.containsMatchIn(statusText)
                 val outgoing = window.any(::isPaymentContextLine)
                 val merchant = extractMerchant(lines, lineIndex, match.range)
                 // A bare amount is not enough: it could be a balance, total, or unrelated number.
@@ -197,7 +214,7 @@ object TransactionParser {
                 if (date == null) warnings += "Date not detected; enter it before saving"
                 else if (date.warning != null) warnings += date.warning
                 if (merchant.isBlank()) warnings += "Merchant not detected; add it manually"
-                if (incoming) warnings += "Incoming/refund transaction; do not count automatically"
+                if (incoming) warnings += INCOMING_WARNING
                 output += ImportCandidate(
                     imageId = imageId,
                     amountText = "₹${match.groupValues[2]}",
@@ -211,6 +228,21 @@ object TransactionParser {
         }
         return output
     }
+
+    /**
+     * Status-only lines directly after the amount (e.g. "Failed", "Received"). Only whole-line
+     * status words count, so the next row's "Received from X" merchant is never attached.
+     */
+    private fun trailingStatusLines(lines: List<String>, index: Int): List<String> {
+        val out = mutableListOf<String>()
+        for (i in index + 1..minOf(index + 2, lines.lastIndex)) {
+            val line = lines[i]
+            if (isTransactionBoundary(line) || !trailingStatus.matches(line)) break
+            out += line
+        }
+        return out
+    }
+    private val trailingStatus = Regex("""(?i)^(?:payment\s+|transaction\s+)?(?:failed|failure|cancelled|canceled|declined|received|credited|refund(?:ed)?|reversed|reversal|returned|cashback)\s*$""")
 
     /** Keeps OCR line boundaries and only joins a small neighborhood around each amount. */
     private fun preserveLines(text: String): List<String> = text

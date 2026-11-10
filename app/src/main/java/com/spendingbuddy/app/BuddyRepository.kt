@@ -27,8 +27,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Local-first state for this phone. There is no hosted backend: the friend's data arrives over
- * the iroh peer link (see p2p/PeerSyncManager) and is written back through [mutate].
+ * Local-first state for this phone. There is no hosted backend: other circle members' data arrives over
+ * direct iroh connections (see p2p/PeerSyncManager) and is written back through [mutate].
  *
  * All instances in one process share a single state and serialization lock.
  */
@@ -38,26 +38,38 @@ class BuddyRepository private constructor(context: Context) {
     private val file = AtomicFile(File(app.filesDir, "buddy-state.json"))
     private val sharedListeners = CopyOnWriteArrayList<() -> Unit>()
     private val state0: MutableStateFlow<BuddyState>
+    @Volatile private var writeBlocked = false
+    private val loadProblem0 = MutableStateFlow<String?>(null)
 
     init {
-        val restored = try {
-            file.openRead().bufferedReader().use { StateCodec.decode(it.readText()) }
-        } catch (_: java.io.FileNotFoundException) { null } catch (_: Exception) { null }
-        state0 = MutableStateFlow((restored ?: BuddyState()).let { s ->
-            s.copy(importImages = s.importImages.map {
-                if (it.status == "processing") it.copy(status = "error", error = "Import was interrupted. Retry or remove this screenshot.") else it
-            })
-        })
+        val text = try {
+            file.openRead().bufferedReader().use { it.readText() }
+        } catch (_: java.io.FileNotFoundException) { null } catch (_: Exception) { "" }
+        val result = StateCodec.load(text)
+        var initial = BuddyState()
+        if (result is StateCodec.LoadResult.Loaded) initial = result.state
+        if (result is StateCodec.LoadResult.Unreadable) {
+            // Keep the original bytes recoverable and never overwrite them until the user acts.
+            runCatching { File(app.filesDir, "buddy-state-${System.currentTimeMillis()}.corrupt").writeText(text.orEmpty()) }
+            writeBlocked = true
+            loadProblem0.value = result.reason
+        }
+        state0 = MutableStateFlow(initial.copy(importImages = recoverInterruptedImports(initial.importImages)))
     }
+
+    /** Set when the saved file could not be loaded; a `.corrupt` backup of it was kept. */
+    val loadProblem: StateFlow<String?> get() = loadProblem0
+    /** The user chose to continue with fresh data; saving to the state file resumes (the backup stays). */
+    fun acknowledgeLoadProblem() { writeBlocked = false; loadProblem0.value = null }
 
     val state: StateFlow<BuddyState> get() = state0
 
-    /** Called after any change to data the friend can see (name, limits, expenses, check-ins). */
+    /** Called after any change to data the circle can see (name, limits, expenses, check-ins). */
     fun addSharedChangeListener(listener: () -> Unit) { sharedListeners += listener }
 
     /**
      * Atomically transforms and persists state. Used by this class and by the peer sync manager.
-     * Bumps [BuddyState.revision] when shared fields change so the friend can detect fresh data.
+     * Bumps [BuddyState.revision] when shared fields change so members can detect fresh data.
      */
     fun mutate(transform: (BuddyState) -> BuddyState) {
         var sharedChanged = false
@@ -66,7 +78,8 @@ class BuddyRepository private constructor(context: Context) {
             var next = transform(before)
             sharedChanged = sharedFields(before) != sharedFields(next)
             if (sharedChanged) next = next.copy(revision = maxOf(before.revision, next.revision) + 1)
-            if (next == before) return
+            if (next == before) return@synchronized
+            if (writeBlocked) { state0.value = next; return@synchronized }
             val out = file.startWrite()
             try {
                 out.write(StateCodec.encode(next).toByteArray(Charsets.UTF_8))
@@ -98,6 +111,12 @@ class BuddyRepository private constructor(context: Context) {
     fun setAmountInput(mode: String) { require(mode == "keypad" || mode == "dial"); mutate { it.copy(amountInput = mode) } }
     fun setFriendAlerts(enabled: Boolean) = mutate { it.copy(friendAlerts = enabled) }
 
+    // ---- Circle ----
+    /** Changes what this phone shares from now on (see com.spendingbuddy.app.p2p.setVisibility); the circle sees it on the next sync. Prefer PeerSyncManager.setVisibility, which also syncs. */
+    fun setVisibility(visibility: Visibility) = mutate { com.spendingbuddy.app.p2p.setVisibility(it, visibility) }
+    /** Display name for a member id, falling back to the last shared name and then "A member". */
+    fun memberName(id: String): String = state0.value.let { s -> s.members.firstOrNull { it.endpointId == id }?.displayName?.ifBlank { null } ?: s.friends[id]?.name?.ifBlank { null } ?: "A member" }
+
     // ---- Presets (Hick's law: short lists; custom entries can be saved as presets) ----
     fun addPreset(value: String, isReason: Boolean) {
         val v = value.trim().take(24)
@@ -113,6 +132,30 @@ class BuddyRepository private constructor(context: Context) {
         if (builtIn.any { it.equals(value, true) }) return
         mutate { s -> if (isReason) s.copy(reasons = s.reasons.filterNot { it == value }) else s.copy(categories = s.categories.filterNot { it == value }) }
     }
+
+    // ---- Personal presets (never synced; see core Presets.kt for the pure rules) ----
+    private fun presetMutate(op: (BuddyState) -> PresetOutcome): PresetOutcome {
+        var outcome: PresetOutcome = PresetOutcome.Invalid("Couldn't save that preset")
+        mutate { s -> op(s).also { outcome = it }.let { (it as? PresetOutcome.Ok)?.state ?: s } }
+        return outcome
+    }
+    /** Returns an error message, or null when saved. */
+    fun savePreset(name: String, category: String, reason: String, makeDefault: Boolean = false): String? =
+        (presetMutate { addPresetTo(it, name, category, reason, makeDefault) } as? PresetOutcome.Invalid)?.message
+    fun updatePreset(id: String, name: String, category: String, reason: String): String? =
+        (presetMutate { updatePresetIn(it, id, name, category, reason) } as? PresetOutcome.Invalid)?.message
+    fun renamePreset(id: String, name: String): String? {
+        val p = state0.value.presets.firstOrNull { it.id == id } ?: return "That preset no longer exists"
+        return updatePreset(id, name, p.category, p.reason)
+    }
+    fun setDefaultPreset(id: String?) = mutate { setDefaultPresetIn(it, id) }
+    /** Returns the removed preset so the caller can offer Undo via [restorePreset]. */
+    fun deletePreset(id: String): Preset? {
+        var removed: Preset? = null
+        mutate { s -> deletePresetFrom(s, id).also { removed = it.second }.first }
+        return removed
+    }
+    fun restorePreset(preset: Preset) = mutate { restorePresetTo(it, preset) }
 
     // ---- Purchases ----
     /** Adds or replaces (same id) a purchase. Re-opens the check-in of any affected day. */
@@ -139,6 +182,20 @@ class BuddyRepository private constructor(context: Context) {
         val removed = state0.value.expenses.find { it.id == id } ?: return null
         mutate { s -> s.copy(expenses = s.expenses.filterNot { it.id == id }, checkIns = s.checkIns.filterNot { it.date == removed.date }) }
         return removed
+    }
+    /** Reverts a just-saved new purchase and puts back the check-ins that saving it re-opened. */
+    fun undoSave(expenseId: String, previousCheckIns: List<CheckIn>) = mutate { s ->
+        s.copy(
+            expenses = s.expenses.filterNot { it.id == expenseId },
+            checkIns = s.checkIns.filterNot { c -> previousCheckIns.any { it.date == c.date } } + previousCheckIns
+        )
+    }
+    /** Puts back a just-deleted purchase together with the check-ins its deletion re-opened. */
+    fun undoDelete(expense: Expense, previousCheckIns: List<CheckIn>) = mutate { s ->
+        s.copy(
+            expenses = s.expenses.filterNot { it.id == expense.id } + expense,
+            checkIns = s.checkIns.filterNot { c -> previousCheckIns.any { it.date == c.date } } + previousCheckIns
+        )
     }
     fun restoreExpense(expense: Expense) = mutate { s -> s.copy(expenses = s.expenses.filterNot { it.id == expense.id } + expense, checkIns = s.checkIns.filterNot { it.date == expense.date }) }
 
@@ -174,7 +231,7 @@ class BuddyRepository private constructor(context: Context) {
                     mutate { s -> s.copy(importImages = s.importImages.map { if (it.id == placeholder.id) image else it }, importCandidates = markDuplicates(s.importCandidates + candidates, s.expenses)) }
                 }
             } catch (e: Exception) {
-                mutate { it.copy(importImages = it.importImages.map { image -> if (image.id == placeholder.id) image.copy(status = "error", error = e.message ?: "Couldn't read this screenshot") else image }) }
+                mutate { it.copy(importImages = it.importImages.map { image -> if (image.id == placeholder.id) image.copy(status = "failed", error = e.message ?: "Couldn't read this screenshot") else image }) }
             }
         }
     }
@@ -197,7 +254,7 @@ class BuddyRepository private constructor(context: Context) {
                         val existing = s.importCandidates.filter { it.imageId == id }
                         s.copy(importImages = s.importImages.map { if (it.id == id) image else it }, importCandidates = markDuplicates(s.importCandidates.filterNot { it.imageId == id } + if (existing.isNotEmpty()) existing else candidates, s.expenses))
                     }
-                } catch (e: Exception) { mutate { it.copy(importImages = it.importImages.map { i -> if (i.id == id) i.copy(status = "error", error = e.message ?: "Retry failed") else i }) } }
+                } catch (e: Exception) { mutate { it.copy(importImages = it.importImages.map { i -> if (i.id == id) i.copy(status = "failed", error = e.message ?: "Retry failed") else i }) } }
             }
         }
     }
@@ -219,7 +276,7 @@ class BuddyRepository private constructor(context: Context) {
             val date = try { LocalDate.parse(c.date) } catch (_: Exception) { return "Confirm the date for ${c.merchant.ifBlank { "each purchase" }}" }
             if (date > todayIndia()) return "Purchase dates can't be in the future"
             if (c.merchant.isBlank() || c.category.isBlank() || c.reason.isBlank()) return "Add a merchant, category and reason for each purchase"
-            expenses += Expense(date = date.toString(), amountPaise = amount, merchant = c.merchant.trim(), category = c.category, reason = c.reason)
+            expenses += Expense(date = date.toString(), amountPaise = amount, merchant = c.merchant.trim(), category = c.category, reason = c.reason, kind = kindFor(c))
         }
         val changed = expenses.map { it.date }.toSet()
         mutate { it.copy(expenses = it.expenses + expenses, checkIns = it.checkIns.filterNot { c -> c.date in changed }, importImages = emptyList(), importCandidates = emptyList()) }
@@ -239,12 +296,13 @@ class BuddyRepository private constructor(context: Context) {
     suspend fun exportBackup(out: OutputStream) = withContext(Dispatchers.IO) {
         out.use { it.write(StateCodec.encodeBackup(state0.value).toByteArray(Charsets.UTF_8)) }
     }
-    /** Replaces purchases, check-ins, limits and presets with the backup. Keeps the current peer link. Returns an error or null. */
+    /** Replaces purchases, check-ins, limits and presets with the backup. Keeps the current circle membership. Returns an error or null. */
     suspend fun importBackup(input: InputStream): String? = withContext(Dispatchers.IO) {
-        val restored = try { input.use { StateCodec.decode(it.readBytes().toString(Charsets.UTF_8)) } } catch (_: Exception) { return@withContext "That file isn't a Spending Buddy backup" }
+        val restored = try { input.use { StateCodec.decode(it.readBytes().toString(Charsets.UTF_8)) } } catch (_: Exception) { return@withContext "That file isn't a Penny Circle backup" }
+        StateCodec.validateRestore(state0.value, restored)?.let { return@withContext it }
         mutate { s -> s.copy(name = restored.name.ifBlank { s.name }, expenses = restored.expenses, checkIns = restored.checkIns,
             dailyLimitPaise = restored.dailyLimitPaise, weeklyLimitPaise = restored.weeklyLimitPaise,
-            categories = restored.categories, reasons = restored.reasons, onboardingDone = true) }
+            categories = restored.categories, reasons = restored.reasons, presets = restored.presets.take(MAX_PRESETS), onboardingDone = true) }
         null
     }
 

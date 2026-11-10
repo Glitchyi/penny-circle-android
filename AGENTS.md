@@ -1,14 +1,14 @@
-# AGENTS.md — Spending Buddy working agreement
+# AGENTS.md — Penny Circle working agreement (formerly Spending Buddy)
 
 ## Product intent
 
-Spending Buddy is a private accountability app for exactly two friends. Its job is to make daily expense logging easy, honest, and motivating: record every purchase, explicitly record no spending, finish the day, see daily/weekly limits, and encourage the other person. It is not intended to become a general finance platform or a social network.
+Penny Circle (formerly Spending Buddy; the Kotlin package and applicationId stay `com.spendingbuddy.app` so installs and the signing key keep working) is a private accountability app for a small group of friends (a circle, small by design, default cap 12), created and joined with a shareable group code. It began as a two-friend app; the group model supersedes that. Its job is to make daily expense logging easy, honest, and motivating: record every purchase, explicitly record no spending, finish the day, see daily/weekly limits, and encourage the other members. It is not intended to become a general finance platform or a social network.
 
 The app is native Android in Kotlin and Jetpack Compose. Both users have Android 16-or-later phones, currently a Xiaomi 17 and a OnePlus Nord 6e. Prefer native Android patterns and system integrations over cross-platform substitutes.
 
 ## UX preferences
 
-Treat the app as a friendly shared school notebook: clear, playful, warm, and interactive without being childish or shame-based. Use a clean phone-first layout with a standard Material 3 navigation bar and familiar Android behavior. Today should be the primary surface, with Activity and Buddy as the other top-level destinations. Keep the primary action obvious, use short steps, preserve input when navigating back, and keep success feedback non-blocking.
+Treat the app as a friendly shared school notebook: clear, playful, warm, and interactive without being childish or shame-based. Visual direction (decided 2026-11-09): light mode only, slate-neutral surfaces with flat cards and hairline borders in the slate/shadcn house style, but with a multi-colour accent palette (distinct category colours, a primary accent, warm highlights) rather than monochrome. Colour is never the only signal. Use a clean phone-first layout with a standard Material 3 navigation bar and familiar Android behavior. Today should be the primary surface, with Activity and Buddy as the other top-level destinations. Keep the primary action obvious, use short steps, preserve input when navigating back, and keep success feedback non-blocking.
 
 The rotary telephone interaction is a fun optional feature, not the main interaction or visual identity. The normal keypad must remain the default/faster path. When the dial is used, digits 1–9 are selected by placing a finger in a numbered hole, rotating clockwise to the fixed stop, releasing, and letting the wheel spring back with haptic detents. Tapping the centre enters zero. Always retain an accessible keypad and clear/undo/decimal alternatives.
 
@@ -18,7 +18,7 @@ Support daily and Monday–Sunday weekly limits, explicit no-spend days, a 10 AM
 
 ## Privacy and architecture
 
-Use local-first storage and direct phone-to-phone peer-to-peer synchronization over iroh. Do not add a hosted backend unless the user explicitly changes the architecture decision. Never embed server credentials, signing passwords, or personal data in source code.
+Use local-first storage and direct peer-to-peer synchronization between members' phones over iroh (a mesh; no member is a server). A group is joined by a shared group code carrying a bootstrap ticket and a secret; members propagate membership to each other. Do not add a hosted backend unless the user explicitly changes the architecture decision. Never embed server credentials, signing passwords, or personal data in source code.
 
 Screenshots and raw OCR text are sensitive and must remain on-device. Google Pay integration means Android share-menu screenshot intake plus on-device OCR and an editable review flow; it is not a direct Google Pay API integration. Multiple screenshots need an Add more/Continue flow. Never silently save OCR candidates, silently remove duplicates, or upload screenshots.
 

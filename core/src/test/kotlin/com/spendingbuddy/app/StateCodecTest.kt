@@ -1,9 +1,12 @@
 package com.spendingbuddy.app
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import com.spendingbuddy.app.p2p.*
 import org.junit.Test
 
 class StateCodecTest {
@@ -27,7 +30,8 @@ class StateCodecTest {
         assertTrue("Gym" in s.categories)
         assertFalse(s.reminders)
         assertTrue("existing users skip onboarding", s.onboardingDone)
-        assertNull("backend-era friend data is dropped", s.friend)
+        assertNull("no peer, so no group", s.group)
+        assertTrue(s.friends.isEmpty())
         assertNull(s.incomingNudge)
         assertEquals("keypad", s.amountInput)
         assertEquals("Food", s.lastCategory)
@@ -41,16 +45,114 @@ class StateCodecTest {
     }
 
     @Test fun roundTripsCurrentSchema() {
-        val s = BuddyState(name = "Asha", onboardingDone = true, peer = PeerLink("abc", "Ravi", 1),
-            outbox = listOf(PeerEvent(type = "nudge", minutes = 30)), revision = 7)
+        val s = BuddyState(name = "Asha", onboardingDone = true, selfId = "me", group = Group("g", "Crew", "sec", 1),
+            members = listOf(Member("me", "Asha"), Member("abc", "Ravi", joinedAt = 1)),
+            outbox = listOf(PeerEvent(type = "nudge", minutes = 30, target = "abc")), seenEventIds = mapOf("abc" to listOf("e1")), revision = 7)
         assertEquals(s, StateCodec.decode(StateCodec.encode(s)))
     }
 
     @Test fun backupExcludesPeerSecretsAndDrafts() {
-        val s = BuddyState(name = "Asha", peer = PeerLink("abc"), importImages = listOf(ImportImage(path = "/x")))
+        val s = BuddyState(name = "Asha", selfId = "me", group = Group("g", "Crew", "sec"), members = listOf(Member("abc")), importImages = listOf(ImportImage(path = "/x")))
         val restored = StateCodec.decode(StateCodec.encodeBackup(s))
-        assertNull(restored.peer)
+        assertNull(restored.group)
+        assertTrue(restored.members.isEmpty())
+        assertEquals("", restored.selfId)
         assertTrue(restored.importImages.isEmpty())
         assertEquals("Asha", restored.name)
+    }
+
+    @Test fun newerSchemaIsUnreadableNotEmpty() {
+        val r = StateCodec.load("""{"schemaVersion":${STATE_SCHEMA_VERSION + 1},"name":"X"}""")
+        assertTrue(r is StateCodec.LoadResult.Unreadable)
+    }
+
+    @Test fun corruptTextIsUnreadableAndNullIsMissing() {
+        assertTrue(StateCodec.load("{not json") is StateCodec.LoadResult.Unreadable)
+        assertTrue(StateCodec.load(null) is StateCodec.LoadResult.Missing)
+        assertTrue(StateCodec.load(StateCodec.encode(BuddyState(name = "A"))) is StateCodec.LoadResult.Loaded)
+    }
+
+    @Test fun invalidSchemaVersionIsRejected() {
+        assertTrue(StateCodec.load("""{"schemaVersion":0}""") is StateCodec.LoadResult.Unreadable)
+    }
+
+    @Test fun restoreRejectsEmptyBackupOverExistingData() {
+        val current = BuddyState(name = "Asha", onboardingDone = true)
+        assertNotNull(StateCodec.validateRestore(current, BuddyState()))
+    }
+
+    @Test fun restoreAllowsEmptyOverEmptyAndValidOverExisting() {
+        assertNull(StateCodec.validateRestore(BuddyState(), BuddyState()))
+        val restored = BuddyState(name = "B", onboardingDone = true)
+        assertNull(StateCodec.validateRestore(BuddyState(name = "Asha", onboardingDone = true), restored))
+    }
+
+    @Test fun restoreRejectsWrongSchemaAndNegativeLimits() {
+        assertNotNull(StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", schemaVersion = 1)))
+        assertNotNull(StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", dailyLimitPaise = -1)))
+    }
+
+    private val v2 = """
+        {"schemaVersion":2,"name":"Asha","onboardingDone":true,"revision":4,"dailyLimitPaise":40000,
+         "expenses":[{"id":"e1","date":"2026-11-07","amountPaise":25000,"merchant":"Chai","updatedAt":5}],
+         "checkIns":[{"date":"2026-11-07","completedAt":9}],
+         "peer":{"endpointId":"peer1","name":"Ravi","pairedAt":123,"relayUrl":"https://r.example","directAddresses":["1.2.3.4:5"]},
+         "friend":{"name":"Ravi","dailyLimitPaise":1000,"weeklyLimitPaise":7000,"revision":3,"receivedAt":50},
+         "outbox":[{"id":"o1","type":"nudge","minutes":30},{"id":"o2","type":"unlink"}],
+         "seenEventIds":["s1","s2"],
+         "incomingNudge":{"id":"n1","sender":"Ravi","minutes":20,"endsAt":9},
+         "outgoingNudge":{"id":"o1","minutes":30,"sentAt":1},
+         "suggestions":[{"id":"sg1","dailyPaise":100,"weeklyPaise":700,"sender":"Ravi"}],
+         "sentSuggestion":{"id":"sg2","dailyPaise":5,"weeklyPaise":35}}
+    """.trimIndent()
+
+    @Test fun migratesV2PeerToTwoMemberGroup() {
+        val s = StateCodec.decode(v2)
+        assertEquals(3, s.schemaVersion)
+        assertEquals(1, s.expenses.size); assertEquals(1, s.checkIns.size)
+        assertEquals(40000L, s.dailyLimitPaise)
+        assertEquals(StateCodec.MIGRATED_GROUP_NAME, s.group?.name)
+        assertEquals("existing behaviour preserved", Visibility.FULL_DETAILS, s.visibility)
+        assertEquals("id/admin are derived by ensureSelf", "", s.group?.id)
+        val m = s.members.single()
+        assertEquals("peer1", m.endpointId); assertEquals("Ravi", m.displayName)
+        assertEquals("https://r.example", m.relayUrl); assertEquals(123L, m.joinedAt); assertTrue(m.active)
+        assertEquals(3L, s.friends["peer1"]?.revision)
+        assertEquals(listOf("s1", "s2"), s.seenEventIds["peer1"])
+        assertTrue(s.outbox.all { it.target == "peer1" })
+        assertEquals("leave", s.outbox.first { it.id == "o2" }.type)
+        assertEquals("peer1", s.incomingNudge?.senderId)
+        assertEquals("peer1", s.outgoingNudges.single().targetId)
+        assertEquals("peer1", s.suggestions.single().senderId)
+        assertEquals("peer1", s.sentSuggestions.single().targetId)
+    }
+
+    @Test fun bothMigratedPhonesDeriveTheSameGroupAndAdmin() {
+        val mine = ensureSelf(StateCodec.decode(v2), "me")
+        val theirs = ensureSelf(StateCodec.decode(v2.replace("peer1", "me")).copy(), "peer1")
+        assertEquals(mine.group?.id, theirs.group?.id); assertEquals(mine.group?.secret, theirs.group?.secret)
+        assertTrue(mine.group!!.id.startsWith("mig-")); assertEquals("me", mine.group?.adminId); assertEquals("me", theirs.group?.adminId)
+        assertTrue(isAdmin(mine)); assertFalse(isAdmin(theirs))
+        assertArrayEquals(gossipTopicId(mine.group!!), gossipTopicId(theirs.group!!))
+    }
+
+    @Test fun ensureSelfCompletesMigration() {
+        val s = com.spendingbuddy.app.p2p.ensureSelf(StateCodec.decode(v2), "me")
+        assertEquals(2, s.members.size)
+        assertEquals("me", s.members.first().endpointId)
+        assertEquals("me", s.suggestions.single().targetId)
+        assertNotNull(com.spendingbuddy.app.p2p.respondToSuggestion(s, "sg1", true, 10))
+    }
+
+    @Test fun v2WithoutPeerHasNoGroupAndMigratedStateRoundTrips() {
+        val s = StateCodec.decode("""{"schemaVersion":2,"name":"A","onboardingDone":true}""")
+        assertNull(s.group)
+        val m = StateCodec.decode(v2)
+        assertEquals(m, StateCodec.decode(StateCodec.encode(m)))
+    }
+
+    @Test fun restoreRejectsOversizedMemberList() {
+        val many = List(MAX_MEMBERS + 101) { Member("m$it") }
+        assertNotNull(StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", members = many)))
     }
 }

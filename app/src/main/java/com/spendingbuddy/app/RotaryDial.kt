@@ -1,6 +1,7 @@
 package com.spendingbuddy.app
 
 import android.graphics.Paint
+import android.provider.Settings
 import android.graphics.Typeface
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -45,7 +46,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -63,6 +69,8 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 private const val ROTARY_HOLE_COUNT = 9
+internal const val ROTARY_MAX_INTEGER_DIGITS = 8
+internal const val ROTARY_MAX_FRACTION_DIGITS = 2
 private const val ROTARY_START_ANGLE = 0.3141593f // 18 degrees: digit 1 starts just before the stop.
 private const val ROTARY_HOLE_STEP = -0.5235988f // -30 degrees: each next hole needs 30 degrees more.
 private const val ROTARY_STOP_ANGLE = 0.83775806f // 48 degrees: fixed stop at lower-right.
@@ -107,10 +115,11 @@ internal fun appendRotaryDigit(current: String, digit: Int): String {
     if (digit !in 0..9) return current
     val clean = current.trim().removePrefix("₹")
     if (clean.contains('.')) {
-        if (clean.substringAfter('.').length >= 2) return clean
+        if (clean.substringAfter('.').length >= ROTARY_MAX_FRACTION_DIGITS) return clean
         return clean + digit
     }
     if (clean == "0") return if (digit == 0) clean else digit.toString()
+    if (clean.length >= ROTARY_MAX_INTEGER_DIGITS) return clean
     return clean + digit
 }
 
@@ -159,8 +168,13 @@ private suspend fun springRotaryHome(
     wheel: Animatable<Float, AnimationVector1D>,
     view: View,
     haptics: Boolean,
-    start: Float
+    start: Float,
+    reducedMotion: Boolean = false
 ) {
+    if (reducedMotion) {
+        wheel.snapTo(0f)
+        return
+    }
     wheel.snapTo(start)
     var nextTick = ceil(abs(start) / ROTARY_TICK_ANGLE).toInt()
     wheel.animateTo(
@@ -191,11 +205,15 @@ fun RotaryAmountInput(
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
+    val context = LocalContext.current
+    val reducedMotion = remember {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
     val scope = rememberCoroutineScope()
     val wheel = remember { Animatable(0f) }
     var interactiveRotation by remember { mutableStateOf(0f) }
     var interactionLocked by remember { mutableStateOf(false) }
-    var keypadVisible by rememberSaveable { mutableStateOf(false) }
+    var keypadVisible by rememberSaveable { mutableStateOf(true) }
     var undoValue by rememberSaveable { mutableStateOf<String?>(null) }
     val latestValue = rememberUpdatedState(value)
     val latestOnValueChange = rememberUpdatedState(onValueChange)
@@ -268,14 +286,20 @@ fun RotaryAmountInput(
             Text("Input:", style = MaterialTheme.typography.labelLarge, color = MutedGreen)
             TextButton(
                 onClick = { keypadVisible = false },
-                enabled = keypadVisible,
-                modifier = Modifier.semantics { contentDescription = "Use rotary dial input" }
-            ) { Text("Dial") }
+                modifier = Modifier.semantics {
+                    role = Role.RadioButton
+                    selected = !keypadVisible
+                    contentDescription = "Dial only"
+                }
+            ) { Text(if (keypadVisible) "Dial" else "Dial ✓") }
             TextButton(
                 onClick = { keypadVisible = true },
-                enabled = !keypadVisible,
-                modifier = Modifier.semantics { contentDescription = "Use accessible keypad input" }
-            ) { Text("Keypad") }
+                modifier = Modifier.semantics {
+                    role = Role.RadioButton
+                    selected = keypadVisible
+                    contentDescription = "Dial with keypad"
+                }
+            ) { Text(if (keypadVisible) "Keypad ✓" else "Keypad") }
         }
 
         Box(
@@ -289,8 +313,13 @@ fun RotaryAmountInput(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .semantics {
-                        contentDescription =
-                            "Rotary amount dial. Select a numbered finger hole and turn clockwise to the fixed stop. Use the digit buttons below for an accessible alternative."
+                        role = Role.Button
+                        contentDescription = "Rotary dial for entering the amount. Optional touch gesture: place a finger in a numbered hole and turn clockwise to the stop."
+                        stateDescription = "Current amount ${value.trim().removePrefix("₹").ifBlank { "0" }} rupees"
+                        customActions = listOf(
+                            CustomAccessibilityAction("Use keypad instead") { keypadVisible = true; true },
+                            CustomAccessibilityAction("Enter digit zero") { commitValue(appendRotaryDigit(latestValue.value, 0)); true }
+                        )
                     }
                     .pointerInput(interactionLocked) {
                         if (interactionLocked) return@pointerInput
@@ -370,7 +399,7 @@ fun RotaryAmountInput(
                                 interactiveRotation = 0f
                                 val returnFrom = rotation
                                 scope.launch {
-                                    springRotaryHome(wheel, view, latestHaptics.value, returnFrom)
+                                    springRotaryHome(wheel, view, latestHaptics.value, returnFrom, reducedMotion)
                                     interactionLocked = false
                                 }
                             }
@@ -501,7 +530,7 @@ private fun RotaryKeyRow(content: @Composable RowScope.() -> Unit) {
 private fun RowScope.RotaryKey(label: String, description: String, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.weight(1f).height(44.dp).semantics {
+        modifier = Modifier.weight(1f).height(48.dp).semantics {
             contentDescription = description
             role = Role.Button
         },

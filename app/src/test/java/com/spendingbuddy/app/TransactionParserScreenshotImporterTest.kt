@@ -142,4 +142,42 @@ class TransactionParserScreenshotImporterTest {
         assertEquals("08 Mar", partial.date)
         assertTrue(partial.warning.contains("year is uncertain"))
     }
+
+    @Test
+    fun paidFromBankIsNotIncoming() {
+        val c = TransactionParser.parse("Paid from HDFC\nPaid to Cafe One\n₹120", "img").single()
+        assertTrue(c.selected)
+        assertFalse(c.isIncoming())
+        assertEquals("expense", kindFor(c))
+    }
+
+    @Test
+    fun trailingStatusWordsAreRead() {
+        assertTrue(TransactionParser.parse("Paid to Shop A\n₹300\nFailed", "img").isEmpty())
+        val received = TransactionParser.parse("Paid to Shop B\n₹300\nReceived", "img").single()
+        assertTrue(received.isIncoming())
+        assertFalse(received.selected)
+    }
+
+    @Test
+    fun nextRowStatusIsNotAttachedToPreviousAmount() {
+        val out = TransactionParser.parse("Paid to Shop A\n₹100\nReceived from Bob\n₹200", "img")
+        assertEquals(2, out.size)
+        assertFalse(out[0].isIncoming())
+        assertTrue(out[1].isIncoming())
+    }
+
+    @Test
+    fun incomingCandidatesSaveAsRefund() {
+        val c = TransactionParser.parse("Received from Friend\nINR 500", "img").single()
+        assertEquals("refund", kindFor(c))
+    }
+
+    @Test
+    fun interruptedAndLegacyErrorImportsBecomeFailed() {
+        val out = recoverInterruptedImports(listOf(
+            ImportImage(status = "processing"), ImportImage(status = "error", error = "x"), ImportImage(status = "pending")
+        ))
+        assertEquals(listOf("failed", "failed", "pending"), out.map { it.status })
+    }
 }

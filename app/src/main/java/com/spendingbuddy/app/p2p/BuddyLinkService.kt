@@ -14,11 +14,12 @@ class BuddyLinkService : Service() {
     override fun onCreate() {
         super.onCreate()
         BuddyNotifications.ensureChannels(this)
-        val friend = BuddyRepository.get(this).state.value.peer?.name?.ifBlank { "your friend" } ?: "your friend"
+        val circle = BuddyRepository.get(this).state.value.group?.name?.ifBlank { "your circle" } ?: "your circle"
         val notification: Notification = NotificationCompat.Builder(this, BuddyNotifications.LINK_CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_buddy)
-            .setContentTitle("Reachable for $friend")
-            .setContentText("Nudges and updates arrive right away.")
+            .setContentTitle("Staying reachable for $circle")
+            .setContentText("Keeps Penny Circle listening for updates and join requests. Delivery is approximate and depends on your network and battery settings.")
+            .setStyle(NotificationCompat.BigTextStyle())
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -28,7 +29,7 @@ class BuddyLinkService : Service() {
         manager.setServiceHolder(true)
     }
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) stopSelf()
+        if (intent?.action == ACTION_STOP) { manager.setStayReachable(false); stopSelf() }
         return START_STICKY
     }
     override fun onDestroy() {

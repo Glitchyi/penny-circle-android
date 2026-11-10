@@ -17,7 +17,9 @@ class PeerSyncWorker(appContext: Context, workerParams: WorkerParameters) : Coro
         val manager = PeerSyncManager.get(applicationContext)
         manager.setWorkerHolder(true)
         return try {
-            if (com.spendingbuddy.app.BuddyRepository.get(applicationContext).state.value.peer != null) manager.syncForWorker()
+            // Also resumes a pending join: with no circle yet, one sync pass re-sends the join request.
+            manager.ensureIdentity()
+            manager.syncForWorker()
             Result.success()
         } finally {
             manager.setWorkerHolder(false)

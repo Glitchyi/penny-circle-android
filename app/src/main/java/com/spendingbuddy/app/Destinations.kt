@@ -10,6 +10,8 @@ object Destinations {
     /** Opens the Add purchase sheet on Today. */
     const val ADD = "add"
     const val ACTIVITY = "activity"
+    const val CIRCLE = "circle"
+    /** Old name of the Circle tab, kept so notifications created before the rename still open it. */
     const val BUDDY = "buddy"
     /** Opens the screenshot import review flow. */
     const val IMPORT = "import"

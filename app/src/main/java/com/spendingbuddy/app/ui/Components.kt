@@ -1,9 +1,10 @@
 package com.spendingbuddy.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -30,26 +31,46 @@ fun ScreenTitle(title: String, onBack: (() -> Unit)? = null, action: (@Composabl
 }
 
 @Composable
-fun Rule(modifier: Modifier = Modifier) = HorizontalDivider(modifier, color = MaterialTheme.colorScheme.outline.copy(alpha = .7f))
+fun Rule(modifier: Modifier = Modifier) = HorizontalDivider(modifier, thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
+/** Flat card: surface fill, 1dp hairline border, 12dp radius, no shadow. */
 @Composable
 fun NotebookSurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surface).padding(20.dp), content = content)
+    Column(
+        modifier.clip(PennyShapes.Large).background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, PennyShapes.Large).padding(16.dp),
+        content = content
+    )
 }
 
 @Composable
 fun Pill(text: String, selected: Boolean = false, tone: Color? = null, onClick: (() -> Unit)? = null) {
-    val bg = tone ?: if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .12f) else MaterialTheme.colorScheme.surface
-    val content = tone?.let { MaterialTheme.colorScheme.onSurface } ?: if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    val m = Modifier.clip(CircleShape).border(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, CircleShape)
-    if (onClick != null) AssistChip(onClick = onClick, label = { Text(text) }, colors = AssistChipDefaults.assistChipColors(containerColor = bg, labelColor = content), border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline))
-    else Surface(modifier = m.background(bg), color = Color.Transparent) { Text(text, color = content, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) }
+    val scheme = MaterialTheme.colorScheme
+    val bg = tone ?: if (selected) scheme.primaryContainer else scheme.surface
+    val content = if (tone != null) scheme.onSurface else if (selected) scheme.onPrimaryContainer else scheme.onSurfaceVariant
+    val borderColor = if (selected) scheme.primary else scheme.outlineVariant
+    if (onClick != null) AssistChip(
+        onClick = onClick, label = { Text(text) }, shape = PennyShapes.Medium,
+        colors = AssistChipDefaults.assistChipColors(containerColor = bg, labelColor = content),
+        border = AssistChipDefaults.assistChipBorder(enabled = true, borderColor = borderColor)
+    ) else Surface(shape = PennyShapes.Medium, color = bg, border = BorderStroke(1.dp, borderColor)) {
+        Text(text, color = content, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+    }
+}
+
+/** Category label in its accent colours. The name is always shown as text. */
+@Composable
+fun CategoryChip(category: String, modifier: Modifier = Modifier) {
+    val cc = CategoryColors.forCategory(category)
+    Surface(modifier, shape = PennyShapes.Small, color = cc.container, border = BorderStroke(1.dp, cc.accent.copy(alpha = .35f))) {
+        Text(category, color = cc.content, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+    }
 }
 
 @Composable
 fun ProgressBar(value: Long, max: Long, over: Boolean = false, modifier: Modifier = Modifier) {
     val fraction = if (max <= 0) 0f else (value.toFloat() / max).coerceIn(0f, 1f)
-    Box(modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)) {
+    Box(modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
         Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary))
     }
 }
@@ -57,16 +78,21 @@ fun ProgressBar(value: Long, max: Long, over: Boolean = false, modifier: Modifie
 @Composable
 fun PurchaseRow(expense: Expense, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val impulse = expense.reason == IMPULSE
-    Row(modifier.fillMaxWidth().then(if (onClick != null) Modifier else Modifier).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    val cc = CategoryColors.forCategory(if (impulse) "Impulse" else expense.category)
+    val base = modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp)
+    Row((if (onClick != null) base.clickable(onClick = onClick) else base).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(4.dp).height(42.dp).clip(RoundedCornerShape(2.dp)).background(if (impulse) MaterialTheme.colorScheme.error else Color.Transparent))
         Spacer(Modifier.width(12.dp))
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary.copy(alpha = .1f), modifier = Modifier.size(34.dp)) {
-            Box(contentAlignment = Alignment.Center) { Text(categoryIcon(expense.category), style = MaterialTheme.typography.bodyLarge) }
+        Surface(shape = PennyShapes.Medium, color = cc.container, modifier = Modifier.size(36.dp)) {
+            Box(contentAlignment = Alignment.Center) { Text(categoryIcon(expense.category), color = cc.content, style = MaterialTheme.typography.bodyLarge) }
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(expense.merchant.ifBlank { expense.category }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Text(if (impulse) "Impulse" else expense.reason, style = MaterialTheme.typography.bodyMedium, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CategoryChip(expense.category)
+                Text(if (impulse) "Impulse" else expense.reason, style = MaterialTheme.typography.bodyMedium, fontWeight = if (impulse) FontWeight.SemiBold else null, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Text(rupees(expense.amountPaise), style = MaterialTheme.typography.titleMedium, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
     }
@@ -94,10 +120,13 @@ fun EmptyState(onAdd: () -> Unit, onNoSpend: () -> Unit) {
 
 @Composable
 fun AppNavBar(selected: Int, onSelect: (Int) -> Unit) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-        NavigationBarItem(selected == 0, { onSelect(0) }, icon = { Icon(Icons.Rounded.Today, "Today") }, label = { Text("Today") })
-        NavigationBarItem(selected == 1, { onSelect(1) }, icon = { Icon(Icons.Rounded.BarChart, "Activity") }, label = { Text("Activity") })
-        NavigationBarItem(selected == 2, { onSelect(2) }, icon = { Icon(Icons.Rounded.People, "Buddy") }, label = { Text("Buddy") })
+    Column {
+    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
+        NavigationBarItem(selected == 0, { onSelect(0) }, icon = { Icon(Icons.Rounded.Today, null) }, label = { Text("Today") })
+        NavigationBarItem(selected == 1, { onSelect(1) }, icon = { Icon(Icons.Rounded.BarChart, null) }, label = { Text("Activity") })
+        NavigationBarItem(selected == 2, { onSelect(2) }, icon = { Icon(Icons.Rounded.People, null) }, label = { Text("Buddy") })
+    }
     }
 }
 

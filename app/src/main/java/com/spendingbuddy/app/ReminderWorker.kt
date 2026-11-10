@@ -33,17 +33,18 @@ object BuddyNotifications {
     private const val CHECK_IN_NOTIFICATION_ID = 4102
     const val SERVICE_NOTIFICATION_ID = 4103
     private const val ACTIVITY_NOTIFICATION_ID = 4104
+    private const val JOIN_REQUEST_NOTIFICATION_ID = 4105
 
     fun ensureChannels(context: Context) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannels(
             listOf(
-                NotificationChannel(NUDGE_CHANNEL, "Friend nudges", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Countdowns sent by your friend"
+                NotificationChannel(NUDGE_CHANNEL, "Circle nudges", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = "Countdowns sent by members of your circle"
                 },
-                NotificationChannel(ACTIVITY_CHANNEL, "Buddy activity", NotificationManager.IMPORTANCE_DEFAULT),
-                NotificationChannel(LINK_CHANNEL, "Buddy link", NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(ACTIVITY_CHANNEL, "Circle activity", NotificationManager.IMPORTANCE_DEFAULT),
+                NotificationChannel(LINK_CHANNEL, "Staying reachable", NotificationManager.IMPORTANCE_LOW),
                 NotificationChannel(CHECK_IN_CHANNEL, "Check-in reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
                     description = "Gentle local spending check-in reminders"
                 }
@@ -90,13 +91,29 @@ object BuddyNotifications {
     }
 
     @SuppressLint("MissingPermission")
-    fun notifyActivity(context: Context, title: String, body: String) {
+    fun notifyActivity(context: Context, title: String, body: String, memberId: String = "") {
+        if (!notificationsGranted(context)) return
+        ensureChannels(context)
+        // One notification per member and kind of news, so several members' updates do not replace each other.
+        NotificationManagerCompat.from(context).notify(
+            ACTIVITY_NOTIFICATION_ID + (title.hashCode() xor memberId.hashCode()).and(0xFFFF) * 10,
+            baseBuilder(context, ACTIVITY_CHANNEL).setSmallIcon(com.spendingbuddy.app.R.drawable.ic_stat_buddy)
+                .setContentTitle(title).setContentText(body).setAutoCancel(true)
+                .setContentIntent(mainActivityIntent(context, Destinations.BUDDY)).build()
+        )
+    }
+
+    /** Admin only: a new join request is waiting. Honest copy: the requester sees the decision on their next check, not instantly. */
+    @SuppressLint("MissingPermission")
+    fun notifyJoinRequest(context: Context, name: String) {
         if (!notificationsGranted(context)) return
         ensureChannels(context)
         NotificationManagerCompat.from(context).notify(
-            ACTIVITY_NOTIFICATION_ID,
+            JOIN_REQUEST_NOTIFICATION_ID,
             baseBuilder(context, ACTIVITY_CHANNEL).setSmallIcon(com.spendingbuddy.app.R.drawable.ic_stat_buddy)
-                .setContentTitle(title).setContentText(body).setAutoCancel(true)
+                .setContentTitle("$name asked to join your circle")
+                .setContentText("Open Buddy to approve or decline. Nothing is shared with them until you approve.")
+                .setAutoCancel(true)
                 .setContentIntent(mainActivityIntent(context, Destinations.BUDDY)).build()
         )
     }
@@ -212,12 +229,6 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
             return Result.success()
         }
 
-        if (!state.reminders) {
-            BuddyNotifications.cancelNudge(context)
-            BuddyNotifications.schedule(context, false)
-            return Result.success()
-        }
-
         val now = ZonedDateTime.now(INDIA_ZONE)
         val today = now.toLocalDate().toString()
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -233,14 +244,13 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
                 )
             }
 
-            val friend = state.friend
-            val friendIncomplete = friend != null && friend.checkIns.none { it.date == today }
-            val hasSentNudge = state.lastNudgedDate == today
-            if (friendIncomplete && !hasSentNudge && markOnce(prefs, KEY_NUDGE_DATE, today)) {
+            val candidates = com.spendingbuddy.app.p2p.nudgeCandidates(state, today, System.currentTimeMillis())
+            if (candidates.isNotEmpty() && markOnce(prefs, KEY_NUDGE_DATE, today)) {
+                val names = candidates.map { state.friends[it.endpointId]?.name?.ifBlank { null } ?: it.displayName }
                 BuddyNotifications.notifyCheckIn(
                     context,
-                    "Your friend may need a nudge",
-                    "Their check-in is still pending. Open Spending Buddy to decide whether to nudge them."
+                    if (names.size == 1) "${names[0]} may like a nudge" else "${names.size} members may like a nudge",
+                    "Their check-in is still pending. Open Penny Circle to decide whether to send a nudge."
                 )
             }
         }
