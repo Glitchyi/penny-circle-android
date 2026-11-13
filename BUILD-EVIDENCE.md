@@ -1,6 +1,6 @@
 # Build evidence — Penny Circle 0.3.0 (versionCode 3)
 
-**Current checkpoint: 13 November 2026.** This section supersedes the 0.2.0 records below. Early beta: emulator results do not establish TalkBack, frame rate, physical haptic quality, real payment-app delivery, OEM battery behavior or Doze scheduling. The final signed release and publication remain **pending**; no final release size or SHA-256 is recorded yet.
+**Current checkpoint: 13 November 2026.** This section supersedes the 0.2.0 records below. Early beta: emulator results do not establish TalkBack, frame rate, physical haptic quality, real payment-app delivery, OEM battery behavior or Doze scheduling. The signed ARM64 release is public at [v0.3.0](https://github.com/Glitchyi/penny-circle-android/releases/tag/v0.3.0). Final signing/build checks passed; GitHub asset digest matches the local APK. An independent unauthenticated public download was hashed and matched the local APK exactly.
 
 Package/applicationId remains `com.spendingbuddy.app`; minSdk 33 (Android 13+), targetSdk 36. Production release is ARM64-only for the intended phones. Debug retains ARM64 and x86_64 for emulator testing; the earlier x86_64 JNA 4KB ELF alignment issue must not be described as fixed by ZIP alignment or included in the production ABI claim.
 
@@ -15,7 +15,9 @@ JDK 21 with javac, Gradle wrapper, SDK 36 and Build Tools 36.0.0. Core/app tests
 | Combined | 227 passed, 1 optional skip |
 | Release lint | 0 errors, 50 warnings, 2 hints; not warning-free |
 | Debug SHA-256 | `4F4B405541CB3A0EA40FBA6C969813A99581246B9AD77B00514C3FE66333D6A0` |
-| Final signed ARM64 release | Pending final assembly/signature, ELF/ZIP alignment and artifact checks |
+| Final signed ARM64 release | 76,458,349 bytes (76.5 MB / 72.9 MiB); nondebuggable; v3 signature verified |
+| Release SHA-256 | `9bd88986af8ed04cb4ea690fec78e0625332661eceab4c11fb708a06c9a23e7e` |
+| Alignment | Four ARM64 ELF libraries have PT_LOAD alignment ≥16 KB; APK ZIP 16 KB verification passed |
 
 That debug checkpoint includes payment durations 1/2/5 minutes (default2), reminder leads 15/30/60 minutes (default30), and original circular ₹ progress-head artwork. A subsequent theme-following artwork implementation shares exact AppTheme accent/onAccent/danger colors and programmatic circular ₹ geometry between previews and native cards; the intermediate neutral resource was removed. Both payment and reminder bars use the selected theme accent, with semantic red for an over-budget payment. Theme changes refresh active cards without resetting expiry. The theme-aware build passed. API36.1 native QA showed Mint (`0xff00e599`) and Signal Blue (`0xff4d9bff`) coins/bars. Changing the active card from Mint to Signal Blue reduced timeout from 5 minutes to 3m50.447s, preserving its original deadline. The hash above identifies this theme-aware debug checkpoint.
 
@@ -36,9 +38,11 @@ API36.1 synthetic SMS tests observed the promoted ProgressStyle flag and visible
 
 At 9:31 PM IST the opt-in reminder card was promoted. Its review link opened the correct finish sheet; completing the day or disabling reminders cancelled it. Unpin suppression survived restart. Temporary clock/permission changes were restored, including automatic time/timezone and the original paired synthetic state.
 
-The fixed reminder target is 22:00 IST; selectable lead defaults to 30 minutes. Next-day 10 AM grace and the ten-minute privacy hold are separate. Timer-choice functional QA passed: the one-minute payment duration and 15-minute reminder lead were selected through UI, saved and retained after restart. The card reported PT1M while the separate hold remained 599970 ms. Original state was restored without clock, display or permission changes. This does not establish visual checks for every duration/lead combination. Latest theme-following artwork/native visual QA is in progress. Onboarding previews have been visually inspected. WorkManager posting remains approximate; no guaranteed promotion, exact alarm or Doze claim is made.
+The fixed reminder target is 22:00 IST; selectable lead defaults to 30 minutes. Next-day 10 AM grace and the ten-minute privacy hold are separate. Timer-choice functional QA passed: the one-minute payment duration and 15-minute reminder lead were selected through UI, saved and retained after restart. The card reported PT1M while the separate hold remained 599970 ms. Original state was restored without clock, display or permission changes. This does not establish visual checks for every duration/lead combination. Native theme QA passed: Mint #00e599 to Signal Blue #4d9bff changed the active card colors while its timeout decreased from five minutes to 3m50.447s, preserving the expiry within about 10 ms. The 60-minute lead also persisted through UI; original per-day Unpin suppression was honored. Onboarding previews have been visually inspected. WorkManager posting remains approximate; no guaranteed promotion, exact alarm or Doze claim is made.
 
 ## UI and disclosure checks
+
+Final themed countdown visual check also passed at the real 9:33–9:34 PM IST clock with the 60-minute lead. After snapshotting and temporarily clearing only the synthetic profile's existing app-local per-day dismissal marker, the native Signal Blue card showed its ₹ head, matching bar and 25:33 remaining to 10 PM. Dumpsys confirmed the 22:00 IST `when`, countdown chronometer and promoted ongoing flag. Exact prior suppression XML and Light Horizon/payment2/lead30/reminders/countdown-off preferences were restored; no countdown remained, two expenses/circle persisted, and Android clock/display/permissions were unchanged. No Android eligibility or promotion permission was bypassed.
 
 Emulator observations cover all four themes at 360dp/200% font, readable labels in the 96dp large-text bar, reduced-motion usability, and offline Settings privacy/license reading. Body swipes navigate panes; Activity chart-card swipes retain week navigation. Finish cancellation and early release each left zero check-ins; completed swipe produced exactly one. Onboarding live-progress previews were visually inspected. These are targeted observations, not FPS measurements, TalkBack verification or physical-device haptic assessment.
 
@@ -48,7 +52,9 @@ ADB character-event input into Settings/long invitation text retained only the f
 
 The owner explicitly authorized a new production key outside Git and final commit/push/public-repository/GitHub Release publication after validation. The private `.p12` and password remain external; no password is recorded here. Production certificate SHA-256 is `84E2559AF0440E8A514D154904B9A2A203B617A204C8C46968CB3D94782D98FD`. Existing debug-certificate installs need a user-approved fresh install to switch certificates; future production updates must reuse this key.
 
-`build-and-sign.ps1` validates tests/lint, nondebuggable ARM64 packaging, native ELF and 16 KB APK ZIP alignment, external signing, signature and public metadata/hash output. Its final execution result and signed artifact hash/size are pending. No published-release claim follows from script preparation or the debug hash.
+Temporary powercfg changes were restored and queried: saved scheme `6fecc5ae-f350-48a5-b669-b472cb895ccf`, sleep AC/DC0 seconds and display AC900/DC600 seconds. No physical phone was connected or modified in this release run.
+
+`build-and-sign.ps1` validates tests/lint, nondebuggable ARM64 packaging, native ELF and 16 KB APK ZIP alignment, external signing, signature and public metadata/hash output. The actual signing pipeline exited 0 using the same production key after its password-file handling was corrected. APK inspection confirmed label Penny Circle, minSdk 33, targetSdk 36, nondebuggable, 15 license assets, four ARM64 native libraries and no other ABI. Embedded VCS metadata exactly matches source/tag v0.3.0 commit `46b4ffe5b9cb696f9aaf3a580a5a9a5ead3e4b01`. The repository was renamed to `Glitchyi/penny-circle-android`, made public, and main/tag pushed. GitHub release v0.3.0 is neither draft nor prerelease and contains the APK, SHA-256 file and public metadata. All three assets uploaded; GitHub APK asset digest matches the SHA-256 above. Unauthenticated public-download hashing passed: the 76,458,349-byte download exactly matched the local SHA-256.
 
 ---
 
