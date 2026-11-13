@@ -3,6 +3,9 @@
 local.properties
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.key
 signing.properties
 *.apk
 *.idsig
@@ -11,3 +14,4 @@ signing.properties
 *.hprof
 .DS_Store
 captures/
+release/

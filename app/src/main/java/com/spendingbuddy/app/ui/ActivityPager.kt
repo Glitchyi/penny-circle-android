@@ -3,6 +3,7 @@ package com.spendingbuddy.app.ui
 import com.spendingbuddy.app.Expense
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,6 +20,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -45,7 +50,8 @@ fun ActivityPager(state: BuddyState, now: ZonedDateTime, modifier: Modifier = Mo
     val pageCount = remember(state.expenses, today) { weeksBack(state.expenses, today) }
     val pagerState = rememberPagerState(pageCount = { pageCount })
     val scope = rememberCoroutineScope()
-    HorizontalPager(pagerState, modifier.fillMaxSize(), key = { it }) { page ->
+    // Week swipes belong to the chart card; the surrounding pane remains available for app navigation.
+    HorizontalPager(pagerState, modifier.fillMaxSize(), key = { it }, userScrollEnabled = false) { page ->
         WeekPage(
             state = state, now = now, pagesBack = page, pageCount = pageCount,
             onEarlier = { scope.launch { pagerState.animateScrollToPage(page + 1) } },
@@ -65,6 +71,8 @@ private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, page
     val weekSpent = spentInWeek(state.expenses, start)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val swipeThreshold = with(LocalDensity.current) { 64.dp.toPx() }
+    val directionSign = if (LocalLayoutDirection.current == LayoutDirection.Ltr) 1f else -1f
     // Item 0 is the summary card; an empty week has one empty-state item; otherwise each day is a header plus its purchases.
     val headerIndex = remember(groups) {
         var i = 1
@@ -75,7 +83,19 @@ private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, page
         contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "summary") {
-            NotebookSurface(Modifier.fillMaxWidth()) {
+            NotebookSurface(Modifier.fillMaxWidth().pointerInput(pagesBack, pageCount, directionSign) {
+                var distance = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { distance = 0f },
+                    onDragCancel = { distance = 0f },
+                    onDragEnd = {
+                        val logicalDistance = distance * directionSign
+                        if (logicalDistance <= -swipeThreshold && pagesBack < pageCount - 1) onEarlier()
+                        else if (logicalDistance >= swipeThreshold && pagesBack > 0) onLater()
+                    },
+                    onHorizontalDrag = { change, amount -> change.consume(); distance += amount }
+                )
+            }) {
                 WeekHeader(range, today, pagesBack, pageCount, onEarlier, onLater)
                 Spacer(Modifier.height(8.dp))
                 val over = weekSpent > state.weeklyLimitPaise

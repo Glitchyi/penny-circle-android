@@ -13,6 +13,15 @@ val DEFAULT_CATEGORIES = listOf("Food", "Transport", "Shopping", "Bills", "Other
 val DEFAULT_REASONS = listOf("Essential", "Convenience", "Social", "Impulse")
 const val IMPULSE = "Impulse"
 const val STATE_SCHEMA_VERSION = 3
+val PAYMENT_UPDATE_MINUTES = listOf(1, 2, 5)
+const val DEFAULT_PAYMENT_UPDATE_MINUTES = 2
+val FINISH_COUNTDOWN_LEAD_MINUTES = listOf(15, 30, 60)
+const val DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES = 30
+
+fun paymentUpdateDurationMillis(minutes: Int): Long {
+    require(minutes in PAYMENT_UPDATE_MINUTES)
+    return minutes * 60_000L
+}
 
 fun todayIndia(): LocalDate = LocalDate.now(INDIA_ZONE)
 fun rupees(paise: Long): String = (if (paise < 0) "-₹" else "₹") + java.text.NumberFormat.getNumberInstance(java.util.Locale("en", "IN")).apply {
@@ -39,8 +48,48 @@ data class Expense(
     val note: String = "",
     /** "expense" | "refund" | "transfer" */
     val kind: String = "expense",
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    /** "" = typed in by hand; [SOURCE_AUTO] = added from a payment message read on this phone. Never sent to the circle. */
+    val source: String = "",
+    /** Epoch ms until which an auto-added purchase is kept from the circle so it can be undone first. 0 = shareable. */
+    val heldUntil: Long = 0,
+    /** The category of an auto-added purchase could not be guessed and the user has not chosen one yet. */
+    val needsCategory: Boolean = false
 )
+
+const val SOURCE_AUTO = "auto"
+/** How long an auto-added purchase stays private to this phone, so it can be undone before friends see it. */
+const val AUTO_HOLD_MS = 10 * 60_000L
+
+/** Personal rule: purchases at [merchant] get this category and reason. Never synced to the circle. */
+@Serializable
+data class MerchantRule(
+    /** Normalised merchant name, see merchantKey(). */
+    val key: String = "",
+    /** The name as shown to the user. */
+    val merchant: String = "",
+    val category: String = "Other",
+    val reason: String = "Essential"
+)
+
+/** A detected payment the app was not sure about and is asking the user to add or skip. Kept on this phone only. */
+@Serializable
+data class PendingDetection(
+    val id: String = UUID.randomUUID().toString(),
+    val amountPaise: Long = 0,
+    val merchant: String = "",
+    val date: String = todayIndia().toString(),
+    val category: String = "Other",
+    val reason: String = "Essential",
+    val needsCategory: Boolean = false,
+    /** Short plain reason why it was not added automatically, shown to the user. */
+    val why: String = "",
+    val detectedAt: Long = System.currentTimeMillis()
+)
+
+/** A payment already handled, kept briefly so the same payment seen twice (app notification + bank SMS) is counted once. */
+@Serializable
+data class DetectionMark(val amountPaise: Long = 0, val at: Long = 0, val ref: String = "")
 
 @Serializable
 data class CheckIn(
@@ -126,7 +175,11 @@ data class FriendSnapshot(
     val dailySpentPaise: Long = 0,
     val weeklySpentPaise: Long = 0,
     val streak: Int = 0,
-    val visibility: Visibility = Visibility.TOTALS_STATUS
+    val visibility: Visibility = Visibility.TOTALS_STATUS,
+    /** Impulse (frivolous) spending this week, and days in a row without one. -1 = the member's app is older and does not share it. */
+    val impulseWeekPaise: Long = 0,
+    val impulseWeekCount: Int = 0,
+    val impulseFreeDays: Int = -1
 )
 
 /**
@@ -209,6 +262,12 @@ data class BuddyState(
     val reasons: List<String> = DEFAULT_REASONS,
     val haptics: Boolean = true,
     val reminders: Boolean = true,
+    /** Opt-in to a local 9:30–10 PM reminder timer. Never included in circle snapshots. */
+    val finishCountdown: Boolean = false,
+    /** Local payment budget-card display duration; it does not change the 10-minute Undo hold. */
+    val paymentUpdateMinutes: Int = DEFAULT_PAYMENT_UPDATE_MINUTES,
+    /** Local lead time before the fixed 10 PM IST reminder. Never synced. */
+    val finishCountdownLeadMinutes: Int = DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES,
     val importImages: List<ImportImage> = emptyList(),
     val importCandidates: List<ImportCandidate> = emptyList(),
     val onboardingDone: Boolean = false,
@@ -219,6 +278,18 @@ data class BuddyState(
     val lastCategory: String = "Food",
     /** Personal presets (this phone only: not part of circle snapshots; included in the user's own backup). Older states load as empty. */
     val presets: List<Preset> = emptyList(),
+    /** Read payment notifications and bank SMS on this phone and log purchases from them. Off until the user turns it on. */
+    val autoDetect: Boolean = false,
+    /** The user has seen (and answered) the Today card that offers automatic tracking. */
+    val autoDetectOffered: Boolean = false,
+    /** Personal merchant -> category rules for auto-added purchases (this phone only; included in the user's own backup). */
+    val merchantRules: List<MerchantRule> = emptyList(),
+    /** Detected payments waiting for an Add or Skip (this phone only, never synced or backed up). */
+    val pendingDetections: List<PendingDetection> = emptyList(),
+    /** Recently handled payments, for de-duplication (bounded, this phone only). */
+    val recentDetections: List<DetectionMark> = emptyList(),
+    /** Check-ins that an auto-added purchase re-opened, keyed by that purchase's id, so Undo can put them back. */
+    val heldCheckIns: Map<String, CheckIn> = emptyMap(),
     val friendAlerts: Boolean = true,
     val stayReachable: Boolean = false,
     // shared-data revision: increments whenever data the group can see changes
@@ -285,6 +356,29 @@ fun dayStatus(date: LocalDate, checkIns: List<CheckIn>, now: ZonedDateTime = Zon
         eligibleCheckIn(date, now) -> DayStatus.Open
         else -> DayStatus.Missed
     }
+}
+
+/** An impulse (frivolous) purchase: the user marked its reason as Impulse. */
+fun isImpulse(e: Expense): Boolean = e.kind == "expense" && e.reason == IMPULSE
+
+data class ImpulseStats(val weekPaise: Long, val weekCount: Int, val freeDays: Int)
+
+/**
+ * Impulse spending in the Monday-Sunday week of [today], and how many days in a row up to today had no impulse
+ * purchase. The run is counted from the first day anything was logged, so a new user does not start with a long one.
+ */
+fun impulseStats(expenses: List<Expense>, today: LocalDate): ImpulseStats {
+    val start = weekStart(today); val end = start.plusDays(7)
+    val dated = expenses.mapNotNull { e -> runCatching { LocalDate.parse(e.date) }.getOrNull()?.let { it to e } }.filter { !it.first.isAfter(today) }
+    val week = dated.filter { isImpulse(it.second) && !it.first.isBefore(start) && it.first.isBefore(end) }
+    val lastImpulse = dated.filter { isImpulse(it.second) }.maxOfOrNull { it.first }
+    val firstLogged = dated.minOfOrNull { it.first }
+    val free = when {
+        firstLogged == null -> 0
+        lastImpulse == null -> java.time.temporal.ChronoUnit.DAYS.between(firstLogged, today).toInt() + 1
+        else -> java.time.temporal.ChronoUnit.DAYS.between(lastImpulse, today).toInt()
+    }
+    return ImpulseStats(week.sumOf { it.second.amountPaise }, week.size, free.coerceIn(0, 9_999))
 }
 
 fun spentOn(expenses: List<Expense>, date: LocalDate): Long = netSpending(expenses.filter { it.date == date.toString() })

@@ -256,6 +256,7 @@ class PeerSyncManager private constructor(private val app: Context) {
     // ---- Endpoint ----
 
     private suspend fun ensureEndpoint(): IrohTransport = endpointLock.withLock {
+        check((app as? com.spendingbuddy.app.BuddyApplication)?.awaitReady() != false) { "Penny Circle is still getting ready. Try again." }
         transport?.let { if (!it.endpoint.isClosed()) { refreshStatus(it); return@withLock it } }
         status0.update { it.copy(phase = LinkPhase.Starting) }
         val t = try { IrohTransport.bind(keyBytes(), minimal = false) } catch (e: Exception) {

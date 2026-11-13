@@ -10,13 +10,14 @@ import java.time.LocalDate
 import java.util.Base64
 import java.util.UUID
 
-/** Bumped with the group protocol: phones on the old two-person protocol cannot connect, rather than mis-parse. */
-const val SYNC_ALPN_TEXT = "pennycircle/sync/2"
+const val PROTOCOL_VERSION = 2
+/** Signed schemas are not forward-compatible: advance ALPN and minimum together when changing this version. */
+const val MIN_SUPPORTED_VERSION = PROTOCOL_VERSION
+/** Bumping the protocol version also changes ALPN, so incompatible peers fail at connect rather than signature verify. */
+const val SYNC_ALPN_TEXT = "pennycircle/sync/$PROTOCOL_VERSION"
 val SYNC_ALPN: ByteArray get() = SYNC_ALPN_TEXT.toByteArray(StandardCharsets.UTF_8)
 const val MAX_MESSAGE_BYTES = 1024 * 1024
 
-const val PROTOCOL_VERSION = 2
-const val MIN_SUPPORTED_VERSION = 2
 const val MAX_EVENTS_PER_MESSAGE = 200
 const val MAX_ACKS_PER_MESSAGE = 250
 const val MAX_SEEN_EVENT_IDS = 1000
@@ -52,7 +53,11 @@ data class WireSnapshot(
     val visibility: Visibility = Visibility.TOTALS_STATUS,
     val dailySpentPaise: Long = 0,
     val weeklySpentPaise: Long = 0,
-    val streak: Int = 0
+    val streak: Int = 0,
+    /** Impulse spending this week and days in a row without an impulse purchase. -1 = sent by an older app. */
+    val impulseWeekPaise: Long = 0,
+    val impulseWeekCount: Int = 0,
+    val impulseFreeDays: Int = -1
 )
 
 @Serializable
@@ -131,6 +136,7 @@ fun validateMessage(m: SyncMessage): SyncMessage {
         check(s.dailyLimitPaise in 0..MAX_PAISE && s.weeklyLimitPaise in 0..MAX_PAISE, "bad limit")
         check(s.revision >= 0, "bad revision")
         check(s.dailySpentPaise in 0..MAX_PAISE && s.weeklySpentPaise in 0..MAX_PAISE && s.streak in 0..100_000, "bad totals")
+        check(s.impulseWeekPaise in 0..MAX_PAISE && s.impulseWeekCount in 0..MAX_EXPENSES_PER_MESSAGE && s.impulseFreeDays in -1..100_000, "bad impulse totals")
         check(s.visibility == Visibility.FULL_DETAILS || s.expenses.isEmpty(), "totals-only snapshot carries purchase records")
         check(s.expenses.size <= MAX_EXPENSES_PER_MESSAGE, "too many expenses")
         check(s.checkIns.size <= MAX_CHECKINS_PER_MESSAGE, "too many check-ins")
@@ -163,20 +169,26 @@ fun snapshotFor(state: BuddyState, visibility: Visibility, now: Long = System.cu
     val today = zoned.toLocalDate()
     val since = today.minusDays(120)
     val cutoff = now - 120L * 24 * 60 * 60_000L
+    // Auto-added purchases stay on this phone until their undo window ends, and the totals leave them out too.
+    // The local-only fields (source, hold, category flag) are never sent.
+    val shareable = state.expenses.filter { it.heldUntil <= now }.map { if (it.source.isEmpty() && it.heldUntil == 0L && !it.needsCategory) it else it.copy(source = "", heldUntil = 0, needsCategory = false) }
+    val impulse = impulseStats(shareable, today)
+    val checkIns = shareableCheckIns(state, now)
     return WireSnapshot(
+        impulseWeekPaise = impulse.weekPaise, impulseWeekCount = impulse.weekCount, impulseFreeDays = impulse.freeDays,
         name = state.name, dailyLimitPaise = state.dailyLimitPaise, weeklyLimitPaise = state.weeklyLimitPaise,
         expenses = if (visibility == Visibility.FULL_DETAILS)
-            state.expenses.filter { runCatching { !LocalDate.parse(it.date).isBefore(since) }.getOrDefault(it.updatedAt >= cutoff) } else emptyList(),
-        checkIns = state.checkIns.filter { runCatching { !LocalDate.parse(it.date).isBefore(since) }.getOrDefault(true) },
+            shareable.filter { runCatching { !LocalDate.parse(it.date).isBefore(since) }.getOrDefault(it.updatedAt >= cutoff) } else emptyList(),
+        checkIns = checkIns.filter { runCatching { !LocalDate.parse(it.date).isBefore(since) }.getOrDefault(true) },
         revision = state.revision, visibility = visibility,
-        dailySpentPaise = spentOn(state.expenses, today).coerceAtLeast(0), weeklySpentPaise = spentInWeek(state.expenses, today).coerceAtLeast(0),
-        streak = streak(state.checkIns, zoned)
+        dailySpentPaise = spentOn(shareable, today).coerceAtLeast(0), weeklySpentPaise = spentInWeek(shareable, today).coerceAtLeast(0),
+        streak = streak(checkIns, zoned)
     )
 }
 
 fun snapshotOf(state: BuddyState, now: Long = System.currentTimeMillis()): WireSnapshot = snapshotFor(state, state.visibility, now)
 
-internal fun friendOf(s: WireSnapshot, now: Long) = FriendSnapshot(s.name, s.expenses, s.checkIns, s.dailyLimitPaise, s.weeklyLimitPaise, s.revision, now, s.dailySpentPaise, s.weeklySpentPaise, s.streak, s.visibility)
+internal fun friendOf(s: WireSnapshot, now: Long) = FriendSnapshot(s.name, s.expenses, s.checkIns, s.dailyLimitPaise, s.weeklyLimitPaise, s.revision, now, s.dailySpentPaise, s.weeklySpentPaise, s.streak, s.visibility, s.impulseWeekPaise, s.impulseWeekCount, s.impulseFreeDays)
 
 // ---- Self-authenticating broadcast ---------------------------------------------------------------------------
 

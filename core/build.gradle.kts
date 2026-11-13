@@ -28,5 +28,7 @@ dependencies {
 tasks.test {
     // Real-network iroh tests are opt-in: ./gradlew :core:test -PirohOnline=true
     systemProperty("irohOnline", providers.gradleProperty("irohOnline").getOrElse("false"))
+    // Optional public UCI evaluation; omitted by default so tests need no network or local SMS dataset.
+    providers.gradleProperty("publicSmsUciPath").orNull?.let { systemProperty("publicSmsUciPath", it) }
     testLogging { events("passed", "failed", "skipped"); showStandardStreams = true }
 }

@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit
 
 class PeerSyncWorker(appContext: Context, workerParams: WorkerParameters) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
+        if ((applicationContext as? com.spendingbuddy.app.BuddyApplication)?.awaitReady() == false) return Result.retry()
         val manager = PeerSyncManager.get(applicationContext)
         manager.setWorkerHolder(true)
         return try {
@@ -42,7 +43,9 @@ class BuddyBootReceiver : BroadcastReceiver() {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
         val app = context.applicationContext
         PeerSyncWorker.schedule(app)
-        com.spendingbuddy.app.BuddyNotifications.schedule(app, com.spendingbuddy.app.BuddyRepository.get(app).state.value.reminders)
+        com.spendingbuddy.app.BuddyRepository.get(app).state.value.let { state ->
+            com.spendingbuddy.app.BuddyNotifications.schedule(app, state.reminders, state.finishCountdownLeadMinutes)
+        }
         if (com.spendingbuddy.app.BuddyRepository.get(app).state.value.stayReachable) {
             runCatching { androidx.core.content.ContextCompat.startForegroundService(app, Intent(app, BuddyLinkService::class.java)) }
         }

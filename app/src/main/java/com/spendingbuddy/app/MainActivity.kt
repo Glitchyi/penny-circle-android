@@ -22,6 +22,10 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
 import com.spendingbuddy.app.ui.SpendingBuddyApp
+import com.spendingbuddy.app.ui.SpendingBuddyTheme
+import com.spendingbuddy.app.ui.StartupSurface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -53,7 +57,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private var notificationsResult: (() -> Unit)? = null
+    private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsResult?.invoke(); notificationsResult = null
+    }
+    private var smsResult: ((Boolean) -> Unit)? = null
+    private val sms = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> smsResult?.invoke(granted); smsResult = null }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +72,14 @@ class MainActivity : ComponentActivity() {
         val bars = if (savedTheme.isDark) SystemBarStyle.dark(bg) else SystemBarStyle.light(bg, bg)
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bg))
-        setContent { SpendingBuddyApp() }
+        setContent {
+            val app = application as BuddyApplication
+            val startup by app.startupState.collectAsState()
+            if (startup == StartupPhase.READY) SpendingBuddyApp()
+            else SpendingBuddyTheme(savedTheme) {
+                StartupSurface(failed = startup == StartupPhase.FAILED, onRetry = app::retryStartup)
+            }
+        }
         handleIntent(intent)
     }
 
@@ -100,13 +116,33 @@ class MainActivity : ComponentActivity() {
 
     private fun importAndOpen(uris: List<Uri>) {
         destination.value = Destinations.IMPORT
-        lifecycleScope.launch { repo.importUris(uris) }
+        lifecycleScope.launch {
+            if ((application as BuddyApplication).awaitReady()) repo.importUris(uris)
+            else handledShareKey = null // A retry can handle the original share once startup succeeds.
+        }
     }
 
     fun pickMoreScreenshots() { pickImages.launch("image/*") }
-    fun exportBackup() { createDocument.launch("spending-buddy-backup.json") }
+    fun exportBackup() { createDocument.launch("Penny-Circle-backup.json") }
     fun restoreBackup() { openDocument.launch(arrayOf("application/json", "text/*")) }
-    fun requestNotifications() { if (android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notifications.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    fun requestNotifications(onResult: () -> Unit = {}) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notificationsResult = onResult
+            notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else onResult()
+    }
+    /** Asks for permission to receive SMS as they arrive (used only to parse bank alerts on this phone). */
+    fun requestSms(onResult: (Boolean) -> Unit) { smsResult = onResult; sms.launch(Manifest.permission.RECEIVE_SMS) }
+    /** Opens the system page where the user can let this app read notifications. */
+    fun openNotificationAccess() { runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }.getOrElse { openAppSettings() } }
+    /** Opens the system page for this app's Live Updates switch (Android 16), or the app's notification settings. */
+    fun openLiveUpdateSettings() {
+        val pkg = Uri.parse("package:$packageName")
+        runCatching { startActivity(Intent("android.settings.APP_NOTIFICATION_PROMOTION_SETTINGS").putExtra(Settings.EXTRA_APP_PACKAGE, packageName)) }
+            .recoverCatching { startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)) }
+            .getOrElse { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)) }
+    }
+    fun openAppSettings() { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
     fun openBatterySettings() { runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }.getOrElse { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } }
     fun shareInvite(code: String) { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Join my Penny Circle. Open the app, go to the Circle tab, tap Join with a code, and paste this. The admin approves each request, and approval can take a little while: $code") }, "Share circle code")) }
     fun makeQr(text: String): Bitmap = qrBitmap(text, 720)

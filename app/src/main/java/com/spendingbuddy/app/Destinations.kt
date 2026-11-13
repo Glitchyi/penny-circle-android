@@ -16,4 +16,10 @@ object Destinations {
     /** Opens the screenshot import review flow. */
     const val IMPORT = "import"
     const val SETTINGS = "settings"
+    /** Opens the automatic tracking settings. */
+    const val AUTO_DETECT = "auto_detect"
+    /** Followed by a purchase id: opens that purchase in the edit sheet. */
+    const val EDIT_PREFIX = "edit:"
+    /** Followed by an ISO date: opens that day's finish review sheet. */
+    const val FINISH_PREFIX = "finish:"
 }

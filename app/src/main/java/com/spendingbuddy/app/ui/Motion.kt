@@ -2,6 +2,7 @@ package com.spendingbuddy.app.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.runtime.LaunchedEffect
@@ -85,26 +86,34 @@ fun Modifier.popIn(delayMillis: Int = 0): Modifier = composed {
 }
 
 /**
- * One-time entrance: the element fades in and rises into place, [order] steps after the first one.
+ * One-time, short settling motion. Keep content legible throughout pane navigation.
  * It plays once per screen visit and is remembered across scrolling and rotation.
  */
 fun Modifier.enterRise(order: Int = 0): Modifier = composed {
     val reduced = LocalReducedMotion.current
+    if (reduced) return@composed this
     var entered by rememberSaveable { mutableStateOf(false) }
     val progress = remember { Animatable(if (entered || reduced) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (progress.value < 1f) {
-            delay(70L * order)
-            progress.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = 170f))
+            delay(30L * order.coerceIn(0, 2))
+            progress.animateTo(1f, tween(durationMillis = 240))
         }
         entered = true
     }
     graphicsLayer {
         val p = progress.value
-        alpha = (p * 1.6f).coerceIn(0f, 1f)
-        translationY = (1f - p) * 28.dp.toPx()
-        val s = 0.96f + 0.04f * p
-        scaleX = s
-        scaleY = s
+        translationY = (1f - p) * 12.dp.toPx()
     }
+}
+
+/** A quiet one-time content fade for changing details that do not need to move or scale. */
+fun Modifier.fadeInContent(delayMillis: Int = 0): Modifier = composed {
+    if (LocalReducedMotion.current) return@composed this
+    val alpha = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        if (delayMillis > 0) delay(delayMillis.toLong())
+        alpha.animateTo(1f, tween(durationMillis = 180))
+    }
+    graphicsLayer { this.alpha = alpha.value }
 }

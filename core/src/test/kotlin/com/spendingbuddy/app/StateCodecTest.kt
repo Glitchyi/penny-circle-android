@@ -51,6 +51,22 @@ class StateCodecTest {
         assertEquals(s, StateCodec.decode(StateCodec.encode(s)))
     }
 
+    @Test fun timerPreferencesDefaultForOlderStateAndRoundTripLocally() {
+        val older = StateCodec.decode("""{"schemaVersion":3,"name":"A"}""")
+        assertEquals(DEFAULT_PAYMENT_UPDATE_MINUTES, older.paymentUpdateMinutes)
+        assertEquals(DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES, older.finishCountdownLeadMinutes)
+        val chosen = BuddyState(paymentUpdateMinutes = 5, finishCountdownLeadMinutes = 60)
+        assertEquals(chosen, StateCodec.decode(StateCodec.encode(chosen)))
+    }
+
+    @Test fun persistedUnsupportedTimerPreferencesFallBackButRestoreRejectsThem() {
+        val invalid = BuddyState(name = "A", paymentUpdateMinutes = 3, finishCountdownLeadMinutes = 45)
+        val loaded = StateCodec.load(StateCodec.encode(invalid)) as StateCodec.LoadResult.Loaded
+        assertEquals(DEFAULT_PAYMENT_UPDATE_MINUTES, loaded.state.paymentUpdateMinutes)
+        assertEquals(DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES, loaded.state.finishCountdownLeadMinutes)
+        assertNotNull(StateCodec.validateRestore(BuddyState(), invalid))
+    }
+
     @Test fun backupExcludesPeerSecretsAndDrafts() {
         val s = BuddyState(name = "Asha", selfId = "me", group = Group("g", "Crew", "sec"), members = listOf(Member("abc")), importImages = listOf(ImportImage(path = "/x")))
         val restored = StateCodec.decode(StateCodec.encodeBackup(s))

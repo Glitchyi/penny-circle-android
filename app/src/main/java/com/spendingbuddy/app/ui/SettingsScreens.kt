@@ -7,6 +7,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,6 +50,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.spendingbuddy.app.BuddyState
+import com.spendingbuddy.app.BuildConfig
+import com.spendingbuddy.app.PAYMENT_UPDATE_MINUTES
+import com.spendingbuddy.app.FINISH_COUNTDOWN_LEAD_MINUTES
+import com.spendingbuddy.app.DEFAULT_PAYMENT_UPDATE_MINUTES
+import com.spendingbuddy.app.DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES
+import com.spendingbuddy.app.finishCountdownStartTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -56,11 +66,15 @@ fun SettingsScreen(
     onName: (String) -> Unit,
     onTheme: (String) -> Unit,
     onLimits: () -> Unit,
+    onAutoDetect: () -> Unit,
     onCircle: (() -> Unit)?,
     onPresets: (() -> Unit)?,
     onAmountInput: (String) -> Unit,
     onHaptics: (Boolean) -> Unit,
     onReminders: (Boolean) -> Unit,
+    onFinishCountdown: (Boolean) -> Unit,
+    onPaymentUpdateMinutes: (Int) -> Unit,
+    onFinishCountdownLeadMinutes: (Int) -> Unit,
     onAlerts: (Boolean) -> Unit,
     onReachable: (Boolean) -> Unit,
     onExport: () -> Unit,
@@ -69,6 +83,7 @@ fun SettingsScreen(
     snackbar: SnackbarHostState? = null
 ) {
     var name by rememberSaveable { mutableStateOf(state.name) }
+    var privacyOpen by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -93,6 +108,8 @@ fun SettingsScreen(
                     )
                     GroupDivider()
                     SettingsButton("Spending limits", onLimits)
+                    GroupDivider()
+                    SettingsButton(if (state.autoDetect) "Automatic tracking: on" else "Automatic tracking: off", onAutoDetect)
                     if (onCircle != null) { GroupDivider(); SettingsButton("Circle settings", onCircle) }
                     if (onPresets != null) { GroupDivider(); SettingsButton("Presets", onPresets) }
                 }
@@ -127,7 +144,22 @@ fun SettingsScreen(
             }
             item {
                 SettingsGroup("Reminders") {
-                    SettingSwitch("10 PM check-in, 10 AM grace deadline", state.reminders, onReminders)
+                    SettingSwitch("10 PM check-in, 10 AM IST grace deadline", state.reminders, onReminders)
+                    GroupDivider()
+                    Text("Payment update duration", Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp), style = MaterialTheme.typography.titleSmall)
+                    Text("How long the latest budget card stays after a new payment. The 10-minute Undo hold is unchanged.", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TimerOptions(PAYMENT_UPDATE_MINUTES, state.paymentUpdateMinutes, DEFAULT_PAYMENT_UPDATE_MINUTES, "min", onPaymentUpdateMinutes)
+                    GroupDivider()
+                    SettingSwitch("Countdown before the 10 PM reminder", state.finishCountdown, onFinishCountdown, enabled = state.reminders)
+                    Text("Starts before the fixed 10 PM IST reminder. Late logging remains available through the next-day 10 AM IST grace.", Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 3.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TimerOptions(FINISH_COUNTDOWN_LEAD_MINUTES, state.finishCountdownLeadMinutes, DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES, "min", onFinishCountdownLeadMinutes, enabled = state.reminders)
+                    Text(
+                        if (state.reminders) "Selected start: ${finishCountdownStartTime(state.finishCountdownLeadMinutes).format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH))} IST. WorkManager timing is approximate; Android may not promote it as a Live Update."
+                        else "Turn on reminders to use the finish-day countdown.",
+                        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     GroupDivider()
                     SettingSwitch("Circle activity alerts", state.friendAlerts, onAlerts)
                 }
@@ -143,18 +175,41 @@ fun SettingsScreen(
                 }
             }
             item {
-                SettingsGroup("Your data", footer = "Version 0.2.0 · Circle sync is direct between phones.") {
+                SettingsGroup("Your data", footer = "Version ${BuildConfig.VERSION_NAME} · Circle sync is direct between phones.") {
                     SettingsButton("Export backup", onExport)
                     GroupDivider()
                     SettingsButton("Restore backup", onRestore)
+                    GroupDivider()
+                    SettingsButton("Privacy and licenses", { privacyOpen = true })
                 }
             }
+        }
+    }
+    if (privacyOpen) PrivacyLicensesSheet(onDismiss = { privacyOpen = false })
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TimerOptions(options: List<Int>, selected: Int, default: Int, unit: String, onSelect: (Int) -> Unit, enabled: Boolean = true) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        options.forEach { value ->
+            val isSelected = selected == value
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelect(value) },
+                enabled = enabled,
+                label = { Text(buildString { if (isSelected) append("✓ "); append(value); append(' '); append(unit); if (value == default) append(" · default") }) }
+            )
         }
     }
 }
 
 @Composable
-private fun GroupLabel(title: String) {
+internal fun GroupLabel(title: String) {
     Text(
         title.uppercase(),
         style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp),
@@ -164,13 +219,13 @@ private fun GroupLabel(title: String) {
 }
 
 @Composable
-private fun GroupDivider() {
+internal fun GroupDivider() {
     HorizontalDivider(Modifier.padding(start = 16.dp), thickness = 1.dp, color = LocalPennyTokens.current.text.copy(alpha = 0.08f))
 }
 
 /** A labelled group of rows in one frosted card, with an optional explanation underneath. */
 @Composable
-private fun SettingsGroup(title: String, modifier: Modifier = Modifier, footer: String? = null, content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsGroup(title: String, modifier: Modifier = Modifier, footer: String? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier) {
         GroupLabel(title)
         Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)), content = content)
@@ -184,7 +239,7 @@ private fun SettingsGroup(title: String, modifier: Modifier = Modifier, footer: 
 }
 
 @Composable
-private fun SettingsButton(text: String, onClick: () -> Unit) {
+internal fun SettingsButton(text: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -195,15 +250,16 @@ private fun SettingsButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SettingSwitch(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SettingSwitch(text: String, checked: Boolean, onChange: (Boolean) -> Unit, enabled: Boolean = true) {
     // The whole row is the switch, so the touch target is the full width.
     Row(
-        Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+        Modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange)
             .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text, Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = null)
+        Text(text, Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge,
+            color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

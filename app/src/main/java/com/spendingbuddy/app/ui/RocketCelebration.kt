@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.abs
 
 internal const val ROCKET_DURATION_MS = 2600
 internal const val ROCKET_BURST_T = 0.58f
@@ -72,6 +73,7 @@ fun RocketCelebration(play: Boolean, haptics: Boolean, onFinished: () -> Unit, m
         if (!play) return@LaunchedEffect
         if (reducedMotion) {
             if (haptics) runCatching { view.performHapticFeedback(HapticFeedbackConstants.CONFIRM) }
+            delay(420L)
             currentOnFinished.value()
             return@LaunchedEffect
         }
@@ -88,9 +90,9 @@ fun RocketCelebration(play: Boolean, haptics: Boolean, onFinished: () -> Unit, m
         onDispose { runCatching { vibrator?.cancel() } }
     }
 
-    if (play && !reducedMotion) {
+    if (play) {
         Canvas(modifier.fillMaxSize()) {
-            drawCelebration(progress.value, tokens)
+            if (reducedMotion) drawReducedCelebration(tokens) else drawCelebration(progress.value, tokens)
         }
     }
 }
@@ -157,60 +159,85 @@ private fun DrawScope.drawCelebration(t: Float, tokens: PennyTokens) {
     drawStarburst(t, w, h, tokens)
 }
 
+/** A still, compact acknowledgement for users who prefer reduced motion. */
+private fun DrawScope.drawReducedCelebration(tokens: PennyTokens) {
+    val len = 92.dp.toPx()
+    drawRocket(0.62f, size.width, size.height, len, tokens)
+    drawConfetti(0.16f, size.width, size.height, tokens, particleCount = 18, spread = 0.34f)
+}
+
 private fun DrawScope.drawTrail(t: Float, w: Float, h: Float, len: Float, dens: Float, tokens: PennyTokens) {
-    val rMin = 7.dp.toPx()
-    val rMax = 22.dp.toPx()
-    // Dense, overlapping particles so the trail reads as a plume, not a string of beads.
-    for (i in 0 until 76) {
-        val b = t - i * 0.0052f
-        if (b < 0f) continue
-        val age = (t - b) / 0.4f
-        if (age >= 1f) continue
-        val drift = (((i * 37) % 11) - 5) * 3f * (t - b) * dens
-        val cx = rocketX(b, w) + drift
-        val cy = rocketY(b, h, len) + len * 0.45f
-        val radius = (rMin + (rMax - rMin) * age) * (0.85f + ((i * 13) % 5) / 12f)
-        if (i < 24) {
-            drawCircle(
-                color = lerp(Color(0xFFFFE08A), Color(0xFFFF6A00), age),
-                radius = radius,
-                center = Offset(cx, cy),
-                alpha = (1f - age) * 0.9f
+    if (t <= 0f) return
+    val startY = rocketY(t, h, len) + len * 0.44f
+    val past = (t - 0.13f).coerceAtLeast(0f)
+    val endY = rocketY(past, h, len) + len * 0.46f
+    val cx = rocketX(t, w)
+    val drift = (rocketX(past, w) - cx) * 0.72f
+    val plumeLength = (endY - startY).coerceAtLeast(1f)
+    val densityScale = dens.coerceIn(0.7f, 1.4f)
+
+    // Two soft, tapered wisps blend into the flame instead of reading as a dotted trail.
+    for ((layer, halfWidthDp) in listOf(0 to 13f, 1 to 7f)) {
+        val topHalfWidth = halfWidthDp * 0.34f * densityScale
+        val middleHalfWidth = halfWidthDp * densityScale
+        val plume = Path().apply {
+            moveTo(cx - topHalfWidth, startY)
+            cubicTo(
+                cx - middleHalfWidth * 0.88f, startY + plumeLength * 0.34f,
+                cx + drift - middleHalfWidth * 0.7f, endY - plumeLength * 0.28f,
+                cx + drift, endY
             )
-        } else {
-            drawCircle(
-                color = tokens.muted.copy(alpha = 0.35f * (1f - age)),
-                radius = radius,
-                center = Offset(cx, cy)
+            cubicTo(
+                cx + drift + middleHalfWidth * 0.7f, endY - plumeLength * 0.28f,
+                cx + middleHalfWidth * 0.88f, startY + plumeLength * 0.34f,
+                cx + topHalfWidth, startY
             )
+            close()
         }
+        val outer = layer == 0
+        drawPath(
+            plume,
+            brush = Brush.verticalGradient(
+                colors = if (outer) listOf(tokens.accent2.copy(alpha = 0.34f), tokens.accent.copy(alpha = 0.12f), Color.Transparent)
+                else listOf(Color(0xFFFFEDB5).copy(alpha = 0.64f), tokens.accent2.copy(alpha = 0.24f), Color.Transparent),
+                startY = startY,
+                endY = endY
+            )
+        )
     }
 }
 
 private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, tokens: PennyTokens) {
     val cx = rocketX(t, w)
     val cy = rocketY(t, h, len)
-    val w2 = 20.dp.toPx()
-    val portholeR = 8.dp.toPx()
-    val flameLen = len * (0.45f + 0.15f * sin(t * 90f))
-    val flameTop = len * 0.5f
+    val w2 = 19.dp.toPx()
+    val portholeR = 7.dp.toPx()
+    val flameLen = len * (0.42f + 0.10f * sin(t * 90f))
+    val flameTop = len * 0.46f
 
     translate(left = cx, top = cy) {
         // Flame under the rocket (drawn first so the body overlaps its top)
         val flame = Path().apply {
-            moveTo(-9.dp.toPx(), flameTop)
-            cubicTo(-9.dp.toPx(), flameTop + flameLen * 0.5f, -2.dp.toPx(), flameTop + flameLen * 0.7f, 0f, flameTop + flameLen)
-            cubicTo(2.dp.toPx(), flameTop + flameLen * 0.7f, 9.dp.toPx(), flameTop + flameLen * 0.5f, 9.dp.toPx(), flameTop)
+            moveTo(-10.dp.toPx(), flameTop)
+            cubicTo(-12.dp.toPx(), flameTop + flameLen * 0.28f, -4.dp.toPx(), flameTop + flameLen * 0.78f, 0f, flameTop + flameLen)
+            cubicTo(4.dp.toPx(), flameTop + flameLen * 0.78f, 12.dp.toPx(), flameTop + flameLen * 0.28f, 10.dp.toPx(), flameTop)
             close()
         }
         drawPath(
             path = flame,
             brush = Brush.verticalGradient(
-                colors = listOf(Color(0xFFFFE08A), Color(0xFFFF6A00), Color.Transparent),
+                colors = listOf(Color(0xFFFFEDB5), tokens.accent2.copy(alpha = 0.94f), Color.Transparent),
                 startY = flameTop,
                 endY = flameTop + flameLen
             )
         )
+        val innerFlame = Path().apply {
+            moveTo(-4.dp.toPx(), flameTop)
+            cubicTo(-4.dp.toPx(), flameTop + flameLen * 0.30f, -1.dp.toPx(), flameTop + flameLen * 0.56f, 0f, flameTop + flameLen * 0.70f)
+            cubicTo(1.dp.toPx(), flameTop + flameLen * 0.56f, 4.dp.toPx(), flameTop + flameLen * 0.30f, 4.dp.toPx(), flameTop)
+            close()
+        }
+        drawPath(innerFlame, color = Color(0xFFFFF6D9).copy(alpha = 0.9f))
 
         // Body: capsule with pointed nose
         val body = Path().apply {
@@ -224,7 +251,15 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
             cubicTo(-w2, -len * 0.25f, -w2 * 0.6f, -len / 2f, 0f, -len / 2f)
             close()
         }
-        drawPath(path = body, color = tokens.text)
+        drawPath(
+            path = body,
+            brush = Brush.horizontalGradient(
+                listOf(lerp(tokens.text, tokens.bg, 0.10f), tokens.text, lerp(tokens.text, tokens.bg, 0.18f)),
+                startX = -w2,
+                endX = w2
+            )
+        )
+        drawPath(path = body, color = tokens.accent2.copy(alpha = 0.82f), style = Stroke(width = 1.5.dp.toPx()))
 
         // Nose cone: top 30% of the body
         val noseBottom = -len / 2f + len * 0.3f
@@ -235,79 +270,125 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
             cubicTo(-w2 * 0.9f, -len * 0.35f, -w2 * 0.6f, -len / 2f, 0f, -len / 2f)
             close()
         }
-        drawPath(path = nose, color = tokens.accent)
+        drawPath(path = nose, brush = Brush.verticalGradient(listOf(tokens.accent2, tokens.accent), startY = -len / 2f, endY = noseBottom))
 
         // Fins
         val leftFin = Path().apply {
             moveTo(-w2, len * 0.05f)
-            lineTo(-w2 - 10.dp.toPx(), len * 0.35f)
-            lineTo(-w2, len * 0.3f)
+            lineTo(-w2 - 12.dp.toPx(), len * 0.36f)
+            lineTo(-w2 + 2.dp.toPx(), len * 0.29f)
             close()
         }
         val rightFin = Path().apply {
             moveTo(w2, len * 0.05f)
-            lineTo(w2 + 10.dp.toPx(), len * 0.35f)
-            lineTo(w2, len * 0.3f)
+            lineTo(w2 + 12.dp.toPx(), len * 0.36f)
+            lineTo(w2 - 2.dp.toPx(), len * 0.29f)
             close()
         }
-        drawPath(path = leftFin, color = tokens.accent)
-        drawPath(path = rightFin, color = tokens.accent)
+        drawPath(path = leftFin, color = tokens.accent2)
+        drawPath(path = rightFin, brush = Brush.horizontalGradient(listOf(tokens.accent2, tokens.accent)))
+
+        // A slim body band gives the tail a clear visual anchor.
+        drawRoundRect(
+            color = tokens.accent2.copy(alpha = 0.88f),
+            topLeft = Offset(-w2 * 0.78f, len * 0.27f),
+            size = Size(w2 * 1.56f, 5.dp.toPx()),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.5.dp.toPx())
+        )
 
         // Porthole
         val portholeCentre = Offset(0f, -len * 0.08f)
         drawCircle(color = tokens.bg, radius = portholeR, center = portholeCentre)
         drawCircle(
-            color = tokens.accent,
-            radius = portholeR,
+            color = tokens.accent2,
+            radius = portholeR + 1.dp.toPx(),
             center = portholeCentre,
             style = Stroke(width = 2.dp.toPx())
         )
+        drawCircle(
+            color = tokens.accent,
+            radius = portholeR,
+            center = portholeCentre,
+            style = Stroke(width = 1.dp.toPx())
+        )
+        drawCircle(color = tokens.text.copy(alpha = 0.18f), radius = portholeR * 0.28f, center = portholeCentre + Offset(-2.dp.toPx(), -2.dp.toPx()))
     }
 }
 
 private fun DrawScope.drawStarburst(t: Float, w: Float, h: Float, tokens: PennyTokens) {
-    val bt = (t - ROCKET_BURST_T) / 0.38f
+    val bt = (t - ROCKET_BURST_T) / 0.29f
     if (bt !in 0f..1f) return
 
     val cx = w / 2f
     val cy = h * 0.32f
     val centre = Offset(cx, cy)
 
-    // Shockwave ring
+    // One restrained expanding ring and a short, seeded confetti burst.
     drawCircle(
-        color = tokens.accent.copy(alpha = (1f - bt) * 0.8f),
-        radius = bt * w * 0.55f,
+        color = tokens.accent.copy(alpha = (1f - bt) * 0.28f),
+        radius = bt * w * 0.31f,
         center = centre,
-        style = Stroke(width = 3.dp.toPx())
+        style = Stroke(width = 2.dp.toPx())
     )
+    drawConfetti(bt, w, h, tokens, particleCount = 44)
+}
 
-    val colors = listOf(tokens.accent, tokens.text, Color(0xFFFFD66B), tokens.muted)
+private fun DrawScope.drawConfetti(
+    progress: Float,
+    width: Float,
+    height: Float,
+    tokens: PennyTokens,
+    particleCount: Int = 44,
+    spread: Float = 1f
+) {
+    val p = progress.coerceIn(0f, 1f)
+    val eased = p * (2f - p)
+    val cx = width / 2f
+    val cy = height * 0.32f
+    val palette = listOf(
+        tokens.accent,
+        tokens.accent2,
+        lerp(tokens.accent, Color.White, 0.28f),
+        lerp(tokens.accent2, Color.White, 0.34f)
+    )
     val twoPi = (2.0 * PI).toFloat()
-    for (i in 0 until 44) {
-        val angle = i * (twoPi / 44f) + (i % 3) * 0.12f
-        val speed = (0.35f + ((i * 53) % 10) / 10f * 0.65f) * w * 0.55f
+    for (i in 0 until particleCount) {
+        val a = seededParticle(i, 11)
+        val b = seededParticle(i, 29)
+        val c = seededParticle(i, 47)
+        val angle = twoPi * a
+        val speed = (0.24f + b * 0.58f) * width * 0.48f * spread
+        val drift = sin((p * 5f + c * twoPi) * 2f) * width * 0.012f
         val pos = Offset(
-            cx + cos(angle) * speed * bt,
-            cy + sin(angle) * speed * bt + 0.5f * w * 0.35f * bt * bt
+            cx + cos(angle) * speed * eased + drift,
+            cy + sin(angle) * speed * eased + 0.5f * height * 0.16f * eased * eased
         )
-        val colour = colors[i % colors.size]
-        val s = (4 + i % 4).dp.toPx()
-        if (i % 2 == 0) {
-            drawCircle(color = colour, radius = s / 2f, center = pos, alpha = 1f - bt)
+        val alpha = (1f - p).coerceIn(0f, 1f)
+        val length = (5f + c * 3f).dp.toPx()
+        val thickness = (2.2f + b * 1.8f).dp.toPx()
+        val rotation = (a * 360f + p * (b - 0.5f) * 380f)
+        val color = palette[i % palette.size]
+        if (i % 5 == 0) {
+            drawCircle(color = color, radius = thickness * 0.62f, center = pos, alpha = alpha)
         } else {
-            rotate(degrees = i * 47f + bt * 360f, pivot = pos) {
-                drawRect(
-                    color = colour,
-                    topLeft = Offset(pos.x - s / 2f, pos.y - s / 4f),
-                    size = Size(s, s / 2f),
-                    alpha = 1f - bt
+            rotate(degrees = rotation, pivot = pos) {
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(pos.x - length * 0.5f, pos.y - thickness * 0.5f),
+                    size = Size(length, thickness),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(thickness * 0.22f),
+                    alpha = alpha
                 )
             }
         }
     }
+}
 
-    // Faint screen flash at the burst
-    if (bt <= 0.25f) {
-        drawRect(color = tokens.accent, alpha = 0.10f * (1f - bt))
-    }
+/** Stable 0..1 value from an integer hash, so every recomposition has identical particle paths. */
+private fun seededParticle(index: Int, seed: Int): Float {
+    var x = index * 0x45d9f3b + seed * 0x119de1f3
+    x = (x xor (x ushr 16)) * 0x45d9f3b
+    x = (x xor (x ushr 16)) * 0x45d9f3b
+    x = x xor (x ushr 16)
+    return (abs(x % 10000) / 10000f)
 }

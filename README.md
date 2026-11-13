@@ -1,53 +1,51 @@
-# Penny Circle — native source
+# Penny Circle
 
-A private spending accountability app for a small friend circle (up to 12 people) written in Kotlin and Jetpack Compose. This is not a web app, React Native project or Expo bundle.
+A private spending notebook for a small circle of friends, built for Android with Kotlin and Jetpack Compose. Log purchases, explicitly record no-spend days, finish the day, and encourage each other without shame. One circle holds up to 12 members.
 
-The objective, completed scope, and actionable pending work are maintained in [`TODO.md`](TODO.md). The working preferences for future agents are in [`AGENTS.md`](AGENTS.md), and the durable implementation direction is in [`plan.md`](plan.md).
+## Install
 
-## Build
+Penny Circle 0.3.0 targets Android 13 or later. The production APK supports ARM64 phones; debug builds also support x86-64 emulators. Get distribution artifacts from [GitHub Releases](https://github.com/Glitchyi/penny-circle-android/releases/latest). Publication and final artifact verification are recorded in [BUILD-EVIDENCE.md](BUILD-EVIDENCE.md); this source update alone does not establish a published release.
 
-Use JDK 21 **with javac** (required by the iroh 1.2.0 bindings), Android SDK platform 36 and Build Tools 36.0.0. The Gradle wrapper pins Gradle 8.13; AGP 8.13.0 and Kotlin/Compose 2.2.21 are pinned in the root build file. Set ANDROID_HOME or create your own local.properties with sdk.dir.
+Install the APK using Android's normal installation flow. Existing development/debug-certificate installations require a user-approved fresh install once to move to the production certificate. Uninstalling removes local app data. Subsequent production updates must reuse the same production signing key. Keep Android security protections enabled.
 
-```sh
-./gradlew :core:test :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+The app name is Penny Circle; its package remains `com.spendingbuddy.app`.
+
+## Everyday use
+
+- **Today:** bold spending totals, daily and Monday–Sunday weekly limits, week rings, impulse habit totals, and swipe to finish. Tap the finish control for an accessible review alternative. Manual keypad entry is always available; the rotary dial is optional.
+- **Optional automatic tracking:** incoming payment SMS and selected payment-app notifications are parsed locally. Clear shop payments become Auto purchases; uncertain or person payments ask first. Refunds, credits, failures and OTPs are excluded. No old SMS inbox scan occurs, and message text is never stored or shared.
+- **Two separate timers:** the private payment budget notification can last 1, 2 or 5 minutes (default 2). An automatic purchase retains its ten-minute Undo and circle-sharing hold even after that notification disappears. Tap Keep to share sooner. Until release, circle members retain the prior finished-day status and streak.
+- **Screenshots:** share one or more payment screenshots or use the photo picker. On-device OCR creates editable candidates; Add more/Continue supports batches. Review and save explicitly. This is screenshot intake, not a Google Pay API integration.
+- **Reminders:** optionally enable the timer in Settings → Reminders and choose a 15, 30 or 60 minute lead (default 30) before the fixed 10 PM IST reminder. The default window is 9:30–10 PM; the timer stops when the day is finished. The next-day 10 AM IST grace deadline is separate; the timer does not run through that grace window.
+- **Appearance and navigation:** four themes, Geist typography, a native glass-like tab bar, resistant body-pane swipes and gesture haptics. The surface uses native Compose drawing rather than backdrop blur. Reduced motion removes gesture travel and uses a still finish acknowledgement.
+
+Daily and weekly limits are independent and may be zero. Android permissions and source access remain optional and user-controlled. WorkManager timing, background delivery and Android Live Update promotion depend on the system; none is guaranteed.
+
+## A private circle
+
+Create a circle, share its `pc1.` invitation, and approve each join request. Codes and pending requests expire after 24 hours. A code alone does not admit someone. Each member chooses **Totals & status** (default, no purchase records) or **Full details** (also reviewed purchases). Budget suggestions take effect only after their owner accepts them.
+
+Phones synchronize directly over per-member iroh QUIC connections. No hosted application backend stores a copy. Running iroh-gossip transport is not implemented; do not assume mesh-wide forwarding or instant delivery. Members need to be reachable for updates and approvals.
+
+Screenshots and raw OCR remain on-device and are excluded from peer payloads. Android app backup/device transfer is disabled. Google ML Kit processes OCR on-device, but its SDK may send diagnostic and usage metrics to Google. Read [PRIVACY.md](PRIVACY.md) and [third-party notices](docs/third-party-notices.md), also available in Settings → Privacy / Licenses. Those documents link the relevant primary terms and SDK disclosures.
+
+## Build and sign
+
+Use JDK 21 **with javac**, Android SDK platform 36 and Build Tools 36.0.0. Configure `JAVA_HOME` and `ANDROID_HOME`, or put `sdk.dir` in an untracked `local.properties`. The Gradle wrapper and plugin versions are pinned in the repository.
+
+```powershell
+.\gradlew.bat :core:test :app:testDebugUnitTest :app:lintRelease :app:assembleDebug
+.\build-and-sign.ps1
 ```
 
-This produces an unsigned release APK at app/build/outputs/apk/release/app-release-unsigned.apk. Restore the separately provided signing backup outside this source directory, then run:
+The Windows release script runs core/app unit tests and release lint before assembly, requires an ARM64-only nondebuggable APK, aligns its ZIP entries for 16 KB pages, signs with the external production key, verifies the signature/alignment, and emits `release/Penny-Circle-<version>-arm64.apk`, its `.sha256`, and public metadata. It also verifies every ARM64 ELF load segment is aligned for at least 16 KB.
 
-```sh
-export ANDROID_HOME=/path/to/android-sdk
-export KEYSTORE=/private/location/spending-buddy-release.jks
-export PASSWORD_FILE=/private/location/password.txt
-./build-and-sign.sh
-```
+Defaults are `%USERPROFILE%\private-signing\penny-circle-release.p12`, its adjacent `password.txt`, and alias `pennycircle`. Override with `-KeyStore`, `-PasswordFile`, `-KeyAlias`, `-AndroidSdk` or `-JavaHome`. Optional `-PublicSmsUciPath` supplies the external aggregate evaluation corpus. Passwords are read by apksigner from the password file; the script neither generates a key nor falls back to debug signing.
 
-Never commit the keystore or password. To ship an update, increment versionCode and versionName in app/build.gradle.kts and use the original release key. Replacing the signing key prevents ordinary updates to existing installations.
+The new production key was explicitly authorized by the owner and is stored outside Git. Reuse it for future updates. Never add signing files, passwords or personal screenshots to source control. Private-key patterns are excluded in `.gitignore`; release APKs and captures are also ignored. The older Bash signing helper requires its own explicit external key/alias configuration; the Windows script is the documented 0.3.0 distribution path.
 
-## Architecture
+## Evidence and limitations
 
-Models.kt defines INR/paise, expense records, import candidates, check-ins and streak rules. BuddyRepository.kt handles atomic local persistence and private import batches. The `ui/` package contains the Today, Activity, Circle, Settings, limits, setup and import-review screens, with a light-only slate theme and multi-colour accents (bundled Baloo 2 and Mukta fonts in `res/font`). RotaryDial.kt implements the optional rotary gesture and haptics. ScreenshotImporter.kt uses bundled ML Kit on-device text recognition and a conservative review-only transaction parser. The peer-sync package and Android workers handle direct iroh communication, reachability, and approximate notifications. MainActivity.kt receives image shares, launches Android's photo picker, and handles invite/deep-link entry.
+See [BUILD-EVIDENCE.md](BUILD-EVIDENCE.md) for dated test/build results, [TODO.md](TODO.md) for remaining work, and [HANDOFF-AUTODETECT.md](HANDOFF-AUTODETECT.md) for implementation continuity. Historical test totals are not a claim about the current tree.
 
-Temporary screenshot copies and raw OCR text are not included in synchronization payloads. All saved expense entries require review or explicit manual entry. Local app backup is disabled; uninstalling/clearing storage destroys un-synchronized data.
-
-## Implementation status
-
-The 0.2.0 source below is **written but not yet compiled or device-tested**; see [`BUILD-EVIDENCE.md`](BUILD-EVIDENCE.md). Treat everything as unverified until a first build passes.
-
-The app is named Penny Circle; the package and applicationId remain `com.spendingbuddy.app`.
-
-## Circle and peer-to-peer design
-
-- One circle per phone, at most 12 members. The admin is the creator; admin can be transferred, with an oldest-member fallback. Members can only leave (no removal).
-- Joining uses a shareable `pc1.` code valid for 24 hours. A joiner's request is queued for the admin, who must approve it. The code carries no secret.
-- Each member chooses visibility: Totals & status (default) or Full details. Nudges are rate-limited. Budget suggestions apply only after the limit owner accepts them.
-- Transport is iroh QUIC with direct per-member connections. The Kotlin bindings (`computer.iroh` 1.2.0) do not expose iroh-gossip (checked in the published sources jar and AAR), so gossip is not used. No hosted backend or server credentials exist.
-- Persistent iroh identity, a short foreground reachability window and constrained background reconciliation are implemented in code. Battery policies can delay sync and notifications; the app does not promise instant delivery or Android Live Updates. An offline admin cannot approve joins.
-- Join-code QR display/scan was dropped; the code is shared as text.
-
-Phase 1 hardening (written): refund import kind, parser fixes, corrupt-state backup with a write block, validated restore, sync message bounds, keypad as default amount entry, and accessibility improvements.
-
-## Tests and limits
-
-Limits: a circle holds at most 12 members; at 12 the admin cannot issue codes or approve requests until someone leaves. Join requests wait up to 24 hours and only the admin can approve them, which needs the admin's app open, Stay reachable on, or the roughly 15 minutes after a code is shown. Delivery is approximate, not instant.
-
-Test sources exist for the domain model, state codec/migration, sync protocol and circle rules, iroh transport (integration), circle runtime, palette contrast, rotary dial math and screenshot parsing. None have been run for this version. Screenshots from the users' actual Google Pay layouts are still needed for OCR tuning. The app is an early beta and not independently security audited.
+Synthetic two-emulator testing exercised real create/invite/join/approval, bidirectional totals/check-ins, full-detail sharing, and payment-hold privacy followed by Keep. API 36.1 emulator evidence observed native promoted progress notifications. Payment duration and reminder lead choices passed UI persistence checks, including a one-minute native timeout while the ten-minute hold remained intact. Original circular ₹ artwork and native progress colors follow the selected theme, with semantic red for over-budget payments; theme changes refresh cards without extending expiry. Final theme-build/native visual checks remain in progress. Real payment-app delivery, physical-device feature behavior, TalkBack, FPS, OEM battery restrictions and Doze scheduling remain unverified. Public parser corpora are useful safeguards, not live-bank certification. The app is an early beta and has not had an independent security audit.

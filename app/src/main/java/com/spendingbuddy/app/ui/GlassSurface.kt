@@ -24,26 +24,26 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Frosted-glass surface: a soft drop shadow, a translucent fill that is lighter at the top, and a light edge.
+ * The app's standard panel: a flat, nearly opaque surface with a hairline edge that is a touch brighter at the top.
+ * Dark themes get no shadow at all; the light theme gets a faint one so white panels lift off the white page.
  * Set [shadow] to false for small controls, or where the surface sits flush against another one.
  */
 fun Modifier.glass(shape: Shape = RoundedCornerShape(24.dp), strength: Float = 1f, shadow: Boolean = true): Modifier = composed {
     val t = LocalPennyTokens.current
+    val base = if (t.dark) lerp(t.bg, Color.White, 0.055f) else Color.White
     val fill = Brush.verticalGradient(
         listOf(
-            Color.White.copy(alpha = (if (t.dark) 0.11f else 0.80f) * strength),
-            Color.White.copy(alpha = (if (t.dark) 0.045f else 0.58f) * strength)
+            base.copy(alpha = (if (t.dark) 0.94f else 0.96f) * strength),
+            (if (t.dark) lerp(t.bg, Color.White, 0.035f) else base).copy(alpha = (if (t.dark) 0.94f else 0.90f) * strength)
         )
     )
     val edge = Brush.verticalGradient(
-        listOf(
-            Color.White.copy(alpha = if (t.dark) 0.30f else 0.95f),
-            Color.White.copy(alpha = if (t.dark) 0.05f else 0.30f)
-        )
+        if (t.dark) listOf(Color.White.copy(alpha = 0.16f), Color.White.copy(alpha = 0.07f))
+        else listOf(t.text.copy(alpha = 0.10f), t.text.copy(alpha = 0.07f))
     )
-    val shadowColor = if (t.dark) Color.Black.copy(alpha = 0.34f) else lerp(t.text, t.accent, 0.55f).copy(alpha = 0.16f)
+    val shadowColor = lerp(t.text, t.accent, 0.4f).copy(alpha = 0.07f)
     this
-        .then(if (shadow) Modifier.softShadow(shape, shadowColor) else Modifier)
+        .then(if (shadow && !t.dark) Modifier.softShadow(shape, shadowColor, blur = 14.dp, offsetY = 6.dp) else Modifier)
         .clip(shape)
         .background(fill, shape)
         .border(1.dp, edge, shape)

@@ -112,7 +112,7 @@ object BuddyNotifications {
             JOIN_REQUEST_NOTIFICATION_ID,
             baseBuilder(context, ACTIVITY_CHANNEL).setSmallIcon(com.spendingbuddy.app.R.drawable.ic_stat_buddy)
                 .setContentTitle("$name asked to join your circle")
-                .setContentText("Open Buddy to approve or decline. Nothing is shared with them until you approve.")
+                .setContentText("Open Penny Circle to approve or decline. Nothing is shared with them until you approve.")
                 .setAutoCancel(true)
                 .setContentIntent(mainActivityIntent(context, Destinations.BUDDY)).build()
         )
@@ -122,13 +122,15 @@ object BuddyNotifications {
         NotificationManagerCompat.from(context).cancel(NUDGE_NOTIFICATION_ID)
     }
 
-    fun schedule(context: Context, enabled: Boolean) {
+    fun schedule(context: Context, enabled: Boolean, finishCountdownLeadMinutes: Int = DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES) {
+        require(finishCountdownLeadMinutes in FINISH_COUNTDOWN_LEAD_MINUTES)
         val workManager = WorkManager.getInstance(context.applicationContext)
         if (!enabled) {
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
             // The daily names include their target date, so tags cancel all pending dates.
             workManager.cancelAllWorkByTag(EVENING_WORK_TAG)
             workManager.cancelAllWorkByTag(DEADLINE_WORK_TAG)
+            workManager.cancelAllWorkByTag(PRE_REMINDER_WORK_TAG)
             return
         }
         ensureChannels(context)
@@ -140,6 +142,7 @@ object BuddyNotifications {
                 .setInputData(workDataOf(KEY_KIND to KIND_PERIODIC))
                 .build()
         )
+        reschedulePreReminder(context, finishCountdownLeadMinutes)
         enqueueDailyAt(workManager, EVENING_WORK_NAME, EVENING_WORK_TAG, LocalTime.of(22, 0), KIND_EVENING)
         enqueueDailyAt(workManager, DEADLINE_WORK_NAME, DEADLINE_WORK_TAG, LocalTime.of(10, 0), KIND_DEADLINE)
     }
@@ -169,7 +172,7 @@ object BuddyNotifications {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
-    private fun enqueueDailyAt(workManager: WorkManager, name: String, tag: String, target: LocalTime, kind: String) {
+    private fun enqueueDailyAt(workManager: WorkManager, name: String, tag: String, target: LocalTime, kind: String, replace: Boolean = false) {
         val now = ZonedDateTime.now(INDIA_ZONE)
         var next = now.with(target)
         if (!next.isAfter(now)) next = next.plusDays(1)
@@ -181,11 +184,18 @@ object BuddyNotifications {
             .build()
         // A dated name lets the worker queue tomorrow without replacing a pending request
         // whenever the approximate periodic pass runs.
-        workManager.enqueueUniqueWork("$name-${next.toLocalDate()}", ExistingWorkPolicy.KEEP, request)
+        workManager.enqueueUniqueWork("$name-${next.toLocalDate()}", if (replace) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, request)
+    }
+
+    fun reschedulePreReminder(context: Context, leadMinutes: Int) {
+        require(leadMinutes in FINISH_COUNTDOWN_LEAD_MINUTES)
+        val workManager = WorkManager.getInstance(context.applicationContext)
+        workManager.cancelAllWorkByTag(PRE_REMINDER_WORK_TAG)
+        enqueueDailyAt(workManager, PRE_REMINDER_WORK_NAME, PRE_REMINDER_WORK_TAG, finishCountdownStartTime(leadMinutes), KIND_PRE_REMINDER, replace = true)
     }
 
     /** Requeue only a targeted daily request; periodic passes never replace daily work. */
-    internal fun rescheduleDaily(context: Context, kind: String?) {
+    internal fun rescheduleDaily(context: Context, kind: String?, leadMinutes: Int = DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES) {
         when (kind) {
             KIND_EVENING -> enqueueDailyAt(
                 WorkManager.getInstance(context.applicationContext),
@@ -193,6 +203,14 @@ object BuddyNotifications {
                 EVENING_WORK_TAG,
                 LocalTime.of(22, 0),
                 KIND_EVENING
+            )
+            KIND_PRE_REMINDER -> enqueueDailyAt(
+                WorkManager.getInstance(context.applicationContext),
+                PRE_REMINDER_WORK_NAME,
+                PRE_REMINDER_WORK_TAG,
+                finishCountdownStartTime(leadMinutes),
+                KIND_PRE_REMINDER,
+                replace = true
             )
             KIND_DEADLINE -> enqueueDailyAt(
                 WorkManager.getInstance(context.applicationContext),
@@ -206,11 +224,14 @@ object BuddyNotifications {
 
     private const val PERIODIC_WORK_NAME = "buddy_reminders_periodic"
     private const val EVENING_WORK_NAME = "buddy_reminders_22h"
+    private const val PRE_REMINDER_WORK_NAME = "buddy_reminders_2130h"
     private const val DEADLINE_WORK_NAME = "buddy_reminders_10h"
     private const val EVENING_WORK_TAG = "buddy_reminders_22h_tag"
+    private const val PRE_REMINDER_WORK_TAG = "buddy_reminders_2130h_tag"
     private const val DEADLINE_WORK_TAG = "buddy_reminders_10h_tag"
     private const val KEY_KIND = "reminder_kind"
     private const val KIND_PERIODIC = "periodic"
+    private const val KIND_PRE_REMINDER = "pre_reminder"
     private const val KIND_EVENING = "evening"
     private const val KIND_DEADLINE = "deadline"
 }
@@ -220,6 +241,10 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
         val context = applicationContext
         val repo = BuddyRepository.get(context)
         val state = repo.state.value
+
+        // The notification uses the system chronometer. This bounded refresh posts/cancels it on scheduled passes;
+        // there is no per-second worker or exact-alarm loop.
+        runCatching { FinishCountdownNotifications.refresh(context, state) }
 
         // WorkManager may have queued a request before the user disabled reminders.
         // Re-read local state before doing any sync or notification work.
@@ -270,7 +295,7 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
             }
         }
 
-        BuddyNotifications.rescheduleDaily(context, inputData.getString("reminder_kind"))
+        BuddyNotifications.rescheduleDaily(context, inputData.getString("reminder_kind"), state.finishCountdownLeadMinutes)
         return Result.success()
     }
 

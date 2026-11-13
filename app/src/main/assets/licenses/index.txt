@@ -1,0 +1,49 @@
+Penny Circle — third-party notices
+Prepared 2026-11-13
+
+These notices apply to bundled third-party components. They do not assign a license to Penny Circle's own source code.
+
+Fonts
+Geist variable: Version 1.800
+Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font)
+Geist Mono variable: Version 1.701
+Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)
+License: SIL Open Font License 1.1. Full text: Geist-OFL-1.1.txt
+The versions and copyright statements above are read from the actual bundled font name tables. The complete OFL text is from the official 1.8.0 release, whose copyright year matches those files.
+Source: https://github.com/vercel/geist-font/tree/1.8.0
+
+AndroidX, Kotlin, kotlinx.coroutines, kotlinx.serialization, JetBrains annotations, JSpecify, javax.inject, Google Data Transport, Firebase components/encoders/annotations, Guava ListenableFuture, ZXing
+License: Apache License 2.0. Full text: APACHE-2.0.txt
+Exact coordinates, resolved versions and publisher POM license metadata: dependency-metadata.csv
+Preserved archive-supplied license/notice entries: bundled-dependency-notices.txt
+ZXing 3.5.3 upstream license: ZXing-LICENSE.txt; upstream project notices: ZXing-NOTICE.txt
+The ZXing project-wide NOTICE includes Barcode4J and JCommander notices; including it does not assert both are packaged as runtime dependencies.
+Source: https://github.com/zxing/zxing/tree/zxing-3.5.3
+Guava ListenableFuture's license is inherited from guava-parent 26.0-android; ZXing core's license is inherited from zxing-parent 3.5.3. These parent POMs were checked at Maven Central.
+
+Iroh and iroh-android 1.2.0
+Copyright 2025 N0, INC.
+Publisher POMs offer MIT or Apache-2.0; this distribution retains both complete license texts: iroh-MIT.txt and iroh-APACHE-2.0.txt.
+Source: https://github.com/n0-computer/iroh-ffi/tree/v1.2.0
+
+Java Native Access (JNA) 5.15.0
+JNA offers Apache-2.0 or LGPL-2.1-or-later. This distribution uses the Apache-2.0 option.
+Upstream choice statement: JNA-LICENSE.txt; full Apache text: JNA-APACHE-2.0.txt
+Archive-provided license files are also preserved verbatim in bundled-dependency-notices.txt, including the alternative LGPL text; retaining it does not change the choice above.
+Bundled libffi notice/license: JNA-libffi-LICENSE.txt
+Source: https://github.com/java-native-access/jna/tree/5.15.0
+
+Google ML Kit, Google code scanner and Play services text-recognition components
+These are governed by ML Kit Terms of Service, incorporating Google APIs Terms of Service. They are not represented here as Apache-licensed components.
+Full readable terms snapshots: Google-ML-Kit-terms.txt and Google-APIs-terms.txt
+Sources: https://developers.google.com/ml-kit/terms and https://developers.google.com/terms
+Processing inputs/outputs stays on-device. Google documents performance/utilization metrics and possible update/model compatibility network requests. See those terms and the app's privacy information.
+
+Google Play services base/basement/tasks and Google ODML image
+Publisher POMs identify the Android SDK License Agreement.
+Full readable terms snapshot: Android-SDK-terms.txt
+Source: https://developer.android.com/studio/terms
+
+Scope and provenance
+This inventory follows the existing release package dependency report: 119 external Maven coordinates, excluding test/debug-only dependencies and local :core. Fifty-one license/notice entries were copied from the exact resolved AAR/JAR archives, including nested classes.jar files, before app packaging exclusions. Some archives do not supply a separate notice. The inventory is based on artifact/POM metadata and authoritative upstream license files, not a legal certification or a complete independent audit of every native library's embedded transitive source.
+The synthetic SMS test dataset is not packaged in this app. Its CC BY 4.0 attribution is in the source repository's test resources README.

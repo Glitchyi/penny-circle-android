@@ -131,7 +131,7 @@ object StateCodec {
     fun load(text: String?): LoadResult {
         if (text == null) return LoadResult.Missing
         return try {
-            LoadResult.Loaded(decode(text))
+            LoadResult.Loaded(decode(text).normalizedLocalTimerPreferences())
         } catch (e: UnsupportedSchemaException) {
             LoadResult.Unreadable("This data was saved by a newer version of Penny Circle (schema ${e.version}). Update the app to open it.")
         } catch (e: Exception) {
@@ -148,6 +148,8 @@ object StateCodec {
      */
     fun validateRestore(current: BuddyState, restored: BuddyState): String? {
         if (restored.schemaVersion != STATE_SCHEMA_VERSION) return "That backup has an unsupported version"
+        if (restored.paymentUpdateMinutes !in PAYMENT_UPDATE_MINUTES || restored.finishCountdownLeadMinutes !in FINISH_COUNTDOWN_LEAD_MINUTES)
+            return "That backup has unsupported timer preferences"
         if (restored.dailyLimitPaise < 0 || restored.weeklyLimitPaise < 0) return "That backup has invalid limits"
         if (restored.expenses.any { it.amountPaise <= 0 }) return "That backup has invalid purchases"
         if (restored.members.size > MAX_MEMBERS + MAX_TOMBSTONES) return "That backup has too many circle members"
@@ -162,7 +164,10 @@ object StateCodec {
         state.copy(importImages = emptyList(), importCandidates = emptyList(), selfId = "", group = null, members = emptyList(),
             friends = emptyMap(), outbox = emptyList(), seenEventIds = emptyMap(), incomingNudge = null, outgoingNudges = emptyList(),
             suggestions = emptyList(), sentSuggestions = emptyList(), stayReachable = false, pendingJoins = emptyList(), declinedJoinIds = emptyList(),
-            joinNonce = "", joinNonceExpiresAt = 0, lastNudgeFrom = emptyMap(), outSeq = 0, lastSeqSeen = emptyMap())
+            joinNonce = "", joinNonceExpiresAt = 0, lastNudgeFrom = emptyMap(), outSeq = 0, lastSeqSeen = emptyMap(),
+            // Detection working data stays on the phone. Merchant rules are the user's own and are kept.
+            pendingDetections = emptyList(), recentDetections = emptyList(), heldCheckIns = emptyMap(), autoDetect = false,
+            expenses = state.expenses.map { if (it.heldUntil == 0L) it else it.copy(heldUntil = 0) })
     )
 
     @Suppress("unused")
@@ -171,3 +176,9 @@ object StateCodec {
     @Suppress("unused")
     private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.content ?: this[key]?.jsonPrimitive?.content
 }
+
+/** Persisted local preferences are repaired to safe defaults; explicit backup restores are validated above. */
+private fun BuddyState.normalizedLocalTimerPreferences(): BuddyState = copy(
+    paymentUpdateMinutes = paymentUpdateMinutes.takeIf { it in PAYMENT_UPDATE_MINUTES } ?: DEFAULT_PAYMENT_UPDATE_MINUTES,
+    finishCountdownLeadMinutes = finishCountdownLeadMinutes.takeIf { it in FINISH_COUNTDOWN_LEAD_MINUTES } ?: DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES
+)

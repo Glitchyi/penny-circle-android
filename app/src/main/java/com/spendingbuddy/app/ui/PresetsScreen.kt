@@ -109,6 +109,7 @@ private fun PresetEditSheet(state: BuddyState, existing: Preset?, onDismiss: () 
     var reason by rememberSaveable { mutableStateOf(existing?.reason ?: state.reasons.firstOrNull() ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        DialogSystemBars()
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding()) {
             Text(if (existing == null) "New preset" else "Edit preset", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(8.dp))

@@ -13,12 +13,19 @@ android {
         applicationId = "com.spendingbuddy.app"
         minSdk = 33
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
-        // Both target phones (Xiaomi 17, OnePlus Nord) are arm64. x86_64 is kept for emulator testing.
-        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        versionCode = 3
+        versionName = "0.3.0"
+        // Distribution targets ARM64 phones; the debug variant also supports our x86_64 emulators.
+        ndk { abiFilters += "arm64-v8a" }
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    buildTypes {
+        debug { ndk { abiFilters += listOf("arm64-v8a", "x86_64") } }
+        release {
+            isDebuggable = false
+            // Native iroh/JNA entry points use reflection; keep names until shrinking has dedicated coverage.
+            isMinifyEnabled = false
+        }
+    }
     // iroh-ffi 1.2 bindings are compiled for Java 21.
     compileOptions { sourceCompatibility = JavaVersion.VERSION_21; targetCompatibility = JavaVersion.VERSION_21 }
     buildFeatures { compose = true; buildConfig = true }
@@ -31,7 +38,7 @@ android {
         jniLibs.useLegacyPackaging = false
     }
     testOptions { unitTests.isReturnDefaultValues = true; unitTests.isIncludeAndroidResources = true }
-    lint { abortOnError = true; checkReleaseBuilds = true; disable += setOf("NewApi") }
+    lint { abortOnError = true; checkReleaseBuilds = true }
 }
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_21) } }
 

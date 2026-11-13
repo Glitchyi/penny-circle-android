@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -30,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
 import com.spendingbuddy.app.*
 
 @Composable
@@ -111,30 +114,50 @@ fun ProgressBar(value: Long, max: Long, over: Boolean = false, modifier: Modifie
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 fun PurchaseRow(expense: Expense, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, flat: Boolean = false) {
     val impulse = expense.reason == IMPULSE
     val cc = CategoryColors.forCategory(if (impulse) "Impulse" else expense.category, LocalPennyTokens.current.dark)
+    val largeText = LocalDensity.current.fontScale >= 1.4f
     val base = modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp).semantics(mergeDescendants = true) {}.then(if (flat) Modifier.padding(horizontal = 16.dp) else Modifier)
-    Row((if (onClick != null) base.clickable(onClick = onClick) else base).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    BoxWithConstraints((if (onClick != null) base.clickable(onClick = onClick) else base).padding(vertical = 10.dp)) {
+        val stacked = largeText || maxWidth < 260.dp
+        Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(4.dp).height(42.dp).clip(RoundedCornerShape(2.dp)).background(if (impulse) MaterialTheme.colorScheme.error else Color.Transparent))
         Spacer(Modifier.width(12.dp))
         Surface(shape = PennyShapes.Medium, color = cc.container, modifier = Modifier.size(36.dp)) {
             Box(contentAlignment = Alignment.Center) { Icon(categoryIconVector(expense.category), contentDescription = null, tint = cc.content, modifier = Modifier.size(20.dp)) }
         }
         Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(expense.merchant.ifBlank { expense.category }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (expense.merchant.isNotBlank()) CategoryChip(expense.category)
+        if (stacked) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(expense.merchant.ifBlank { expense.category }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Text(rupees(expense.amountPaise), style = MaterialTheme.typography.titleMedium, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (expense.merchant.isNotBlank()) CategoryChip(expense.category)
+                    if (expense.needsCategory) Text("Needs category", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    else if (expense.source == com.spendingbuddy.app.SOURCE_AUTO) Text("Auto", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text(if (impulse) "Impulse" else expense.reason, style = MaterialTheme.typography.bodyMedium, fontWeight = if (impulse) FontWeight.SemiBold else null, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             }
+        } else {
+            Column(Modifier.weight(1f)) {
+                Text(expense.merchant.ifBlank { expense.category }, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (expense.merchant.isNotBlank()) CategoryChip(expense.category)
+                    if (expense.needsCategory) Text("Needs category", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                    else if (expense.source == com.spendingbuddy.app.SOURCE_AUTO) Text("Auto", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    Text(if (impulse) "Impulse" else expense.reason, style = MaterialTheme.typography.bodyMedium, fontWeight = if (impulse) FontWeight.SemiBold else null, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Text(rupees(expense.amountPaise), style = MaterialTheme.typography.titleMedium, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
         }
-        Text(rupees(expense.amountPaise), style = MaterialTheme.typography.titleMedium, color = if (impulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+        }
     }
 }
 
 @Composable
-fun EmptyState(modifier: Modifier = Modifier) {
+fun EmptyState(modifier: Modifier = Modifier, watching: Boolean = false) {
     // Quiet on purpose: Add purchase and Finish today (which offers the no-spend day) are the actions.
     val t = LocalPennyTokens.current
     val tint = if (t.dark) lerp(t.accent, Color.White, 0.45f) else t.accent
@@ -144,9 +167,10 @@ fun EmptyState(modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Nothing logged yet", style = MaterialTheme.typography.titleMedium)
+            Text(if (watching) "Watching for payments" else "Nothing logged yet", style = MaterialTheme.typography.titleMedium)
             Text(
-                "No spending today? Finish the day to record it.",
+                if (watching) "Purchases show up here when a payment alert arrives. No spending today? Finish the day to record it."
+                else "No spending today? Finish the day to record it.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

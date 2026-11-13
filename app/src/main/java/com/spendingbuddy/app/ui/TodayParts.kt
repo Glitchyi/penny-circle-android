@@ -1,5 +1,30 @@
 package com.spendingbuddy.app.ui
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.LocalIndication
@@ -14,6 +39,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -103,6 +129,144 @@ internal fun StatTile(
                         )
                 )
             }
+        }
+    }
+}
+
+/**
+ * Slide the handle to the right to finish the day in one move. A tap (or a screen reader's activate) opens the
+ * review sheet instead, so nothing depends on being able to swipe. The handle springs back if let go early.
+ */
+@Composable
+internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boolean, modifier: Modifier = Modifier) {
+    val t = LocalPennyTokens.current
+    val reduced = LocalReducedMotion.current
+    val view = LocalView.current
+    val reserved = with(LocalDensity.current) { (48.dp + 16.dp).toPx() }
+    val scope = rememberCoroutineScope()
+    val direction = LocalLayoutDirection.current
+    val directionSign = if (direction == LayoutDirection.Ltr) 1f else -1f
+    var offset by remember { mutableFloatStateOf(0f) }
+    var settleJob by remember { mutableStateOf<Job?>(null) }
+    var completionTriggered by remember { mutableStateOf(false) }
+    var travel by remember { mutableFloatStateOf(0f) }
+    var highestHapticStep by remember { mutableStateOf(0) }
+    val handle = 48.dp
+    val inset = 6.dp
+    val interaction = remember { MutableInteractionSource() }
+    fun settleBack() {
+        settleJob?.cancel()
+        settleJob = scope.launch {
+            val animation = Animatable(offset)
+            if (reduced) animation.snapTo(0f)
+            else animation.animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 420f)) { offset = value }
+            offset = 0f
+        }
+    }
+    fun completeSwipe() {
+        if (travel > 0f && offset >= travel * 0.72f && !completionTriggered) {
+            completionTriggered = true
+            settleJob?.cancel()
+            settleJob = scope.launch {
+                val animation = Animatable(offset)
+                if (reduced) animation.snapTo(travel)
+                else animation.animateTo(travel, spring(dampingRatio = 0.8f, stiffness = 500f)) { offset = value }
+                offset = animation.value
+            }
+            // A distinct confirmation pulse occurs only after an uncancelled release clears the threshold.
+            if (haptics) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+            onSwiped()
+        } else settleBack()
+    }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .glass(CircleShape)
+            .onSizeChanged { travel = (it.width - reserved).coerceAtLeast(0f) }
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, role = Role.Button, onClickLabel = "Review and finish today", onClick = onTap)
+            .semantics {
+                contentDescription = "Finish today. Swipe ${if (direction == LayoutDirection.Ltr) "right" else "left"} to finish now, or activate to review first."
+            }
+            .pointerInput(haptics, reduced, directionSign) {
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        settleJob?.cancel()
+                        settleJob = null
+                        val progress = if (travel > 0f) offset / travel else 0f
+                        highestHapticStep = when {
+                            progress >= 0.90f -> 4
+                            progress >= 0.72f -> 3
+                            progress >= 0.46f -> 2
+                            progress >= 0.22f -> 1
+                            else -> 0
+                        }
+                    },
+                    onDragEnd = { completeSwipe() },
+                    onDragCancel = { if (!completionTriggered) settleBack() },
+                    onHorizontalDrag = { _, delta ->
+                    val logicalDelta = delta * directionSign
+                    val resistedDelta = if (logicalDelta > 0f && travel > 0f && offset >= travel * 0.82f) logicalDelta * 0.62f else logicalDelta
+                    offset = (offset + resistedDelta).coerceIn(0f, travel)
+                    val progress = if (travel > 0f) offset / travel else 0f
+                    val step = when {
+                        progress >= 0.90f -> 4
+                        progress >= 0.72f -> 3
+                        progress >= 0.46f -> 2
+                        progress >= 0.22f -> 1
+                        else -> 0
+                    }
+                    // Fire at most once per newly reached detent in this drag, even if the finger wavers backward.
+                    if (step > highestHapticStep) {
+                        highestHapticStep = step
+                        if (haptics) view.performHapticFeedback(
+                            when (step) {
+                                4 -> HapticFeedbackConstants.LONG_PRESS
+                                3 -> HapticFeedbackConstants.KEYBOARD_TAP
+                                else -> HapticFeedbackConstants.CLOCK_TICK
+                            }
+                        )
+                    }
+                    }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        // The part already swiped fills with the accent, and the label fades as the handle covers it.
+        Box(
+            Modifier.matchParentSize().drawBehind {
+                val w = offset + (handle + inset * 2).toPx()
+                if (offset > 0.5f) drawRoundRect(
+                    Brush.horizontalGradient(listOf(t.accent.copy(alpha = 0.30f), t.accent2.copy(alpha = 0.22f))),
+                    topLeft = androidx.compose.ui.geometry.Offset(if (directionSign < 0f) size.width - w else 0f, 0f),
+                    size = Size(w, size.height), cornerRadius = CornerRadius(size.height / 2f)
+                )
+            }
+        )
+        Text(
+            "Swipe to finish today",
+            style = MaterialTheme.typography.titleMedium,
+            color = t.text,
+            maxLines = if (LocalDensity.current.fontScale > 1.15f) 2 else 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(start = handle + inset * 2 + 8.dp, end = 20.dp, top = 4.dp, bottom = 4.dp)
+                .graphicsLayer { alpha = if (travel <= 0f) 1f else (1f - offset / travel * 1.4f).coerceIn(0f, 1f) }
+        )
+        Box(
+            Modifier
+                .padding(start = inset)
+                .align(Alignment.CenterStart)
+                .offset { IntOffset(offset.roundToInt(), 0) }
+                .size(handle)
+                .background(Brush.linearGradient(listOf(t.accent, t.accent2)), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                PennyIcons.ArrowRight,
+                null,
+                tint = t.onAccent,
+                modifier = Modifier.size(24.dp).graphicsLayer { scaleX = directionSign }
+            )
         }
     }
 }

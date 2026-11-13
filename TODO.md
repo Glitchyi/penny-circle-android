@@ -1,80 +1,40 @@
-# Penny Circle v0.2 — objective and pending work
+# Penny Circle — scope and remaining work
 
-Status legend: items marked "written, awaiting first build" exist in source but have NOT been compiled, tested or run on a device. Nothing here is verified.
+Dated results belong in [BUILD-EVIDENCE.md](BUILD-EVIDENCE.md). [HANDOFF-AUTODETECT.md](HANDOFF-AUTODETECT.md) records continuity; historical counts do not describe the current tree.
 
-## Objective
+## Implemented and exercised
 
-Build a private, local-first native Android app for a small circle of friends (one circle per phone, up to 12 members) to log every purchase—or explicitly confirm no spending—within seconds, review daily and weekly limits, maintain an honest streak, and encourage one another without shame. The app should feel like a friendly shared notebook rather than a bank dashboard.
+- [x] Native Android local-first expense/no-spend notebook, Today/Activity/Circle, daily and Monday–Sunday limits, four themes and optional rotary amount entry.
+- [x] Optional incoming SMS/payment-notification tracking with local parsing, no old-inbox scan and no stored/shared message text. Clear payments auto-add; uncertain/person payments ask; refunds, credits, failures and OTPs are excluded.
+- [x] Ten-minute Undo/share hold; prior finished-day status/streak preserved for peers while held. Real two-emulator SMS/Keep test confirmed prior Rs45 finished state remained private until Keep released Rs122 and reopened status.
+- [x] Review-first screenshot/OCR batches with Add more/Continue and on-device processing.
+- [x] Five-step optional-tracking onboarding, independent zero-capable limits, editable purchase details/delete Undo and real startup loading/retry state.
+- [x] Native glass-like tab bar, resistant body-pane swipes, chart-only Activity week swipes, haptic thresholds and reduced-motion alternatives. Early release/cancel produced no check-in; completed finish swipe produced one in emulator QA.
+- [x] Real two-emulator circle creation, invitation, waiting request, admin approval and matching two-member membership; bidirectional totals/check-ins and Full details record delivery. Default totals-only snapshots contained no purchase records.
+- [x] API 36.1 native promoted ProgressStyle notification flag and visible progress observed with synthetic payment/reminder QA. This is emulator evidence only; latest theme-artwork visual verification remains separate.
+- [x] Public synthetic parser corpus and aggregate external corpus evaluation; licenses and reproducible commands documented. These are not live-bank certification.
+- [x] Windows build/sign pipeline prepared and syntax checked: tests/lint, ARM64 release checks, external signing files, ZIP alignment/signature verification and public hash/metadata output.
+- [x] Settings privacy/licenses and bundled third-party notices, including Google ML Kit diagnostic/usage disclosure.
+- [x] Earlier Xiaomi debug installation/open smoke check recorded; it does not establish current production behavior.
 
-The primary experience is the Today screen: see what is spent, add a purchase, finish the day, and see the circle's check-in status. The rotary telephone control is an optional playful amount-entry mode, not the application's main identity or required path.
+## Implemented; final checks pending
 
-Phones communicate directly over per-member iroh QUIC connections. No hosted backend is required. Screenshots and raw OCR drafts stay on-device; only reviewed, approved records and explicitly supported accountability events may sync.
+- [x] Timer-choice functional QA: one-minute payment duration and 15-minute reminder lead persisted after UI save/restart; native timeout PT1M remained separate from a 599970 ms hold. All original test state restored without clock/display/permission changes.
+- [ ] Validate final theme-following native payment/reminder progress colors and shared circular ₹ artwork. Theme changes refresh active cards without resetting expiry; over-budget payment uses semantic red. Final build/sign/publication remain pending.
+- [x] Native promoted live-progress notifications are exercised on API 36.1 with synthetic payments/reminder QA. Final theme-artwork visual verification is tracked above; real-device/OEM scheduled posting remains below. The reminder target is fixed 10 PM IST and next-day 10 AM grace remains separate.
+- [ ] Finish final build/unit/lint checks after the latest gesture/notification changes and record dated results.
+- [ ] Build/sign production 0.3.0 ARM64 APK with the owner-authorized external production key, verify certificate, ZIP and ELF alignment, and record final hash/metadata.
+- [ ] Complete the owner-authorized public repository/release publication with the verified APK. Do not mark published before completion.
 
-## Written in v0.2 source (awaiting first build)
+## Device and product limits
 
-- [x] Written, awaiting first build: rename to Penny Circle (package/applicationId `com.spendingbuddy.app` unchanged); light-only slate theme with multi-colour accents; bundled Baloo 2 and Mukta fonts.
-- [x] 2026-11-10 redesign phase 1: four themes (Light Horizon, Violet Night, Mint Night, Signal Blue) with a picker on onboarding step 2 and in Settings, Geist and Geist Mono fonts, saved theme applied before the first frame (window background, system bar style, per-theme system splash via SplashScreen.setSplashScreenTheme). Built, unit tests pass (app 38, core 77). Not yet checked on a physical phone.
-- [x] 2026-11-10 redesign phase 2: Today screen in the Light Horizon style: rolling-digit total (Indian grouping, paise shown small, fitted to the width), glowing horizon arc, ruled purchase panel, hard-shadow Finish and Add buttons (haptics follow the app setting), dotted canvas background, tab bar with a sliding indicator and TalkBack tab semantics. Custom line icon set (PennyIcons) replaces emoji and Material icons on tabs, category tiles and buttons. Soft scroll-edge fades on every list. Responsive: wrapping chips, width-fitted hero, compact mode on short screens or large fonts, 640dp content cap. Unit tests for the pure logic (formatting, direction, intensity, sizing, icon mapping).
-- [x] Finish celebration (pulled forward from phase 4): a rocket launch with a flame and smoke trail and a starburst plays once when a day is finished while the screen is open (not on reopen, not on rotation). Layered haptics, checked in the system vibrator log on the emulator: heavy-click ignition, a 1.5 s ramped engine rumble, a QUICK_RISE, CLICK, THUD burst, then a CONFIRM tap. Uses the TOUCH vibration usage and the app's haptics setting; reduced motion skips the flight.
-- [ ] Check on real hardware (not done): the rocket haptics and animation feel, and the layouts, on the Xiaomi 15 and the OnePlus Nord CE. So far layouts were checked only by simulating their screen sizes and densities on the emulator (1200x2670 at 520 dpi, 1080x2400 at 420 dpi, 720x1600 at 320 dpi, and 1.5x font).
-- [ ] Redesign phase 3: add sheet that blooms from the button, ruled keypad, restyled rotary dial with ripples.
-- [ ] Redesign phase 4: coin burst on save, Circle and Activity screens in the new style.
-- [ ] Redesign phase 5: Android platform features: predictive back, themed adaptive icon, launcher shortcuts, Glance widget, quick-settings tile, system photo picker, notification actions, optional biometric lock.
-- [ ] Remove the now-unused Baloo 2 and Mukta font files (about 2.4 MB) once nothing references them.
-- [x] Written, awaiting first build: native Kotlin/Jetpack Compose project targeting Android 16 (minSdk 33), Kotlin 2.2.21, JDK 21.
-- [x] Written, awaiting first build: INR/paise model, daily and Monday–Sunday weekly limits, categories, reasons, preset data, no-spend completion, streak rules, refunds/transfers, 10 AM Asia/Kolkata grace.
-- [x] Written, awaiting first build: circle model: one circle per phone, max 12 members, admin-approved joins via a 24h `pc1.` code, admin = creator and transferable (oldest-member fallback), leave-only, per-member visibility (Totals & status default, Full details), rate-limited nudges, owner-accepted budget suggestions, v2 to v3 state migration.
-- [x] Written, awaiting first build: per-member direct iroh QUIC transport (bindings 1.2.0 lack iroh-gossip), signed/validated sync messages with size bounds, event de-duplication and acknowledgements; persistent identity, foreground reachability window, background reconciliation, notifications.
-- [x] Written, awaiting first build: Phase 1 hardening: refund import kind, parser fixes, corrupt-state backup and write block, validated restore, keypad as default entry, accessibility improvements.
-- [x] Written, awaiting first build: Today, Activity, Circle, Settings, limits, setup and import-review screens; optional rotary dial; share-menu screenshot import with on-device ML Kit OCR and editable review.
-- [x] Written, awaiting first build: privacy exclusions for backup/device transfer; signing credentials kept outside the source tree.
-- [x] Test sources written (not yet run): core domain, state codec, sync protocol, iroh transport integration; app circle runtime, palette contrast, rotary dial, parser/importer.
+- [ ] Real Android 16 payment-app listener delivery, permissions/revocation, promoted notification behavior, Xiaomi/OnePlus battery restrictions and Doze timing.
+- [ ] Actual ten-minute scheduled hold expiry across peers; foreground Keep was verified, expiry scheduling was not.
+- [ ] Physical-device layouts, TalkBack, haptics, reduced motion and FPS/performance. Emulator theme/360dp/200% font checks are recorded separately.
+- [ ] Representative user screenshot OCR and Android single/multiple-image share flows on both phones, keeping private data on-device.
+- [ ] Three-or-more-member circle, offline admin, handover/leave, nudges, budget-suggestion acceptance, acknowledgements and duplicate suppression under real network interruption.
+- [ ] Investigate observed adb character-entry/focus interruption in Settings/long join-code input. Clipboard paste worked; a normal-keyboard defect is not established.
+- [ ] Confirm/document the product decision about grace-completed days and streaks.
+- [ ] Preserve external production key for updates and keep private keys/passwords/personal captures out of Git; refresh dependency notices with upgrades.
 
-## Pending implementation work
-
-### First build
-
-- [x] First compile pass: `:core:test` (75 pass, 1 skipped), `:app:testDebugUnitTest` (30 pass) and `:app:lintRelease` (0 errors, 34 warnings) passed on 2026-11-10 with JDK 21; recorded in `BUILD-EVIDENCE.md`. Still open: `assembleRelease`, signing and device runs.
-
-### Product and UX
-
-- [x] Built and unit-tested, not yet tried on a phone: join code shown as a QR on the admin's invite screen and 'Scan a QR code' on the join screen (Google code scanner), alongside system share and paste.
-- [x] Written, awaiting first build: Presets editor (add, edit, set default, delete with Undo) and 'Save as preset' in the purchase flow; presets stay on the phone and are never synced.
-- [x] Written, awaiting first build: Activity swipeable `HorizontalPager` for current and prior weeks with date headers, day grouping and chart interaction. The old 'Where it went' category breakdown was dropped and could be restored.
-- [x] Written, awaiting first build: Reduced-motion-aware stamp animation and finish-day haptic timing.
-- [x] Written, awaiting first build: save-with-Undo snackbar and visible save/import/backup failures. Purchase delete added: tap a purchase on Today or Activity, Delete, then Undo in the snackbar (restores the check-in too). Still open: editing a saved purchase, and discard-import has no Undo because image files are removed.
-- [x] Written, awaiting first build: corrupt-state dialog (start fresh or restore a backup; a `.corrupt` copy is kept).
-- [ ] Decide whether streaks count a day completed under grace=true.
-- [x] Written, awaiting first build: adaptive launcher icon (indigo background, ring of coloured dots, monochrome layer). Not rendered or viewed yet; old PNGs remain as unused fallbacks.
-- [x] Written, awaiting first build: circle-size cap UX (n of 12, full state, Approve disabled at the cap).
-- [x] Written, awaiting first build: admin-offline limits surfaced on invite, join-waiting and Circle screens; no instant-delivery claims.
-- [ ] Accessibility pass: TalkBack labels, touch targets, focus order, light-theme contrast, font scaling, dial alternatives.
-
-### Peer-to-peer validation
-
-- [ ] Real multi-phone circle testing with 3+ members: join code, admin approval, admin offline, leave and admin handover, visibility switch, nudges, budget suggestions.
-- [ ] Verify snapshots, acknowledgements, duplicate suppression and stale-nudge suppression across phones.
-- [ ] Battery/Doze testing: foreground reachability, background reconciliation, reboot rescheduling, denied notification permission, Xiaomi/OnePlus OEM restrictions.
-- [ ] Confirm user-facing copy never claims instant push or Android Live Updates.
-
-### OCR decision (2026-11-09)
-
-- Keep bundled ML Kit on-device OCR plus the rule-based parser. A GLM-OCR (about 0.9B, MIT) on-device second pass was researched and rejected for now: about 1.4 GB of model files (Q8 GGUF plus projector), no verified Android runtime, unmeasured but likely slow, and its benchmarks are for documents, not clean phone UI screenshots. Revisit if a LiteRT/MNN build appears. Android's built-in on-device AI (AICore/Gemini Nano via ML Kit GenAI) is unverified on the Xiaomi 17 and OnePlus Nord 6e and is not used. Screenshots never leave the phone.
-
-### Import and device testing
-
-- [ ] OCR against real Google Pay screenshots from the users: multiple images, layouts, crops, incoming payments, refunds, missing dates.
-- [ ] Verify `ACTION_SEND` and `ACTION_SEND_MULTIPLE` on Xiaomi and OnePlus.
-- [ ] Verify rotary and keypad haptics, edge-to-edge layout and large-font layout on physical phones.
-
-### Release and maintenance
-
-- [ ] Build, sign (`./build-and-sign.sh`), `apksigner verify` and verify 16 KB alignment; record actual results in `BUILD-EVIDENCE.md`.
-- [ ] Install the signed APK on both phones and record results.
-- [ ] Bump `versionCode`/`versionName` for the next release with the same private signing key.
-- [ ] Keep `private-signing/`, passwords, SDK files, APKs and personal screenshots out of Git.
-- [ ] Review iroh and Android dependency updates before upgrading and repeat multi-phone sync and privacy checks.
-
-## Definition of done for the next release
-
-The source compiles and its tests and lint pass on JDK 21; a 3+ member circle works on real phones without a server (approval, admin offline, leave/handover, visibility); the pending UX items above are done; representative screenshot imports are reviewed successfully; battery behaviour is documented from device testing; and a freshly signed APK is recorded in `BUILD-EVIDENCE.md` with real results.
+Transport is direct per-member iroh QUIC. Running gossip forwarding, instant delivery and a hosted application backend are not implemented. Current release status is determined by the final artifact and publication evidence, not by these checked implementation items.

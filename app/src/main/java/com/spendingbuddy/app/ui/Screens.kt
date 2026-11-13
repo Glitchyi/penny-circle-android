@@ -47,6 +47,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -79,10 +81,13 @@ fun TodayScreen(
     bottomBar: @Composable () -> Unit,
     onAdd: () -> Unit,
     onFinish: (String) -> Unit,
+    onFinishNow: (String) -> Unit,
     onSettings: () -> Unit,
     onFinishYesterday: () -> Unit,
     snackbar: SnackbarHostState? = null,
-    onPurchase: ((Expense) -> Unit)? = null
+    onPurchase: ((Expense) -> Unit)? = null,
+    auto: AutoActions? = null,
+    autoAccessReady: Boolean = true
 ) {
     val date = now.toLocalDate()
     val spent = spentOn(state.expenses, date)
@@ -141,9 +146,14 @@ fun TodayScreen(
             }
         },
         bottomBar = bottomBar,
-        floatingActionButtonPosition = FabPosition.Center,
+        // With automatic tracking on, typing a purchase in is the fallback, so its button is smaller.
+        floatingActionButtonPosition = if (state.autoDetect) FabPosition.End else FabPosition.Center,
         floatingActionButton = {
-            AccentButton(
+            if (state.autoDetect) SecondaryButton(onClick = onAdd) {
+                Icon(PennyIcons.Add, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text("Add by hand", fontWeight = FontWeight.SemiBold)
+            } else AccentButton(
                 onClick = onAdd,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
                 haptics = state.haptics
@@ -164,6 +174,31 @@ fun TodayScreen(
         ) {
             val incomingNudge = activeNudge(state)
             if (incomingNudge != null) item { NudgeBanner(incomingNudge, now, onFinish, onAdd) }
+            if (auto != null && !state.autoDetect && !state.autoDetectOffered) item {
+                AutoPromptCard(onTurnOn = auto.setUp, onNotNow = auto.notNow, modifier = Modifier.enterRise(0))
+            }
+            if (auto != null && state.autoDetect && !autoAccessReady) item {
+                NotebookSurface(Modifier.fillMaxWidth()) {
+                    Text("Connect payment alerts", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Tracking is on, but no message source is connected. Manual entry still works.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    TextButton(onClick = auto.setUp, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Finish tracking setup")
+                    }
+                }
+            }
+            if (auto != null) {
+                val nowMs = System.currentTimeMillis()
+                items(state.pendingDetections.asReversed(), key = { "pending-${it.id}" }) { p ->
+                    PendingDetectionCard(p, onAdd = { auto.addPending(p.id) }, onSkip = { auto.skipPending(p.id) }, modifier = Modifier.popIn())
+                }
+                items(heldExpenses(state, nowMs), key = { "held-${it.id}" }) { e ->
+                    HeldPurchaseCard(e, inCircle = state.group != null, minutesLeft = (e.heldUntil - nowMs + 59_999) / 60_000, onUndo = { auto.undo(e.id) }, onKeep = { auto.keep(e.id) }, modifier = Modifier.popIn())
+                }
+            }
             val yesterday = date.minusDays(1)
             if (eligibleCheckIn(yesterday, now) && state.checkIns.none { it.date == yesterday.toString() }) {
                 item {
@@ -177,83 +212,35 @@ fun TodayScreen(
                 }
             }
             item {
-                val over = spent > state.dailyLimitPaise
                 val weekOver = weekSpent > state.weeklyLimitPaise
+                val impulse = impulseStats(state.expenses, date)
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(
-                        Modifier.fillMaxWidth().enterRise(0).glass(RoundedCornerShape(32.dp)).padding(start = 14.dp, end = 14.dp, top = 22.dp, bottom = 14.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, LocalDensity.current.fontScale.coerceAtMost(1.3f))) {
-                    val gaugeStroke = 14.dp
-                    val diameter = minOf(maxWidth, if (compact) 236.dp else 292.dp)
-                    val heroSize = heroFontSizeSp(
-                        availableWidthDp = (diameter.value - 76f).coerceAtLeast(0f),
-                        digitCount = (spent / 100).toString().length,
-                        hasPaise = spent % 100L != 0L,
-                        fontScale = LocalDensity.current.fontScale,
-                        maxSp = if (compact) 64f else 84f,
-                        minSp = 34f
-                    ).sp
-                    BudgetGauge(
-                        progress = budgetIntensity(spent, state.dailyLimitPaise),
-                        over = over,
-                        diameter = diameter,
-                        stroke = gaugeStroke
-                    ) {
-                        Column(
-                            Modifier.fillMaxSize().padding(top = gaugeStroke + if (compact) 14.dp else 24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "SPENT TODAY",
-                                style = labelStyle,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.semantics { heading(); contentDescription = "Spent today" }
-                            )
-                            Row(Modifier.bumpOnChange(spent).clearAndSetSemantics { contentDescription = "${rupees(spent)} spent today" }, horizontalArrangement = Arrangement.Center) {
-                                Text("₹", fontSize = heroSize * 0.42f, color = tokens.muted, fontFamily = PennyType.Sans, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = (heroSize.value * 0.15f).dp))
-                                RollingAmount(
-                                    rupees = spent / 100,
-                                    style = TextStyle(fontFamily = PennyType.Sans, fontWeight = FontWeight.SemiBold, fontSize = heroSize, lineHeight = heroSize, letterSpacing = (-0.04f * heroSize.value).sp),
-                                    color = if (over) tokens.danger else tokens.text
-                                )
-                                if (spent % 100L != 0L) Text(
-                                    String.format(java.util.Locale.ROOT, ".%02d", spent % 100),
-                                    style = TextStyle(fontFamily = PennyType.Mono, fontWeight = FontWeight.Medium, fontSize = heroSize * 0.3f),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = (heroSize.value * 0.2f).dp)
-                                )
-                            }
-                            Text(
-                                "of ${rupees(state.dailyLimitPaise)} daily limit",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.weight(1f))
-                            StatusPill(
-                                if (over) "${rupees(spent - state.dailyLimitPaise)} over" else "${rupees(state.dailyLimitPaise - spent)} left",
-                                danger = over
-                            )
-                        }
+                    TodayHero(
+                        spent = spent,
+                        limit = state.dailyLimitPaise,
+                        days = weekDays(state, date),
+                        streak = streakCount,
+                        compact = compact,
+                        modifier = Modifier.fillMaxWidth().enterRise(0)
+                    )
+                    val cleanValue = if (impulse.freeDays == 1) "1 day" else "${impulse.freeDays} days"
+                    val largeText = LocalDensity.current.fontScale >= 1.3f
+                    val cleanCaption = when {
+                        largeText && impulse.weekCount > 0 -> "${rupees(impulse.weekPaise)} impulse"
+                        largeText -> "No impulse buys"
+                        impulse.weekCount > 0 -> "${rupees(impulse.weekPaise)} impulse this week"
+                        else -> "No impulse buys this week"
                     }
-                    }
-                    }
-                    val streakValue = if (streakCount == 1) "1 day" else "$streakCount days"
-                    val streakCaption = if (streakCount > 0) "Keep it going" else "Starts when you finish"
                     if (LocalDensity.current.fontScale > COMPACT_FONT_SCALE) {
-                        Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(top = 12.dp).fadeInContent(100), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             StatTile("This week", rupees(weekSpent), "of ${rupees(state.weeklyLimitPaise)}", Modifier.fillMaxWidth(), progress = budgetIntensity(weekSpent, state.weeklyLimitPaise), over = weekOver)
-                            StatTile("Streak", streakValue, streakCaption, Modifier.fillMaxWidth())
+                            StatTile("Impulse-free", cleanValue, cleanCaption, Modifier.fillMaxWidth(), over = impulse.weekCount > 0 && impulse.freeDays == 0)
                         }
                     } else {
-                        Row(Modifier.fillMaxWidth().padding(top = 20.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(Modifier.fillMaxWidth().padding(top = 12.dp).height(IntrinsicSize.Min).enterRise(1), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             StatTile("This week", rupees(weekSpent), "of ${rupees(state.weeklyLimitPaise)}", Modifier.weight(1f).fillMaxHeight(), progress = budgetIntensity(weekSpent, state.weeklyLimitPaise), over = weekOver)
-                            StatTile("Streak", streakValue, streakCaption, Modifier.weight(1f).fillMaxHeight())
+                            StatTile("Impulse-free", cleanValue, cleanCaption, Modifier.weight(1f).fillMaxHeight(), over = impulse.weekCount > 0 && impulse.freeDays == 0)
                         }
-                    }
                     }
                     if (status == DayStatus.Done || status == DayStatus.Grace || status == DayStatus.Late) {
                         Spacer(Modifier.height(gapLarge))
@@ -264,11 +251,10 @@ fun TodayScreen(
                             haptics = state.haptics
                         )
                     } else {
-                        FinishRow(
-                            onClick = {
-                                if (state.haptics) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                onFinish(date.toString())
-                            },
+                        SwipeToFinish(
+                            onSwiped = { onFinishNow(date.toString()) },
+                            onTap = { onFinish(date.toString()) },
+                            haptics = state.haptics,
                             modifier = Modifier.padding(top = 14.dp).enterRise(1)
                         )
                     }
@@ -284,7 +270,7 @@ fun TodayScreen(
                     )
                 }
             }
-            if (todayExpenses.isEmpty()) item { EmptyState(Modifier.enterRise(3)) }
+            if (todayExpenses.isEmpty()) item { EmptyState(Modifier.enterRise(3), watching = state.autoDetect) }
             else item {
                 Column(
                     // The size animation sits inside the glass, because it clips and would cut off the shadow.
@@ -305,6 +291,16 @@ fun TodayScreen(
     RocketCelebration(play = launching, haptics = state.haptics, onFinished = { launching = false }, modifier = Modifier.fillMaxSize())
     }
 }
+
+/** What the Today screen can do with automatic tracking. */
+class AutoActions(
+    val setUp: () -> Unit,
+    val notNow: () -> Unit,
+    val undo: (String) -> Unit,
+    val keep: (String) -> Unit,
+    val addPending: (String) -> Unit,
+    val skipPending: (String) -> Unit
+)
 
 @Composable
 private fun NudgeBanner(nudge: Nudge, now: ZonedDateTime, onFinish: (String) -> Unit, onAdd: () -> Unit) {
@@ -343,6 +339,7 @@ fun AddSheet(state: BuddyState, initial: Expense? = null, onDismiss: () -> Unit,
         containerColor = MaterialTheme.colorScheme.surface,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
+        DialogSystemBars()
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (initial == null) "Add purchase" else "Edit purchase", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
@@ -387,7 +384,8 @@ fun AddSheet(state: BuddyState, initial: Expense? = null, onDismiss: () -> Unit,
                     else if (saveAsPreset && merchant.isNotBlank() && !hasPresetNamed(state.presets, merchant) && validatePreset(state.presets, merchant, category, reason) != null) error = validatePreset(state.presets, merchant, category, reason)
                     else {
                         if (saveAsPreset && merchant.isNotBlank() && !hasPresetNamed(state.presets, merchant)) onSavePreset(merchant, category, reason)
-                        onSave(Expense(id = initial?.id ?: java.util.UUID.randomUUID().toString(), date = date, amountPaise = p, merchant = merchant, category = category, reason = reason, note = note))
+                        // Editing keeps what the form does not show (kind, auto-detect source and hold).
+                        onSave((initial ?: Expense()).copy(date = date, amountPaise = p, merchant = merchant, category = category, reason = reason, note = note))
                     }
                 }, modifier = Modifier.fillMaxWidth(), haptics = state.haptics) { Text("Save purchase", fontWeight = FontWeight.Bold) }
             }
@@ -444,7 +442,7 @@ private fun LazyRowChips(values: List<String>, selected: String, onSelected: (St
 @Composable
 fun FinishSheet(state: BuddyState, date: String, onConfirm: () -> Unit, onAdd: () -> Unit, onDismiss: () -> Unit) {
     val localDate = runCatching { LocalDate.parse(date) }.getOrDefault(todayIndia()); val purchases = state.expenses.filter { it.date == date }; val total = netSpending(purchases); val impulses = purchases.count { it.reason == IMPULSE }
-    ModalBottomSheet(onDismissRequest = onDismiss) { Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
+    ModalBottomSheet(onDismissRequest = onDismiss) { DialogSystemBars(); Column(Modifier.fillMaxWidth().padding(24.dp).navigationBarsPadding()) {
         Text("Finish ${localDate.format(dateFormatter)}", style = MaterialTheme.typography.headlineSmall)
         Text("${purchases.size} purchases · ${rupees(total)} · $impulses impulse", style = MaterialTheme.typography.bodyLarge)
         Text(if (purchases.isEmpty()) "No purchases today?" else if (total <= state.dailyLimitPaise) "You stayed ${rupees(state.dailyLimitPaise - total)} under your daily limit." else "You went ${rupees(total - state.dailyLimitPaise)} over today's limit.", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 14.dp))
@@ -484,6 +482,7 @@ fun ImportScreen(
     snackbar: SnackbarHostState? = null
 ) {
     var step by rememberSaveable { mutableIntStateOf(0) }
+    val reducedMotion = LocalReducedMotion.current
     Scaffold(
         containerColor = Color.Transparent,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
@@ -504,9 +503,13 @@ fun ImportScreen(
                 Text(if (step == 0) "Screenshots" else "Review purchases", style = MaterialTheme.typography.headlineSmall)
             }
             if (step == 0) {
-                items(state.importImages, key = { it.id }) { image ->
-                    NotebookSurface(Modifier.fillMaxWidth()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                itemsIndexed(state.importImages, key = { _, image -> image.id }) { index, image ->
+                    val processing = image.status == "processing"
+                    NotebookSurface(Modifier.fillMaxWidth().fadeInContent((index * 45).coerceAtMost(180))) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.semantics { if (processing) liveRegion = LiveRegionMode.Polite }
+                        ) {
                             Text(
                                 when (image.status) {
                                     "processing" -> "Reading…"
@@ -515,6 +518,8 @@ fun ImportScreen(
                                     else -> image.status
                                 }, Modifier.weight(1f)
                             )
+                            if (processing && !reducedMotion) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            else if (processing) Icon(Icons.Rounded.AutoAwesome, contentDescription = "Reading screenshot", modifier = Modifier.size(18.dp))
                             if (image.status == "failed") TextButton(onClick = { onRetry(image.id) }) { Text("Retry") }
                             TextButton(onClick = { onRemove(image.id) }) { Text("Remove") }
                         }

@@ -76,6 +76,8 @@ class BuddyRepository private constructor(context: Context) {
      */
     fun mutate(transform: (BuddyState) -> BuddyState) {
         var sharedChanged = false
+        var finishCountdownRefreshNeeded = false
+        var detectedBudgetRefreshNeeded = false
         synchronized(lock) {
             val before = state0.value
             var next = transform(before)
@@ -83,6 +85,10 @@ class BuddyRepository private constructor(context: Context) {
             if (sharedChanged) next = next.copy(revision = maxOf(before.revision, next.revision) + 1)
             if (next == before) return@synchronized
             if (writeBlocked) { state0.value = next; return@synchronized }
+            finishCountdownRefreshNeeded = before.reminders != next.reminders ||
+                before.finishCountdown != next.finishCountdown || before.checkIns != next.checkIns ||
+                before.onboardingDone != next.onboardingDone || before.finishCountdownLeadMinutes != next.finishCountdownLeadMinutes || before.theme != next.theme
+            detectedBudgetRefreshNeeded = before.expenses != next.expenses || before.dailyLimitPaise != next.dailyLimitPaise || before.theme != next.theme
             val out = file.startWrite()
             try {
                 out.write(StateCodec.encode(next).toByteArray(Charsets.UTF_8))
@@ -90,6 +96,8 @@ class BuddyRepository private constructor(context: Context) {
                 state0.value = next
             } catch (e: Exception) { file.failWrite(out); throw e }
         }
+        if (finishCountdownRefreshNeeded) runCatching { FinishCountdownNotifications.refresh(app, state0.value) }
+        if (detectedBudgetRefreshNeeded) runCatching { com.spendingbuddy.app.detect.DetectionNotifications.refreshAdded(app, state0.value) }
         if (sharedChanged) sharedListeners.forEach { runCatching { it() } }
     }
 
@@ -108,7 +116,18 @@ class BuddyRepository private constructor(context: Context) {
     fun setHaptics(enabled: Boolean) = mutate { it.copy(haptics = enabled) }
     fun setReminders(enabled: Boolean) {
         mutate { it.copy(reminders = enabled) }
-        BuddyNotifications.schedule(app, enabled)
+        BuddyNotifications.schedule(app, enabled, state0.value.finishCountdownLeadMinutes)
+    }
+    /** Local opt-in: show a countdown before the 10 PM reminder using the selected lead time. */
+    fun setFinishCountdown(enabled: Boolean) = mutate { it.copy(finishCountdown = enabled) }
+    fun setPaymentUpdateMinutes(minutes: Int) {
+        require(minutes in PAYMENT_UPDATE_MINUTES)
+        mutate { it.copy(paymentUpdateMinutes = minutes) }
+    }
+    fun setFinishCountdownLeadMinutes(minutes: Int) {
+        require(minutes in FINISH_COUNTDOWN_LEAD_MINUTES)
+        mutate { it.copy(finishCountdownLeadMinutes = minutes) }
+        if (state0.value.reminders) BuddyNotifications.reschedulePreReminder(app, minutes)
     }
     /** "keypad" or "dial". */
     fun setAmountInput(mode: String) { require(mode == "keypad" || mode == "dial"); mutate { it.copy(amountInput = mode) } }
@@ -168,15 +187,52 @@ class BuddyRepository private constructor(context: Context) {
         require(expense.category.isNotBlank() && expense.reason.isNotBlank()) { "Choose a category and a reason" }
         require(LocalDate.parse(expense.date) <= todayIndia()) { "Choose today or an earlier date" }
         require(expense.kind in listOf("expense", "refund", "transfer"))
-        val clean = expense.copy(merchant = expense.merchant.trim().take(60), note = expense.note.trim().take(200), updatedAt = System.currentTimeMillis())
+        // Saving from the form means the user has looked at it: the category is settled.
+        val clean = expense.copy(merchant = expense.merchant.trim().take(60), note = expense.note.trim().take(200), updatedAt = System.currentTimeMillis(), needsCategory = false)
         mutate { current ->
-            val previousDate = current.expenses.find { it.id == clean.id }?.date
-            current.copy(
+            val previous = current.expenses.find { it.id == clean.id }
+            val next = current.copy(
                 expenses = current.expenses.filterNot { it.id == clean.id } + clean,
-                checkIns = current.checkIns.filterNot { c -> c.date == clean.date || c.date == previousDate },
+                checkIns = current.checkIns.filterNot { c -> c.date == clean.date || c.date == previous?.date },
+                heldCheckIns = current.heldCheckIns.filterValues { it.date != clean.date && it.date != previous?.date },
                 lastCategory = clean.category
             )
+            // Correcting an auto-added purchase teaches the app what that shop is.
+            if (previous?.source == SOURCE_AUTO && (previous.category != clean.category || previous.reason != clean.reason || previous.needsCategory))
+                upsertMerchantRule(next, clean.merchant, clean.category, clean.reason) else next
         }
+    }
+
+    // ---- Automatic tracking from payment messages (all on this phone; see core Detection.kt) ----
+    fun setAutoDetect(enabled: Boolean) = mutate { it.copy(autoDetect = enabled, autoDetectOffered = true) }
+    fun dismissAutoDetectOffer() = mutate { it.copy(autoDetectOffered = true) }
+    /** Applies one parsed payment and returns what happened so the caller can show the right notification. */
+    fun recordDetection(payment: ParsedPayment, now: Long = System.currentTimeMillis()): DetectionOutcome {
+        var outcome: DetectionOutcome = DetectionOutcome.Ignored
+        mutate { s ->
+            when (val result = applyDetection(s, payment, now).also { outcome = it }) {
+                is DetectionOutcome.Added -> result.state
+                is DetectionOutcome.Asked -> result.state
+                DetectionOutcome.Ignored -> s
+            }
+        }
+        return outcome
+    }
+    fun undoAuto(id: String) = mutate { undoAutoExpense(it, id) }
+    /** Ends the undo window now, so the circle can see the purchase. */
+    fun keepAuto(id: String) = mutate { keepAutoExpense(it, id) }
+    fun releaseHolds() = mutate { releaseExpiredHolds(it) }
+    fun addPending(id: String): Expense? {
+        var added: Expense? = null
+        mutate { s -> addPendingDetection(s, id).also { added = it.second }.first }
+        return added
+    }
+    fun skipPending(id: String) = mutate { skipPendingDetection(it, id) }
+    fun saveMerchantRule(merchant: String, category: String, reason: String) = mutate { upsertMerchantRule(it, merchant, category, reason) }
+    fun removeMerchantRule(key: String) = mutate { deleteMerchantRule(it, key) }
+    /** Marks a purchase as impulse, or back to [otherReason]. */
+    fun setImpulse(id: String, impulse: Boolean, otherReason: String = "Essential") = mutate { s ->
+        s.copy(expenses = s.expenses.map { if (it.id == id) it.copy(reason = if (impulse) IMPULSE else otherReason, updatedAt = System.currentTimeMillis()) else it })
     }
     @Deprecated("Use saveExpense", ReplaceWith("saveExpense(expense)"))
     fun addExpense(expense: Expense) = saveExpense(expense)
@@ -217,7 +273,8 @@ class BuddyRepository private constructor(context: Context) {
         val withinDeadline = eligibleCheckIn(d, now)
         val record = CheckIn(date, now.toInstant().toEpochMilli(), d < now.toLocalDate() && withinDeadline, withinDeadline,
             state0.value.expenses.none { it.date == date && it.kind == "expense" })
-        mutate { it.copy(checkIns = it.checkIns.filterNot { c -> c.date == date } + record) }
+        mutate { it.copy(checkIns = it.checkIns.filterNot { c -> c.date == date } + record,
+            heldCheckIns = it.heldCheckIns.filterValues { c -> c.date != date }) }
         return null
     }
 
@@ -306,7 +363,8 @@ class BuddyRepository private constructor(context: Context) {
         StateCodec.validateRestore(state0.value, restored)?.let { return@withContext it }
         mutate { s -> s.copy(name = restored.name.ifBlank { s.name }, expenses = restored.expenses, checkIns = restored.checkIns,
             dailyLimitPaise = restored.dailyLimitPaise, weeklyLimitPaise = restored.weeklyLimitPaise,
-            categories = restored.categories, reasons = restored.reasons, presets = restored.presets.take(MAX_PRESETS), onboardingDone = true) }
+            categories = restored.categories, reasons = restored.reasons, presets = restored.presets.take(MAX_PRESETS),
+            merchantRules = restored.merchantRules.take(MAX_MERCHANT_RULES), heldCheckIns = emptyMap(), onboardingDone = true) }
         null
     }
 

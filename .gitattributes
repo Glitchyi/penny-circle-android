@@ -1,0 +1,4 @@
+# Preserve the pinned public dataset's original bytes and checksum across Windows checkouts.
+core/src/test/resources/sms-corpus/*.json -text -whitespace
+# Preserve upstream license/notice wording and bytes, including their original whitespace.
+app/src/main/assets/licenses/* -text -whitespace

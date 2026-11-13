@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -56,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import com.spendingbuddy.app.BudgetSuggestion
 import com.spendingbuddy.app.BuddyState
 import com.spendingbuddy.app.FriendSnapshot
+import com.spendingbuddy.app.ImpulseStats
+import com.spendingbuddy.app.impulseStats
 import com.spendingbuddy.app.Member
 import com.spendingbuddy.app.Visibility
 import com.spendingbuddy.app.amountToPaise
@@ -113,7 +117,10 @@ private fun NoCircleContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 8.dp),
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 18.dp, top = 8.dp, end = 18.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         val tokens = LocalPennyTokens.current
@@ -401,6 +408,16 @@ private fun MemberCard(
     }
     val amountText = if (hasData && limit > 0L) "${rupees(spent)} of ${rupees(limit)} today" else if (hasData) "${rupees(spent)} today" else null
     val over = hasData && limit > 0L && spent > limit
+    // Impulse habit: shared as totals only. Older apps do not send it (impulseFreeDays = -1), so nothing is shown.
+    val impulse = when {
+        isSelf -> impulseStats(state.expenses, today)
+        snapshot != null && hasData && snapshot.impulseFreeDays >= 0 -> ImpulseStats(snapshot.impulseWeekPaise, snapshot.impulseWeekCount, snapshot.impulseFreeDays)
+        else -> null
+    }
+    val impulseText = impulse?.let {
+        (if (it.freeDays == 1) "1 day impulse-free" else "${it.freeDays} days impulse-free") +
+            if (it.weekCount > 0) " · ${rupees(it.weekPaise)} on impulse this week" else ""
+    }
 
     val summary = buildString {
         append(name)
@@ -408,6 +425,7 @@ private fun MemberCard(
         append(", ").append(statusText.lowercase())
         if (hasData) append(", streak $streakCount")
         if (amountText != null) append(", ").append(amountText)
+        if (impulseText != null) append(", ").append(impulseText)
         if (connectionText != null) append(", ").append(connectionText.lowercase())
     }
 
@@ -434,6 +452,15 @@ private fun MemberCard(
                     modifier = Modifier.padding(top = 2.dp)
                 )
                 if (limit > 0L) ProgressBar(spent, limit, over, Modifier.padding(top = 8.dp))
+            }
+            if (impulseText != null) {
+                Text(
+                    impulseText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (impulse != null && impulse.freeDays == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
             if (connectionText != null) {
                 Text(
@@ -515,6 +542,7 @@ private fun SuggestLimitsSheet(
     var error by rememberSaveable(id) { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        DialogSystemBars()
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding(),
             verticalArrangement = Arrangement.spacedBy(10.dp)

@@ -7,6 +7,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <!-- Automatic tracking: incoming bank SMS are parsed on the phone as they arrive. The inbox is never read. -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <!-- Requests Android 16 notification promotion; Android decides eligibility and presentation. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <application android:name=".BuddyApplication" android:label="Penny Circle" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false" android:theme="@style/Theme.SpendingBuddy" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask">
             <intent-filter>
@@ -25,6 +30,18 @@
             </intent-filter>
         </activity>
         <service android:name=".p2p.BuddyLinkService" android:exported="false" android:foregroundServiceType="remoteMessaging" />
+        <service android:name=".detect.PaymentNotificationListener" android:exported="true" android:label="Penny Circle purchase detection" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <receiver android:name=".detect.SmsReceiver" android:exported="true" android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".detect.DetectionActionReceiver" android:exported="false" />
+        <receiver android:name=".FinishCountdownActionReceiver" android:exported="false" />
         <receiver android:name=".p2p.BuddyBootReceiver" android:enabled="true" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
