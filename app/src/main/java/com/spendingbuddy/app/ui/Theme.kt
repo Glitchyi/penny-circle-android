@@ -6,7 +6,9 @@ import android.app.Activity
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
@@ -174,6 +176,16 @@ private val GeistMono = FontFamily(
     Font(R.font.geist_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.geist_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500)))
 )
+
+/**
+ * Named motion specs, so springs are tuned in one place. Use the spatial ones for things that move or
+ * resize, and [effects] (no overshoot) for colour and alpha.
+ */
+object PennyMotion {
+    fun <T> spatial(): SpringSpec<T> = spring(dampingRatio = 0.7f, stiffness = 380f)
+    fun <T> spatialSlow(): SpringSpec<T> = spring(dampingRatio = 0.85f, stiffness = 70f)
+    fun <T> effects(): SpringSpec<T> = spring(dampingRatio = 1f, stiffness = 380f)
+}
 
 /** Font families for direct use in components (for example amounts use Mono). */
 object PennyType {

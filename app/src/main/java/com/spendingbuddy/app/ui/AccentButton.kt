@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -33,6 +34,35 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.unit.dp
+
+/** Quiet frosted button for the second choice on a screen. Same height and press feel as [AccentButton]. */
+@Composable
+fun SecondaryButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: Shape = CircleShape,
+    content: @Composable RowScope.() -> Unit
+) {
+    val t = LocalPennyTokens.current
+    val interactionSource = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .pressScale(interactionSource)
+            .glass(shape)
+            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, role = Role.Button, onClick = onClick)
+            .defaultMinSize(minHeight = 52.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        CompositionLocalProvider(LocalContentColor provides t.text) {
+            Row(
+                Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                content = content
+            )
+        }
+    }
+}
 
 /** Bold accent-gradient button with a press squish and an optional haptic tick. */
 @Composable

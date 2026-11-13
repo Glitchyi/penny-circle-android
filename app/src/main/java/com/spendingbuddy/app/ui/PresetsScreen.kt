@@ -41,7 +41,7 @@ fun PresetsScreen(
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         topBar = { ScreenTitle("Presets", onBack) },
         floatingActionButton = {

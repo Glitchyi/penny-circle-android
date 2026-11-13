@@ -62,7 +62,7 @@ fun CircleCreateScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = { ScreenTitle("Create a circle", onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
@@ -124,7 +124,7 @@ fun CircleInviteScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = { ScreenTitle(if (groupName.isBlank()) "Join code" else "Join code for $groupName", onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
@@ -268,7 +268,7 @@ fun CircleJoinScreen(
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = { ScreenTitle("Join with a code", onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->

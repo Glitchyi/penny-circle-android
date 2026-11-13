@@ -17,7 +17,7 @@ This is for a Claude Code session on a Windows laptop that starts with only Clau
 - Do not turn off Play Protect, antivirus or any OEM security control to make an install succeed. Report the block instead.
 - Screenshots of Google Pay and the app's spending data are personal. Do not pull them off the phone, commit them, or paste them into tickets. If you capture a screen for evidence, use the test data you created.
 - Accepting licences (Android SDK, Xiaomi prompts) is the user's decision. Ask them to do it.
-- Commits carry no AI attribution of any kind. Ask the user which git name and email to use before the first commit; do not guess.
+- AI attribution lines in commits (for example `Co-Authored-By: Claude`) are allowed; the user said so on 2026-11-13. The git name and email are set globally on this machine (Advaith Narayanan, `advaith@glitchy.systems`).
 - State facts in the docs. Write "not tested" where something was not tested.
 
 ## 1. Set up the toolchain

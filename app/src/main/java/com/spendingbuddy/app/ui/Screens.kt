@@ -6,6 +6,14 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
 import android.graphics.Bitmap
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.*
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -46,6 +54,10 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,24 +110,34 @@ fun TodayScreen(
     val gap = if (compact) 8.dp else 12.dp
     val gapLarge = if (compact) 8.dp else 16.dp
     val labelStyle = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.6.sp)
-    Box(Modifier.fillMaxSize().auroraBackground()) {
+    val firstName = state.name.trim().substringBefore(' ')
+    val greeting = if (firstName.isBlank() || firstName.equals("You", ignoreCase = true)) "Today" else "Hi, $firstName"
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onBackground,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         topBar = {
-            Column(Modifier.statusBarsPadding().padding(horizontal = 18.dp).padding(top = 8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f).padding(top = 8.dp)) {
-                        Text(
-                            date.format(dateFormatter).uppercase(),
-                            style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text("YOUR SHARED DIARY", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                    }
-                    IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, "Settings") }
+            Row(
+                Modifier.statusBarsPadding().padding(horizontal = 18.dp).padding(top = 12.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(date.format(dateFormatter), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        greeting,
+                        style = MaterialTheme.typography.displayMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.semantics { heading() }
+                    )
                 }
+                val settingsPress = remember { MutableInteractionSource() }
+                Box(
+                    Modifier.size(48.dp).pressScale(settingsPress, pressed = 0.9f).glass(CircleShape, shadow = false)
+                        .clickable(interactionSource = settingsPress, indication = LocalIndication.current, role = Role.Button, onClickLabel = "Open settings", onClick = onSettings),
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Outlined.Settings, "Settings", Modifier.size(22.dp)) }
             }
         },
         bottomBar = bottomBar,
@@ -156,70 +178,80 @@ fun TodayScreen(
             }
             item {
                 val over = spent > state.dailyLimitPaise
+                val weekOver = weekSpent > state.weeklyLimitPaise
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(32.dp)).padding(horizontal = 20.dp, vertical = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        buildAnnotatedString { withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append("01  ") }; append("SPENT TODAY") },
-                        style = labelStyle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.semantics { heading(); contentDescription = "Spent today" }
-                    )
+                    Column(
+                        Modifier.fillMaxWidth().enterRise(0).glass(RoundedCornerShape(32.dp)).padding(start = 14.dp, end = 14.dp, top = 22.dp, bottom = 14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, LocalDensity.current.fontScale.coerceAtMost(1.3f))) {
+                    val gaugeStroke = 14.dp
+                    val diameter = minOf(maxWidth, if (compact) 236.dp else 292.dp)
                     val heroSize = heroFontSizeSp(
-                        availableWidthDp = (maxWidth.value - 40f).coerceAtLeast(0f),
+                        availableWidthDp = (diameter.value - 76f).coerceAtLeast(0f),
                         digitCount = (spent / 100).toString().length,
                         hasPaise = spent % 100L != 0L,
                         fontScale = LocalDensity.current.fontScale,
-                        maxSp = if (compact) 80f else 96f
+                        maxSp = if (compact) 64f else 84f,
+                        minSp = 34f
                     ).sp
-                    Row(Modifier.clearAndSetSemantics { contentDescription = "${rupees(spent)} spent today" }, horizontalArrangement = Arrangement.Center) {
-                        Text("₹", fontSize = heroSize * 0.42f, color = tokens.accent2, fontFamily = PennyType.Sans, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = (heroSize.value * 0.15f).dp))
-                        RollingAmount(
-                            rupees = spent / 100,
-                            style = TextStyle(fontFamily = PennyType.Sans, fontWeight = FontWeight.SemiBold, fontSize = heroSize, lineHeight = heroSize, letterSpacing = (-5).sp),
-                            color = MaterialTheme.colorScheme.onBackground,
-                            brush = Brush.verticalGradient(listOf(tokens.text, tokens.accent))
-                        )
-                        if (spent % 100L != 0L) Text(
-                            String.format(java.util.Locale.ROOT, ".%02d", spent % 100),
-                            style = TextStyle(fontFamily = PennyType.Mono, fontWeight = FontWeight.Medium, fontSize = 28.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 18.dp)
-                        )
-                    }
-                    }
-                    }
-                    Text(
-                        if (over) "${rupees(spent - state.dailyLimitPaise)} over today’s ${rupees(state.dailyLimitPaise)}"
-                        else "${rupees(state.dailyLimitPaise - spent)} left of ${rupees(state.dailyLimitPaise)}",
-                        color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
-                    )
-                    HorizonArc(Modifier.padding(top = gap), intensity = budgetIntensity(spent, state.dailyLimitPaise), height = if (compact) 56.dp else 84.dp, secondary = tokens.accent2)
-                    FlowRow(
-                        Modifier.padding(top = gap),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    BudgetGauge(
+                        progress = budgetIntensity(spent, state.dailyLimitPaise),
+                        over = over,
+                        diameter = diameter,
+                        stroke = gaugeStroke
                     ) {
-                        Box(Modifier.glass(CircleShape, 0.8f).padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        Column(
+                            Modifier.fillMaxSize().padding(top = gaugeStroke + if (compact) 14.dp else 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Text(
-                                "THIS WEEK ${rupees(weekSpent)} / ${rupees(state.weeklyLimitPaise)}",
-                                maxLines = 1,
-                                softWrap = false,
-                                style = labelStyle.copy(letterSpacing = 1.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "SPENT TODAY",
+                                style = labelStyle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.semantics { heading(); contentDescription = "Spent today" }
+                            )
+                            Row(Modifier.bumpOnChange(spent).clearAndSetSemantics { contentDescription = "${rupees(spent)} spent today" }, horizontalArrangement = Arrangement.Center) {
+                                Text("₹", fontSize = heroSize * 0.42f, color = tokens.muted, fontFamily = PennyType.Sans, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = (heroSize.value * 0.15f).dp))
+                                RollingAmount(
+                                    rupees = spent / 100,
+                                    style = TextStyle(fontFamily = PennyType.Sans, fontWeight = FontWeight.SemiBold, fontSize = heroSize, lineHeight = heroSize, letterSpacing = (-0.04f * heroSize.value).sp),
+                                    color = if (over) tokens.danger else tokens.text
+                                )
+                                if (spent % 100L != 0L) Text(
+                                    String.format(java.util.Locale.ROOT, ".%02d", spent % 100),
+                                    style = TextStyle(fontFamily = PennyType.Mono, fontWeight = FontWeight.Medium, fontSize = heroSize * 0.3f),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = (heroSize.value * 0.2f).dp)
+                                )
+                            }
+                            Text(
+                                "of ${rupees(state.dailyLimitPaise)} daily limit",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.weight(1f))
+                            StatusPill(
+                                if (over) "${rupees(spent - state.dailyLimitPaise)} over" else "${rupees(state.dailyLimitPaise - spent)} left",
+                                danger = over
                             )
                         }
-                        if (streakCount > 0) Box(Modifier.glass(CircleShape, 0.8f).padding(horizontal = 12.dp, vertical = 6.dp)) {
-                            Text(
-                                "◉ $streakCount-DAY STREAK",
-                                maxLines = 1,
-                                softWrap = false,
-                                style = labelStyle.copy(letterSpacing = 1.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    }
+                    }
+                    }
+                    val streakValue = if (streakCount == 1) "1 day" else "$streakCount days"
+                    val streakCaption = if (streakCount > 0) "Keep it going" else "Starts when you finish"
+                    if (LocalDensity.current.fontScale > COMPACT_FONT_SCALE) {
+                        Column(Modifier.fillMaxWidth().padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            StatTile("This week", rupees(weekSpent), "of ${rupees(state.weeklyLimitPaise)}", Modifier.fillMaxWidth(), progress = budgetIntensity(weekSpent, state.weeklyLimitPaise), over = weekOver)
+                            StatTile("Streak", streakValue, streakCaption, Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Row(Modifier.fillMaxWidth().padding(top = 20.dp).height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            StatTile("This week", rupees(weekSpent), "of ${rupees(state.weeklyLimitPaise)}", Modifier.weight(1f).fillMaxHeight(), progress = budgetIntensity(weekSpent, state.weeklyLimitPaise), over = weekOver)
+                            StatTile("Streak", streakValue, streakCaption, Modifier.weight(1f).fillMaxHeight())
                         }
                     }
                     }
@@ -232,49 +264,36 @@ fun TodayScreen(
                             haptics = state.haptics
                         )
                     } else {
-                        val finishShape = RoundedCornerShape(18.dp)
-                        Row(
-                            Modifier.fillMaxWidth().padding(top = 16.dp).glass(finishShape)
-                                .border(1.dp, Brush.horizontalGradient(listOf(tokens.accent, tokens.accent2)), finishShape)
-                                .clickable(role = Role.Button) {
-                                    if (state.haptics) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                                    onFinish(date.toString())
-                                }
-                                .defaultMinSize(minHeight = 56.dp).padding(horizontal = 20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("FINISH TODAY", fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = tokens.text)
-                            Spacer(Modifier.weight(1f))
-                            Icon(PennyIcons.ArrowRight, null, tint = tokens.accent)
-                        }
+                        FinishRow(
+                            onClick = {
+                                if (state.haptics) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                onFinish(date.toString())
+                            },
+                            modifier = Modifier.padding(top = 14.dp).enterRise(1)
+                        )
                     }
                 }
             }
             item {
-                Column {
-                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(
-                            buildAnnotatedString { withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append("02  ") }; append("PURCHASES") },
-                            style = labelStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.semantics { heading(); contentDescription = "Purchases" }
-                        )
-                        Text(
-                            "${todayExpenses.size} ${if (todayExpenses.size == 1) "ITEM" else "ITEMS"}",
-                            style = labelStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp).enterRise(2), verticalAlignment = Alignment.Bottom) {
+                    Text("Purchases", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).semantics { heading() })
+                    Text(
+                        "${todayExpenses.size} ${if (todayExpenses.size == 1) "item" else "items"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            if (todayExpenses.isEmpty()) item { EmptyState(onAdd, onNoSpend = { onFinish(date.toString()) }) }
+            if (todayExpenses.isEmpty()) item { EmptyState(Modifier.enterRise(3)) }
             else item {
                 Column(
-                    Modifier.fillMaxWidth().then(if (reduced) Modifier else Modifier.animateContentSize()).glass(RoundedCornerShape(24.dp))
+                    // The size animation sits inside the glass, because it clips and would cut off the shadow.
+                    Modifier.fillMaxWidth().enterRise(3).glass(RoundedCornerShape(24.dp)).then(if (reduced) Modifier else Modifier.animateContentSize())
                 ) {
                     todayExpenses.forEachIndexed { index, e ->
                         key(e.id) {
-                            PurchaseRow(e, flat = true, onClick = onPurchase?.let { open -> { open(e) } })
+                            // Rows rise in one after another; a purchase added later rises in on its own.
+                            PurchaseRow(e, modifier = Modifier.enterRise(4 + index.coerceAtMost(4)), flat = true, onClick = onPurchase?.let { open -> { open(e) } })
                             if (index < todayExpenses.lastIndex) HorizontalDivider(thickness = 1.dp, color = tokens.border)
                         }
                     }
@@ -325,13 +344,34 @@ fun AddSheet(state: BuddyState, initial: Expense? = null, onDismiss: () -> Unit,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())) {
-            Text(if (initial == null) "Add purchase" else "Edit purchase", style = MaterialTheme.typography.headlineSmall)
-            Text("Step ${step + 1} of 2", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(if (initial == null) "Add purchase" else "Edit purchase", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                StepBars(step, 2)
+            }
             Spacer(Modifier.height(8.dp))
-            if (step == 0) {
-                AmountStep(amount, { amount = it }, dial, { dial = it })
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = { if (amountToPaise(amount) == null || amountToPaise(amount) == 0L) error = "Enter an amount above ₹0" else { error = null; step = 1 } }, Modifier.fillMaxWidth()) { Text("Next") }
+            val reducedMotion = LocalReducedMotion.current
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    if (reducedMotion) EnterTransition.None togetherWith ExitTransition.None
+                    else {
+                        val forward = targetState > initialState
+                        (slideInHorizontally(PennyMotion.spatial()) { if (forward) it / 3 else -it / 3 } + fadeIn(PennyMotion.effects())) togetherWith
+                            (slideOutHorizontally(PennyMotion.spatial()) { if (forward) -it / 3 else it / 3 } + fadeOut(PennyMotion.effects()))
+                    }
+                },
+                label = "addStep"
+            ) { shownStep ->
+            Column {
+            if (shownStep == 0) {
+                AmountStep(amount, { amount = it; error = null }, dial, { dial = it }, state.haptics)
+                ErrorText(error)
+                Spacer(Modifier.height(12.dp))
+                AccentButton(
+                    onClick = { if (amountToPaise(amount) == null || amountToPaise(amount) == 0L) error = "Enter an amount above ₹0" else { error = null; step = 1 } },
+                    modifier = Modifier.fillMaxWidth(),
+                    haptics = state.haptics
+                ) { Text("Next", fontWeight = FontWeight.Bold) }
             } else {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Amount ₹${amount.ifBlank { "0" }}", style = MaterialTheme.typography.titleMedium)
@@ -340,7 +380,7 @@ fun AddSheet(state: BuddyState, initial: Expense? = null, onDismiss: () -> Unit,
                 DetailsStep(state, category, { category = it }, reason, { reason = it }, merchant, { merchant = it }, date, { date = it }, note, { note = it }, saveAsPreset, { saveAsPreset = it })
                 ErrorText(error)
                 Spacer(Modifier.height(16.dp))
-                Button(onClick = {
+                AccentButton(onClick = {
                     val p = amountToPaise(amount)
                     if (p == null || p <= 0L) error = "Enter an amount above ₹0"
                     else if (reason.isBlank()) error = "Choose a reason"
@@ -349,7 +389,9 @@ fun AddSheet(state: BuddyState, initial: Expense? = null, onDismiss: () -> Unit,
                         if (saveAsPreset && merchant.isNotBlank() && !hasPresetNamed(state.presets, merchant)) onSavePreset(merchant, category, reason)
                         onSave(Expense(id = initial?.id ?: java.util.UUID.randomUUID().toString(), date = date, amountPaise = p, merchant = merchant, category = category, reason = reason, note = note))
                     }
-                }, Modifier.fillMaxWidth()) { Text("Save purchase") }
+                }, modifier = Modifier.fillMaxWidth(), haptics = state.haptics) { Text("Save purchase", fontWeight = FontWeight.Bold) }
+            }
+            }
             }
             Spacer(Modifier.height(18.dp))
         }
@@ -357,25 +399,13 @@ fun AddSheet(state: BuddyState, initial: Expense? = null, onDismiss: () -> Unit,
 }
 
 @Composable
-private fun AmountStep(amount: String, onAmount: (String) -> Unit, dial: Boolean, onDial: (Boolean) -> Unit) {
-    Text("Amount", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Text("₹${amount.ifBlank { "0" }}", style = MaterialTheme.typography.displayLarge, modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Amount ${amount.ifBlank { "zero" }} rupees" })
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) { Pill("Keypad", !dial, onClick = { onDial(false) }); Spacer(Modifier.width(8.dp)); Pill("Dial", dial, onClick = { onDial(true) }) }
-    if (dial) RotaryAmountInput(value = amount, onValueChange = onAmount, haptics = true, onUseKeypad = { onDial(false) })
-    else Keypad(amount, onAmount)
-}
-
-@Composable
-private fun Keypad(amount: String, onAmount: (String) -> Unit) {
-    // Stateless: the single amount state lives in the caller, so switching modes or navigating back keeps input.
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf(".", "0", "⌫")).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) { row.forEach { key ->
-                val label = when (key) { "⌫" -> "Delete last character"; "." -> "Decimal point"; else -> "Digit $key" }
-                OutlinedButton(onClick = { onAmount(when (key) { "⌫" -> removeRotaryLastCharacter(amount); "." -> appendRotaryDecimal(amount); else -> appendRotaryDigit(amount, key.single() - '0') }) }, Modifier.weight(1f).height(64.dp).semantics { contentDescription = label }) { Text(key, style = MaterialTheme.typography.titleLarge) }
-            } }
-        }
+private fun AmountStep(amount: String, onAmount: (String) -> Unit, dial: Boolean, onDial: (Boolean) -> Unit, haptics: Boolean) {
+    AmountDisplay(amount)
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        SegmentedToggle(listOf("Keypad", "Dial"), if (dial) 1 else 0, { onDial(it == 1) }, Modifier.width(200.dp))
     }
+    if (dial) RotaryAmountInput(value = amount, onValueChange = onAmount, haptics = true, onUseKeypad = { onDial(false) })
+    else Keypad(amount, onAmount, haptics)
 }
 
 @Composable
@@ -418,8 +448,9 @@ fun FinishSheet(state: BuddyState, date: String, onConfirm: () -> Unit, onAdd: (
         Text("Finish ${localDate.format(dateFormatter)}", style = MaterialTheme.typography.headlineSmall)
         Text("${purchases.size} purchases · ${rupees(total)} · $impulses impulse", style = MaterialTheme.typography.bodyLarge)
         Text(if (purchases.isEmpty()) "No purchases today?" else if (total <= state.dailyLimitPaise) "You stayed ${rupees(state.dailyLimitPaise - total)} under your daily limit." else "You went ${rupees(total - state.dailyLimitPaise)} over today's limit.", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(vertical = 14.dp))
-        Button(onClick = onConfirm, Modifier.fillMaxWidth()) { Text(if (purchases.isEmpty()) "Mark as no-spend day" else "Yes, that's everything") }
-        OutlinedButton(onClick = onAdd, Modifier.fillMaxWidth()) { Text("Add something I missed") }
+        AccentButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth(), haptics = state.haptics) { Text(if (purchases.isEmpty()) "Mark as no-spend day" else "Yes, that's everything", fontWeight = FontWeight.Bold) }
+        Spacer(Modifier.height(10.dp))
+        SecondaryButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Add something I missed", fontWeight = FontWeight.SemiBold) }
         Spacer(Modifier.height(12.dp))
     } }
 }
@@ -427,9 +458,16 @@ fun FinishSheet(state: BuddyState, date: String, onConfirm: () -> Unit, onAdd: (
 @Composable
 fun ActivityScreen(state: BuddyState, now: ZonedDateTime, bottomBar: @Composable () -> Unit, onAdd: () -> Unit, snackbar: SnackbarHostState? = null, onPurchase: ((Expense) -> Unit)? = null) {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = { ScreenTitle("Activity") }, bottomBar = bottomBar,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
-        floatingActionButton = { ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("Add purchase") }) }
+        floatingActionButton = {
+            AccentButton(onClick = onAdd, haptics = state.haptics) {
+                Icon(PennyIcons.Add, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Add purchase", fontWeight = FontWeight.Bold)
+            }
+        }
     ) { pad -> ActivityPager(state, now, Modifier.padding(pad), onPurchase) }
 }
 
@@ -447,6 +485,7 @@ fun ImportScreen(
 ) {
     var step by rememberSaveable { mutableIntStateOf(0) }
     Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         topBar = { ScreenTitle("Import review", onBack) },
         bottomBar = {

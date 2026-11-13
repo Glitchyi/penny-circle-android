@@ -15,6 +15,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.remember
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -24,9 +34,24 @@ import com.spendingbuddy.app.*
 
 @Composable
 fun ScreenTitle(title: String, onBack: (() -> Unit)? = null, action: (@Composable () -> Unit)? = null) {
-    Row(Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-        Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+    Row(Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 18.dp).padding(top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) {
+            val press = remember { MutableInteractionSource() }
+            Box(
+                Modifier.size(48.dp).pressScale(press, pressed = 0.9f).glass(CircleShape, shadow = false)
+                    .clickable(interactionSource = press, indication = LocalIndication.current, role = Role.Button, onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", Modifier.size(22.dp)) }
+            Spacer(Modifier.width(12.dp))
+        }
+        // Top-level screens get the large title; pushed screens a smaller one beside the back button.
+        Text(
+            title,
+            style = if (onBack == null) MaterialTheme.typography.displayMedium else MaterialTheme.typography.headlineSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).semantics { heading() }
+        )
         action?.invoke()
     }
 }
@@ -34,14 +59,10 @@ fun ScreenTitle(title: String, onBack: (() -> Unit)? = null, action: (@Composabl
 @Composable
 fun Rule(modifier: Modifier = Modifier) = HorizontalDivider(modifier, thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-/** Flat card: surface fill, 1dp hairline border, 12dp radius, no shadow. */
+/** Standard card: the same frosted panel as the Today screen, with 16dp padding. */
 @Composable
 fun NotebookSurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier.clip(PennyShapes.Large).background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, PennyShapes.Large).padding(16.dp),
-        content = content
-    )
+    Column(modifier.glass(RoundedCornerShape(24.dp)).padding(16.dp), content = content)
 }
 
 @Composable
@@ -51,12 +72,17 @@ fun Pill(text: String, selected: Boolean = false, tone: Color? = null, onClick: 
     val bg = if (tone != null && onClick == null) tone
         else if (selected) scheme.primary.copy(alpha = 0.16f) else Color.Transparent
     val content = scheme.onSurface
-    val borderStroke = if (selected) BorderStroke(2.dp, scheme.primary) else BorderStroke(1.dp, scheme.outline)
-    if (onClick != null) AssistChip(
-        onClick = onClick, label = { Text(text) }, shape = PennyShapes.Medium,
-        colors = AssistChipDefaults.assistChipColors(containerColor = bg, labelColor = content),
+    val borderStroke = if (selected) BorderStroke(1.5.dp, scheme.primary) else BorderStroke(1.dp, scheme.outlineVariant)
+    // Selectable pills are capsules; the tick means the choice never relies on colour alone.
+    if (onClick != null) FilterChip(
+        selected = selected, onClick = onClick, label = { Text(text) }, shape = CircleShape,
+        leadingIcon = if (selected) { { Icon(Icons.Rounded.Check, null, Modifier.size(18.dp)) } } else null,
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = Color.Transparent, labelColor = content,
+            selectedContainerColor = bg, selectedLabelColor = content, selectedLeadingIconColor = scheme.primary
+        ),
         border = borderStroke
-    ) else Surface(shape = PennyShapes.Medium, color = bg, border = borderStroke) {
+    ) else Surface(shape = CircleShape, color = bg, border = borderStroke) {
         Text(text, color = content, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
     }
 }
@@ -73,8 +99,14 @@ fun CategoryChip(category: String, modifier: Modifier = Modifier) {
 @Composable
 fun ProgressBar(value: Long, max: Long, over: Boolean = false, modifier: Modifier = Modifier) {
     val fraction = if (max <= 0) 0f else (value.toFloat() / max).coerceIn(0f, 1f)
-    Box(modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f))) {
-        Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary))
+    val t = LocalPennyTokens.current
+    Box(modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(t.text.copy(alpha = 0.10f))) {
+        Box(
+            Modifier.fillMaxWidth(fraction).fillMaxHeight().background(
+                if (over) Brush.horizontalGradient(listOf(t.danger, t.danger)) else Brush.horizontalGradient(listOf(t.accent, t.accent2)),
+                CircleShape
+            )
+        )
     }
 }
 
@@ -102,12 +134,22 @@ fun PurchaseRow(expense: Expense, modifier: Modifier = Modifier, onClick: (() ->
 }
 
 @Composable
-fun EmptyState(onAdd: () -> Unit, onNoSpend: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp)) {
-        Text("NOTHING LOGGED YET", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.4.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = onNoSpend) { Text("Record a no-spend day") }
+fun EmptyState(modifier: Modifier = Modifier) {
+    // Quiet on purpose: Add purchase and Finish today (which offers the no-spend day) are the actions.
+    val t = LocalPennyTokens.current
+    val tint = if (t.dark) lerp(t.accent, Color.White, 0.45f) else t.accent
+    Row(modifier.fillMaxWidth().semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp).background(t.accent.copy(alpha = if (t.dark) 0.20f else 0.10f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.ReceiptLong, null, tint = tint, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Nothing logged yet", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "No spending today? Finish the day to record it.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

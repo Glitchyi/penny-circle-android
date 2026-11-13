@@ -4,6 +4,14 @@ import com.spendingbuddy.app.rupees
 import com.spendingbuddy.app.IMPULSE
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -219,6 +227,11 @@ fun SpendingBuddyApp() {
                 dismissButton = { TextButton(onClick = { openPurchaseId = null }) { Text("Close") } }
             )
         }
+        // One drifting background for the whole app, in its own layer so its animation does not redraw the
+        // screens. Screens use transparent scaffolds and inherit the content colour from here.
+        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.matchParentSize().graphicsLayer().auroraBackground())
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
         NavHost(navController = nav, startDestination = if (state.onboardingDone) TODAY else ONBOARDING) {
             composable(TODAY) {
                 TodayScreen(
@@ -392,6 +405,8 @@ fun SpendingBuddyApp() {
                 )
             }
         }
+        }
+        }
     }
 }
 
@@ -412,56 +427,69 @@ private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect
     val primary = MaterialTheme.colorScheme.primary
     val selectedIndex = topLevel.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     val hasSelection = topLevel.any { it.route == currentRoute }
-    Column(Modifier.background(tokens.bg.copy(alpha = if (tokens.dark) 0.72f else 0.80f)).navigationBarsPadding()) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color.Transparent, tokens.accent.copy(alpha = 0.55f), tokens.accent2.copy(alpha = 0.55f), Color.Transparent)
-                    )
-                )
-        )
+    Column(Modifier.background(tokens.bg.copy(alpha = if (tokens.dark) 0.84f else 0.90f)).navigationBarsPadding()) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(tokens.border.copy(alpha = 0.6f)))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val itemWidth = maxWidth / topLevel.size
+            val pillWidth = 64.dp
+            // The pill slides between tabs with a little overshoot.
             val indicatorX by animateDpAsState(
-                targetValue = itemWidth * selectedIndex + 16.dp,
-                animationSpec = if (reduced) snap() else spring(dampingRatio = 0.6f, stiffness = 380f),
+                targetValue = itemWidth * selectedIndex + (itemWidth - pillWidth) / 2,
+                animationSpec = if (reduced) snap() else PennyMotion.spatial(),
                 label = "tabIndicator"
             )
+            if (hasSelection) {
+                Box(
+                    Modifier
+                        .offset { IntOffset(indicatorX.roundToPx(), 8.dp.roundToPx()) }
+                        .size(pillWidth, 32.dp)
+                        .background(
+                            Brush.horizontalGradient(listOf(tokens.accent.copy(alpha = 0.30f), tokens.accent2.copy(alpha = 0.22f))),
+                            CircleShape
+                        )
+                )
+            }
             Row(Modifier.fillMaxWidth().selectableGroup()) {
                 topLevel.forEach { item ->
                     val isSelected = currentRoute == item.route
                     val tint by animateColorAsState(
-                        if (isSelected) primary else tokens.muted,
-                        animationSpec = if (reduced) snap<Color>() else spring<Color>(),
+                        if (isSelected) (if (tokens.dark) Color.White else primary) else tokens.muted,
+                        animationSpec = if (reduced) snap<Color>() else PennyMotion.effects(),
                         label = "tabTint"
                     )
                     val labelColor by animateColorAsState(
                         if (isSelected) tokens.text else tokens.muted,
-                        animationSpec = if (reduced) snap<Color>() else spring<Color>(),
+                        animationSpec = if (reduced) snap<Color>() else PennyMotion.effects(),
                         label = "tabLabel"
+                    )
+                    // The chosen icon pops, then settles slightly larger than the others.
+                    val iconScale = animateFloatAsState(
+                        if (isSelected) 1.1f else 1f,
+                        animationSpec = if (reduced) snap() else spring(dampingRatio = 0.38f, stiffness = 480f),
+                        label = "tabIcon"
                     )
                     Column(
                         Modifier
                             .weight(1f)
-                            .defaultMinSize(minHeight = 56.dp)
-                            .then(
-                                if (isSelected) Modifier.background(
-                                    Brush.verticalGradient(listOf(tokens.accent.copy(alpha = 0.16f), Color.Transparent))
-                                ) else Modifier
-                            )
+                            .defaultMinSize(minHeight = 64.dp)
                             .selectable(selected = isSelected, role = Role.Tab, onClick = {
                                 if (!isSelected) {
                                     onSelect(item.route)
                                     if (haptics) view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                                 }
                             })
-                            .padding(top = 10.dp, bottom = 8.dp),
+                            .padding(top = 8.dp, bottom = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(item.icon, null, tint = tint)
+                        Box(Modifier.height(32.dp), contentAlignment = Alignment.Center) {
+                            Icon(
+                                item.icon,
+                                null,
+                                tint = tint,
+                                modifier = Modifier.graphicsLayer { scaleX = iconScale.value; scaleY = iconScale.value }
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
                         Text(
                             item.label,
                             style = MaterialTheme.typography.labelMedium,
@@ -472,18 +500,6 @@ private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect
                         )
                     }
                 }
-            }
-            if (hasSelection) {
-                Box(
-                    Modifier
-                        .offset { IntOffset(indicatorX.roundToPx(), 0) }
-                        .width(itemWidth - 32.dp)
-                        .height(3.dp)
-                        .background(
-                            Brush.horizontalGradient(listOf(tokens.accent, tokens.accent2)),
-                            RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp)
-                        )
-                )
             }
         }
     }

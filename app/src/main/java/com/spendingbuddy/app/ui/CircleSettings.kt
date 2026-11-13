@@ -51,7 +51,7 @@ fun CircleSettingsScreen(
     val listState = rememberLazyListState()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = { ScreenTitle(if (group == null) "Circle" else "${group.name} settings", onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->

@@ -6,6 +6,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -61,113 +71,139 @@ fun SettingsScreen(
     var name by rememberSaveable { mutableStateOf(state.name) }
     val listState = rememberLazyListState()
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         topBar = { ScreenTitle("Settings", onBack) }
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).scrollFadingEdges(listState, bottom = 40.dp),
             state = listState,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             item {
-                Text("Profile", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it; onName(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Name shown to your circle") }
-                )
-            }
-            item { SettingsButton("Spending limits", onLimits) }
-            if (onCircle != null) item { SettingsButton("Circle settings", onCircle) }
-            if (onPresets != null) item { SettingsButton("Presets", onPresets) }
-            item {
-                Text(
-                    "Appearance",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-                ThemePicker(
-                    selectedId = state.theme,
-                    onSelect = onTheme,
-                    modifier = Modifier.padding(top = 8.dp),
-                    haptics = state.haptics
-                )
-            }
-            item {
-                Text(
-                    "Amount entry",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Pill("Keypad", state.amountInput == "keypad", onClick = { onAmountInput("keypad") })
-                    Spacer(Modifier.width(8.dp))
-                    Pill("Rotary dial", state.amountInput == "dial", onClick = { onAmountInput("dial") })
+                SettingsGroup("Profile", Modifier.enterRise(0)) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it; onName(it) },
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                        label = { Text("Name shown to your circle") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    GroupDivider()
+                    SettingsButton("Spending limits", onLimits)
+                    if (onCircle != null) { GroupDivider(); SettingsButton("Circle settings", onCircle) }
+                    if (onPresets != null) { GroupDivider(); SettingsButton("Presets", onPresets) }
                 }
             }
-            item { SettingSwitch("Haptics", state.haptics, onHaptics) }
             item {
-                Text(
-                    "Reminders",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-                SettingSwitch("10 PM check-in, 10 AM grace deadline", state.reminders, onReminders)
-                SettingSwitch("Circle activity alerts", state.friendAlerts, onAlerts)
+                Column(Modifier.enterRise(1)) {
+                    GroupLabel("Appearance")
+                    ThemePicker(
+                        selectedId = state.theme,
+                        onSelect = onTheme,
+                        haptics = state.haptics
+                    )
+                }
             }
             item {
-                SettingSwitch("Stay reachable", state.stayReachable, onReachable)
-                Text(
-                    "Keeps a background connection so friends' updates can arrive sooner. Android may still delay it to save battery.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                SettingsButton("Battery settings", onBattery)
+                SettingsGroup("Input", Modifier.enterRise(2)) {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Amount entry", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        SegmentedToggle(
+                            listOf("Keypad", "Dial"),
+                            if (state.amountInput == "dial") 1 else 0,
+                            { onAmountInput(if (it == 1) "dial" else "keypad") },
+                            Modifier.width(168.dp)
+                        )
+                    }
+                    GroupDivider()
+                    SettingSwitch("Haptics", state.haptics, onHaptics)
+                }
             }
             item {
-                Text(
-                    "Your data",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-                SettingsButton("Export backup", onExport)
-                SettingsButton("Restore backup", onRestore)
+                SettingsGroup("Reminders") {
+                    SettingSwitch("10 PM check-in, 10 AM grace deadline", state.reminders, onReminders)
+                    GroupDivider()
+                    SettingSwitch("Circle activity alerts", state.friendAlerts, onAlerts)
+                }
             }
             item {
-                Text(
-                    "Version 0.2.0 · Circle sync is direct between phones.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 18.dp)
-                )
+                SettingsGroup(
+                    "Connection",
+                    footer = "Staying reachable keeps a background connection so friends' updates can arrive sooner. Android may still delay it to save battery."
+                ) {
+                    SettingSwitch("Stay reachable", state.stayReachable, onReachable)
+                    GroupDivider()
+                    SettingsButton("Battery settings", onBattery)
+                }
+            }
+            item {
+                SettingsGroup("Your data", footer = "Version 0.2.0 · Circle sync is direct between phones.") {
+                    SettingsButton("Export backup", onExport)
+                    GroupDivider()
+                    SettingsButton("Restore backup", onRestore)
+                }
             }
         }
     }
 }
 
 @Composable
+private fun GroupLabel(title: String) {
+    Text(
+        title.uppercase(),
+        style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 6.dp, bottom = 8.dp).semantics { heading(); contentDescription = title }
+    )
+}
+
+@Composable
+private fun GroupDivider() {
+    HorizontalDivider(Modifier.padding(start = 16.dp), thickness = 1.dp, color = LocalPennyTokens.current.text.copy(alpha = 0.08f))
+}
+
+/** A labelled group of rows in one frosted card, with an optional explanation underneath. */
+@Composable
+private fun SettingsGroup(title: String, modifier: Modifier = Modifier, footer: String? = null, content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier) {
+        GroupLabel(title)
+        Column(Modifier.fillMaxWidth().glass(RoundedCornerShape(24.dp)), content = content)
+        if (footer != null) Text(
+            footer,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 8.dp)
+        )
+    }
+}
+
+@Composable
 private fun SettingsButton(text: String, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-        contentPadding = PaddingValues(vertical = 14.dp, horizontal = 0.dp)
+    Row(
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text, Modifier.weight(1f))
-        Icon(Icons.Rounded.ChevronRight, null)
+        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun SettingSwitch(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    // The whole row is the switch, so the touch target is the full width.
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp),
+        Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Switch(checked = checked, onCheckedChange = onChange)
+        Text(text, Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
@@ -176,7 +212,7 @@ fun LimitsScreen(state: BuddyState, onBack: () -> Unit, onSave: (Long, Long) -> 
     var daily by rememberSaveable { mutableStateOf((state.dailyLimitPaise / 100).toString()) }
     var weekly by rememberSaveable { mutableStateOf((state.weeklyLimitPaise / 100).toString()) }
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = { ScreenTitle("Spending limits", onBack) }
     ) { padding ->
         Column(
@@ -230,7 +266,7 @@ fun OnboardingScreen(
     onSkip: () -> Unit,
     onReminders: () -> Unit
 ) {
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+    Scaffold(containerColor = androidx.compose.ui.graphics.Color.Transparent) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween

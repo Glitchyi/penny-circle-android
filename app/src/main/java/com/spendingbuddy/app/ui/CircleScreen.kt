@@ -2,6 +2,12 @@
 
 package com.spendingbuddy.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -80,7 +86,7 @@ fun CircleScreen(
 ) {
     val group = state.group
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
             ScreenTitle(group?.name ?: "Circle") {
                 if (group != null) {
@@ -107,15 +113,27 @@ private fun NoCircleContent(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Icon(Icons.Rounded.Groups, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
-        Text("Spend side by side", style = MaterialTheme.typography.headlineSmall)
-        Text(
-            "A circle is a small group of friends who see each other's day, send nudges and suggest limits. The admin approves everyone who joins.",
-            style = MaterialTheme.typography.bodyLarge
-        )
+        val tokens = LocalPennyTokens.current
+        NotebookSurface(Modifier.fillMaxWidth().enterRise(0)) {
+            Box(
+                Modifier.size(52.dp).background(
+                    Brush.linearGradient(listOf(tokens.accent.copy(alpha = 0.30f), tokens.accent2.copy(alpha = 0.22f))),
+                    CircleShape
+                ),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Rounded.Groups, null, Modifier.size(28.dp), tint = if (tokens.dark) Color.White else tokens.accent) }
+            Spacer(Modifier.height(14.dp))
+            Text("Spend side by side", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "A circle is a small group of friends who see each other's day, send nudges and suggest limits. The admin approves everyone who joins.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         if (joinProgress is JoinProgress.Waiting || joinProgress is JoinProgress.Requesting) {
             NotebookSurface(Modifier.fillMaxWidth()) {
                 Text("Join request in progress", style = MaterialTheme.typography.titleMedium)
@@ -127,11 +145,11 @@ private fun NoCircleContent(
                 TextButton(onClick = onJoin, modifier = Modifier.heightIn(min = 48.dp)) { Text("See request") }
             }
         }
-        Button(onClick = onCreate, modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
-            Text("Create a circle", style = MaterialTheme.typography.titleMedium)
+        AccentButton(onClick = onCreate, modifier = Modifier.fillMaxWidth().enterRise(1)) {
+            Text("Create a circle", fontWeight = FontWeight.Bold)
         }
-        OutlinedButton(onClick = onJoin, modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
-            Text("Join with a code", style = MaterialTheme.typography.titleMedium)
+        SecondaryButton(onClick = onJoin, modifier = Modifier.fillMaxWidth().enterRise(2)) {
+            Text("Join with a code", fontWeight = FontWeight.SemiBold)
         }
         Text(
             "Your data goes straight between phones, encrypted. No account, and no server keeps a copy.",
