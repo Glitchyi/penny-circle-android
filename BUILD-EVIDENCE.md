@@ -232,3 +232,5 @@ Build environment notes: the Gradle wrapper's own download timed out here, so Gr
 ## Signing caveat
 
 A valid signature from the private release key does not remove sideload, Play Protect, OEM security or developer-trust warnings, and is not Google Play certification or a security audit. Do not disable Play Protect or other security controls to install. Keep the keystore and password outside Git and reuse the same key for updates.
+
+Public0.3.1 verification (14November2026): GitHub asset digest and independently downloaded unauthenticated APK match SHA256 7e02fabd51a36084ca9997658ec4feb2f5ab9d5b22ebc4bf0ab4364f11d25c19. Tag v0.3.1 points to 34e3356175ae4b6b1274dcb3eb33dc0924098247; application source is a528e1e0b7fd0b96bb3ebac5c05c044add2542a5. See design-audit/evidence/all-batches/publication.json.

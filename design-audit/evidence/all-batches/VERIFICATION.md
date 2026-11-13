@@ -33,3 +33,7 @@ The final ledger contains126 source-resolved finding records; six owner-dependen
 ## Remaining decisions and unavailable evidence
 
 Logo/radius/shadow/figure-scale choices remain open. F-Droid deferred. Physical TalkBack/haptic quality, real OEM/payment delivery, Doze and measured frame timing/FPS are not proven by emulator screenshots. The original audit's3062blocked checks remain historical blocked verdicts; this pass does not automatically convert them into passes.
+
+## Public distribution verification
+
+Release0.3.1 is published at https://github.com/Glitchyi/penny-circle-android/releases/tag/v0.3.1 . GitHub's asset digest and a separate unauthenticated public download both match the signed local APK SHA256. Tag commit:34e3356175ae4b6b1274dcb3eb33dc0924098247. See publication.json.

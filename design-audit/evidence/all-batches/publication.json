@@ -1,0 +1,13 @@
+{
+  "version": "0.3.1",
+  "checked": "2026-11-14T01:26:10.8881922+05:30",
+  "applicationSourceCommit": "a528e1e0b7fd0b96bb3ebac5c05c044add2542a5",
+  "bytes": 77203821,
+  "apkUrl": "https://github.com/Glitchyi/penny-circle-android/releases/download/v0.3.1/Penny-Circle-0.3.1-arm64.apk",
+  "tagCommit": "34e3356175ae4b6b1274dcb3eb33dc0924098247",
+  "sha256": "7e02fabd51a36084ca9997658ec4feb2f5ab9d5b22ebc4bf0ab4364f11d25c19",
+  "githubAssetDigestMatched": true,
+  "versionCode": 4,
+  "unauthenticatedPublicDownloadMatched": true,
+  "releaseUrl": "https://github.com/Glitchyi/penny-circle-android/releases/tag/v0.3.1"
+}
