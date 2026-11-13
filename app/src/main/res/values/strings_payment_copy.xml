@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="payment_reason_cash">Cash withdrawal</string>
+    <string name="payment_reason_no_shop">No shop name in the message</string>
+    <string name="payment_reason_large">Large amount</string>
+    <string name="payment_reason_person">Looks like a payment to a person</string>
+    <string name="payment_reason_transfer">Bank transfer. Check what this was for</string>
+    <string name="payment_reason_new_name">New name. Add it once and it will be automatic next time</string>
+</resources>

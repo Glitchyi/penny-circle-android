@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="completion_error_date">Choose a valid date.</string>
+    <string name="completion_error_future">Choose today or an earlier date to finish.</string>
+    <string name="completion_error_done">This day is already finished.</string>
+</resources>

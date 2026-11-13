@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="amount_step">Step %1$d of %2$d</string>
+    <string name="amount_zero">Amount zero rupees</string>
+    <string name="amount_value">Amount %1$s rupees</string>
+    <string name="amount_digit">Digit %1$s</string>
+    <string name="amount_delete_last_character">Delete last character</string>
+    <string name="amount_decimal_point">Decimal point</string>
+</resources>

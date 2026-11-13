@@ -9,10 +9,9 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Immutable
@@ -22,6 +21,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.State
+import androidx.compose.runtime.key
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
@@ -115,6 +116,13 @@ object PennyShapes {
     val Large = RoundedCornerShape(12.dp)
 }
 
+/** Existing contract border roles; these do not define a new spacing or radius scale. */
+object PennyBorders {
+    val Hairline = 1.dp
+    val SelectedChip = 1.5.dp
+    val PermissionHighlight = 2.dp
+}
+
 /** The app's visual looks. `id` is the stored value in BuddyState.theme. */
 enum class AppTheme(val id: String, val label: String, val mood: String, val isDark: Boolean) {
     LightHorizon("light_horizon", "Light Horizon", "White, hairlines, violet.", false),
@@ -173,6 +181,20 @@ val LocalPennyTokens = compositionLocalOf { AppTheme.LightHorizon.tokens() }
 /** True when reduced motion is on (system animator duration scale is 0). Provided by SpendingBuddyTheme. */
 val LocalReducedMotion = compositionLocalOf { false }
 
+/** Animate interactions inside a theme; never blend a prior theme into a new semantic pair. */
+@Composable
+internal fun pennyAnimatedColor(
+    targetValue: Color,
+    animationSpec: AnimationSpec<Color> = PennyMotion.effects(),
+    label: String = "pennyColor"
+): State<Color> {
+    val tokens = LocalPennyTokens.current
+    val reduced = LocalReducedMotion.current
+    return key(tokens, reduced) {
+        animateColorAsState(targetValue, if (reduced) snap() else animationSpec, label = label)
+    }
+}
+
 private val Geist = FontFamily(
     Font(R.font.geist_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.geist_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
@@ -212,7 +234,16 @@ private fun typography() = Typography(
     bodyMedium = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
     labelLarge = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
     labelMedium = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
-)
+).let { approved ->
+    // Unspecified Material roles inherit an approved Geist role rather than platform defaults.
+    approved.copy(
+        bodySmall = approved.bodyMedium,
+        labelSmall = approved.labelMedium,
+        titleSmall = approved.titleMedium,
+        headlineMedium = approved.displaySmall,
+        headlineLarge = approved.displayMedium
+    )
+}
 
 private val PennyTypography: Typography = typography()
 
@@ -220,9 +251,6 @@ private val PennyMaterialShapes = Shapes(
     extraSmall = PennyShapes.Small, small = PennyShapes.Small, medium = PennyShapes.Medium,
     large = PennyShapes.Large, extraLarge = PennyShapes.Large
 )
-
-@Composable
-private fun anim(target: Color, spec: AnimationSpec<Color>): Color = animateColorAsState(target, spec, label = "theme").value
 
 /** True when the system animator duration scale is 0 (reduced motion / animations off). */
 @Composable
@@ -255,17 +283,12 @@ fun DialogSystemBars() {
     }
 }
 
-/** Penny Circle theme with selectable looks. Colours animate when the theme changes. */
+/** Switch semantic foreground/background pairs together so theme changes preserve contrast. */
 @Composable
 fun SpendingBuddyTheme(theme: AppTheme = AppTheme.LightHorizon, content: @Composable () -> Unit) {
     val t = remember(theme) { theme.tokens() }
     val reduceMotion = rememberReducedMotion()
-    val spec: AnimationSpec<Color> = if (reduceMotion) snap() else tween(450)
-    val a = PennyTokens(
-        bg = anim(t.bg, spec), surface = anim(t.surface, spec), surface2 = anim(t.surface2, spec), border = anim(t.border, spec),
-        rule = anim(t.rule, spec), text = anim(t.text, spec), muted = anim(t.muted, spec), accent = anim(t.accent, spec),
-        accent2 = anim(t.accent2, spec), accent3 = anim(t.accent3, spec), onAccent = anim(t.onAccent, spec), danger = anim(t.danger, spec), dark = t.dark
-    )
+    val a = t
     val colorScheme: ColorScheme = if (!a.dark) {
         lightColorScheme(
             primary = a.accent, onPrimary = a.onAccent,

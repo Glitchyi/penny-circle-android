@@ -1,7 +1,6 @@
 package com.spendingbuddy.app
 
 import android.graphics.Paint
-import android.provider.Settings
 import android.graphics.Typeface
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -32,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +50,8 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.res.ResourcesCompat
+import com.spendingbuddy.app.ui.LocalReducedMotion
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -203,9 +205,8 @@ fun RotaryAmountInput(
 ) {
     val view = LocalView.current
     val context = LocalContext.current
-    val reducedMotion = remember {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
-    }
+    val reducedMotion = LocalReducedMotion.current
+    val numeralTypeface = remember(context) { ResourcesCompat.getFont(context, R.font.geist_mono_variable) ?: Typeface.MONOSPACE }
     val scope = rememberCoroutineScope()
     val wheel = remember { Animatable(0f) }
     var interactiveRotation by remember { mutableStateOf(0f) }
@@ -215,6 +216,12 @@ fun RotaryAmountInput(
     val latestValue = rememberUpdatedState(value)
     val latestOnValueChange = rememberUpdatedState(onValueChange)
     val latestHaptics = rememberUpdatedState(haptics)
+    LaunchedEffect(reducedMotion) {
+        // Either setting change cancels pointer ownership; reset the visual and hit-test frame.
+        wheel.snapTo(0f)
+        interactiveRotation = 0f
+        interactionLocked = false
+    }
 
     // Theme colours are read here because the Canvas draw scope cannot read MaterialTheme.
     val wheelColor = MaterialTheme.colorScheme.primary
@@ -261,7 +268,7 @@ fun RotaryAmountInput(
                 modifier = Modifier.heightIn(min = 48.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-            ) { Text("Undo") }
+            ) { Text(context.getString(R.string.rotary_undo)) }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(
                 onClick = clearAction,
@@ -269,12 +276,12 @@ fun RotaryAmountInput(
                 modifier = Modifier.heightIn(min = 48.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
-            ) { Text("Clear") }
+            ) { Text(context.getString(R.string.rotary_clear)) }
         }
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Touch a number hole, turn clockwise to the stop, then release",
+            text = context.getString(R.string.rotary_instructions),
             style = MaterialTheme.typography.bodySmall,
             color = mutedTextColor,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
@@ -292,17 +299,17 @@ fun RotaryAmountInput(
                     .aspectRatio(1f)
                     .semantics {
                         role = Role.Button
-                        contentDescription = "Rotary dial for entering the amount. Optional touch gesture: place a finger in a numbered hole and turn clockwise to the stop."
-                        stateDescription = "Current amount ${value.trim().removePrefix("₹").ifBlank { "0" }} rupees"
+                        contentDescription = context.getString(R.string.rotary_description)
+                        stateDescription = context.getString(R.string.rotary_amount, value.trim().removePrefix("₹").ifBlank { "0" })
                         customActions = listOf(
-                            CustomAccessibilityAction("Use keypad instead") {
+                            CustomAccessibilityAction(context.getString(R.string.rotary_use_keypad)) {
                                 onUseKeypad?.invoke() ?: run { keypadVisible = true }
                                 true
                             },
-                            CustomAccessibilityAction("Enter digit zero") { commitValue(appendRotaryDigit(latestValue.value, 0)); true }
+                            CustomAccessibilityAction(context.getString(R.string.rotary_enter_zero)) { commitValue(appendRotaryDigit(latestValue.value, 0)); true }
                         )
                     }
-                    .pointerInput(interactionLocked) {
+                    .pointerInput(interactionLocked, reducedMotion) {
                         if (interactionLocked) return@pointerInput
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
@@ -411,7 +418,6 @@ fun RotaryAmountInput(
                 for (digit in 1..ROTARY_HOLE_COUNT) {
                     val angle = rotaryHoleAngle(digit) + wheelRotation
                     val hole = rotaryPoint(center, holeOrbit, angle)
-                    drawCircle(Color.Black.copy(alpha = 0.18f), holeRadius * 1.08f, hole + Offset(0f, radius * 0.012f))
                     drawCircle(holeColor, holeRadius, hole)
                 }
 
@@ -433,7 +439,7 @@ fun RotaryAmountInput(
                     val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = wheelColor.toArgb()
                         textAlign = Paint.Align.CENTER
-                        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                        typeface = numeralTypeface
                         textSize = radius * 0.105f
                     }
                     val numberOffset = -(numberPaint.ascent() + numberPaint.descent()) / 2f
@@ -445,7 +451,7 @@ fun RotaryAmountInput(
                     val zeroPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         color = wheelColor.toArgb()
                         textAlign = Paint.Align.CENTER
-                        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                        typeface = numeralTypeface
                         textSize = radius * 0.14f
                     }
                     val zeroOffset = -(zeroPaint.ascent() + zeroPaint.descent()) / 2f
@@ -457,7 +463,7 @@ fun RotaryAmountInput(
         if (keypadVisible) {
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Accessible digit keypad",
+                text = context.getString(R.string.rotary_accessible_keypad),
                 style = MaterialTheme.typography.labelLarge,
                 color = wheelColor,
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
@@ -477,6 +483,7 @@ private fun RotaryKeypad(
     onDecimal: () -> Unit,
     onBackspace: () -> Unit
 ) {
+    val context = LocalContext.current
     val rows = listOf(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
@@ -486,14 +493,14 @@ private fun RotaryKeypad(
         rows.forEach { row ->
             RotaryKeyRow {
                 row.forEach { label ->
-                    RotaryKey(label, "Enter digit $label") { onDigit(label.single() - '0') }
+                    RotaryKey(label, context.getString(R.string.rotary_enter_digit, label)) { onDigit(label.single() - '0') }
                 }
             }
         }
         RotaryKeyRow {
-            RotaryKey(".", "Add decimal point", onDecimal)
-            RotaryKey("0", "Enter digit 0") { onDigit(0) }
-            RotaryKey("⌫", "Delete last amount character", onBackspace)
+            RotaryKey(".", context.getString(R.string.rotary_add_decimal), onDecimal)
+            RotaryKey("0", context.getString(R.string.rotary_enter_digit, "0")) { onDigit(0) }
+            RotaryKey("⌫", context.getString(R.string.rotary_delete_character), onBackspace)
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
@@ -60,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import com.spendingbuddy.app.BuddyState
 import com.spendingbuddy.app.Expense
 import com.spendingbuddy.app.PendingDetection
+import com.spendingbuddy.app.paymentReviewReason
 import com.spendingbuddy.app.dayTotals
 import com.spendingbuddy.app.rupees
 import com.spendingbuddy.app.weekStart
@@ -91,6 +95,7 @@ internal fun weekDays(state: BuddyState, today: LocalDate): List<WeekDay> {
  */
 @Composable
 internal fun TodayHero(spent: Long, limit: Long, days: List<WeekDay>, streak: Int, compact: Boolean, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val over = spent > limit
     val label = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.4.sp)
@@ -100,12 +105,12 @@ internal fun TodayHero(spent: Long, limit: Long, days: List<WeekDay>, streak: In
             val stackLabels = LocalDensity.current.fontScale >= 1.3f || maxWidth < 300.dp
             if (stackLabels) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("SPENT TODAY", style = label, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading(); contentDescription = "Spent today" })
-                    Text("$percent% OF LIMIT", style = label, color = if (over) t.danger else t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.End).clearAndSetSemantics { })
+                    Text(context.getString(R.string.today_hero_spent_today), style = label, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading(); contentDescription = context.getString(R.string.today_hero_spent_today_baddc) })
+                    Text(context.getString(R.string.today_hero_percent_of_limit, percent), style = label, color = if (over) t.danger else t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.align(Alignment.End).clearAndSetSemantics { })
                 }
             } else Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("SPENT TODAY", style = label, color = t.muted, modifier = Modifier.weight(1f).semantics { heading(); contentDescription = "Spent today" })
-                Text("$percent% OF LIMIT", style = label, color = if (over) t.danger else t.muted, modifier = Modifier.clearAndSetSemantics { })
+                Text(context.getString(R.string.today_hero_spent_today), style = label, color = t.muted, modifier = Modifier.weight(1f).semantics { heading(); contentDescription = context.getString(R.string.today_hero_spent_today_baddc) })
+                Text(context.getString(R.string.today_hero_percent_of_limit, percent), style = label, color = if (over) t.danger else t.muted, modifier = Modifier.clearAndSetSemantics { })
             }
         }
         BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 2.dp)) {
@@ -119,7 +124,7 @@ internal fun TodayHero(spent: Long, limit: Long, days: List<WeekDay>, streak: In
                     maxSp = if (compact) 60f else 76f,
                     minSp = 34f
                 ).sp
-                Row(Modifier.bumpOnChange(spent).clearAndSetSemantics { contentDescription = "${rupees(spent)} spent today" }) {
+                Row(Modifier.bumpOnChange(spent).clearAndSetSemantics { contentDescription = context.getString(R.string.today_hero_amount_spent_today, rupees(spent)) }) {
                     Text("₹", fontSize = size * 0.5f, color = t.muted, fontFamily = PennyType.Sans, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = (size.value * 0.14f).dp, end = 2.dp))
                     RollingAmount(
                         rupees = spent / 100,
@@ -141,41 +146,41 @@ internal fun TodayHero(spent: Long, limit: Long, days: List<WeekDay>, streak: In
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Three states, each with its own words and icon: comfortable, close to the limit, and over it.
             val near = !over && percent >= 80
-            val tone = if (over) t.danger else if (near) t.text else if (t.dark) lerp(t.accent, Color.White, 0.4f) else t.accent
+            val tone = if (over) t.danger else if (near) t.text else if (t.dark) lerp(t.accent, t.text, 0.4f) else t.accent
             Icon(if (over || near) Icons.Rounded.ErrorOutline else Icons.Rounded.Check, null, tint = tone, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
             Text(
-                if (over) "${rupees(spent - limit)} over the limit" else if (near) "Only ${rupees(limit - spent)} left" else "${rupees(limit - spent)} left",
+                if (over) context.getString(R.string.today_hero_amount_over_limit, rupees(spent - limit)) else if (near) context.getString(R.string.today_hero_amount_only_left, rupees(limit - spent)) else context.getString(R.string.today_hero_amount_left, rupees(limit - spent)),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = tone,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            Text("of ${rupees(limit)}", style = MaterialTheme.typography.bodyMedium.copy(fontFamily = PennyType.Mono), color = t.muted, maxLines = 1)
+            Text(context.getString(R.string.today_hero_of_limit, rupees(limit)), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = PennyType.Mono), color = t.muted, maxLines = 1)
         }
         HorizontalDivider(Modifier.padding(vertical = if (compact) 12.dp else 16.dp), thickness = 1.dp, color = t.text.copy(alpha = 0.08f))
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val stackLabels = LocalDensity.current.fontScale >= 1.3f || maxWidth < 300.dp
             if (stackLabels) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("THIS WEEK", style = label, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading(); contentDescription = "This week" })
+                    Text(context.getString(R.string.today_hero_this_week), style = label, color = t.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading(); contentDescription = context.getString(R.string.today_hero_this_week_8c4ee) })
                     Text(
-                        if (streak > 0) "$streak-DAY STREAK" else "NO STREAK YET",
+                        if (streak > 0) context.getString(R.string.today_hero_streak_display, streak) else context.getString(R.string.today_hero_no_streak_yet),
                         style = label,
                         color = if (streak > 0) t.text else t.muted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.align(Alignment.End).semantics { contentDescription = if (streak > 0) "$streak day streak" else "No streak yet" }
+                        modifier = Modifier.align(Alignment.End).semantics { contentDescription = if (streak > 0) context.getString(R.string.today_hero_streak_description, streak) else context.getString(R.string.today_hero_no_streak_yet_9a45d) }
                     )
                 }
             } else Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("THIS WEEK", style = label, color = t.muted, modifier = Modifier.weight(1f).semantics { heading(); contentDescription = "This week" })
+                Text(context.getString(R.string.today_hero_this_week), style = label, color = t.muted, modifier = Modifier.weight(1f).semantics { heading(); contentDescription = context.getString(R.string.today_hero_this_week_8c4ee) })
                 Text(
-                    if (streak > 0) "$streak-DAY STREAK" else "NO STREAK YET",
+                    if (streak > 0) context.getString(R.string.today_hero_streak_display, streak) else context.getString(R.string.today_hero_no_streak_yet),
                     style = label,
                     color = if (streak > 0) t.text else t.muted,
-                    modifier = Modifier.semantics { contentDescription = if (streak > 0) "$streak day streak" else "No streak yet" }
+                    modifier = Modifier.semantics { contentDescription = if (streak > 0) context.getString(R.string.today_hero_streak_description, streak) else context.getString(R.string.today_hero_no_streak_yet_9a45d) }
                 )
             }
         }
@@ -194,7 +199,7 @@ private fun LimitBar(progress: Float, over: Boolean, height: Dp = 12.dp) {
     // Read only while drawing, so the animation never recomposes the hero.
     val level = animateFloatAsState(if (shown || reduced) progress.coerceIn(0f, 1f) else 0f, if (reduced) snap() else PennyMotion.spatialSlow(), label = "limitBar")
     val from = if (over) t.danger else t.accent
-    val to = if (over) t.danger else t.accent2
+    val to = from
     val track = t.text.copy(alpha = if (t.dark) 0.10f else 0.08f)
     Box(
         Modifier.fillMaxWidth().height(height).clearAndSetSemantics { }.drawBehind {
@@ -209,6 +214,7 @@ private fun LimitBar(progress: Float, over: Boolean, height: Dp = 12.dp) {
 /** Seven small rings, Monday to Sunday. Each fills with that day's share of the daily limit; today's is larger. */
 @Composable
 private fun WeekRings(days: List<WeekDay>, limit: Long) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val reduced = LocalReducedMotion.current
     var shown by remember { mutableStateOf(false) }
@@ -222,15 +228,17 @@ private fun WeekRings(days: List<WeekDay>, limit: Long) {
             val stroke = if (day.today) 5.dp else 4.dp
             val color = if (over) t.danger else t.accent
             val track = t.text.copy(alpha = if (day.future) 0.06f else if (t.dark) 0.14f else 0.10f)
-            val description = buildString {
-                append(day.name)
-                if (day.today) append(", today")
-                if (day.future) append(", not yet") else {
-                    append(", ${rupees(day.spent)}")
-                    if (over) append(", over the limit")
-                    if (day.finished) append(", finished")
-                }
-            }
+            val description = context.getString(when {
+                day.future -> R.string.today_hero_day_future
+                day.today && over && day.finished -> R.string.today_hero_day_today_amount_over_finished
+                day.today && over -> R.string.today_hero_day_today_amount_over
+                day.today && day.finished -> R.string.today_hero_day_today_amount_finished
+                day.today -> R.string.today_hero_day_today_amount
+                over && day.finished -> R.string.today_hero_day_amount_over_finished
+                over -> R.string.today_hero_day_amount_over
+                day.finished -> R.string.today_hero_day_amount_finished
+                else -> R.string.today_hero_day_amount
+            }, day.name, rupees(day.spent))
             Column(Modifier.clearAndSetSemantics { contentDescription = description }, horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     Modifier.size(ring).drawBehind {
@@ -245,7 +253,7 @@ private fun WeekRings(days: List<WeekDay>, limit: Long) {
                 ) {
                     when {
                         over -> Text("!", color = t.danger, fontWeight = FontWeight.Bold, fontSize = if (day.today) 16.sp else 13.sp, fontFamily = PennyType.Sans)
-                        day.finished -> Icon(Icons.Rounded.Check, null, tint = if (t.dark) Color.White else t.accent, modifier = Modifier.size(if (day.today) 18.dp else 14.dp))
+                        day.finished -> Icon(Icons.Rounded.Check, null, tint = if (t.dark) t.text else t.accent, modifier = Modifier.size(if (day.today) 18.dp else 14.dp))
                     }
                 }
                 Spacer(Modifier.height(6.dp))
@@ -273,7 +281,7 @@ private fun NoticeCard(modifier: Modifier = Modifier, content: @Composable () ->
 private fun NoticeTitle(text: String) {
     val t = LocalPennyTokens.current
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.AutoAwesome, null, tint = if (t.dark) lerp(t.accent, Color.White, 0.4f) else t.accent, modifier = Modifier.size(18.dp))
+        Icon(Icons.Rounded.AutoAwesome, null, tint = if (t.dark) lerp(t.accent, t.text, 0.4f) else t.accent, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(text, style = MaterialTheme.typography.titleMedium, color = t.text)
     }
@@ -282,16 +290,17 @@ private fun NoticeTitle(text: String) {
 /** Shown until the user turns automatic tracking on or says not now. */
 @Composable
 internal fun AutoPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     NoticeCard(modifier) {
-        NoticeTitle("Track purchases automatically")
+        NoticeTitle(context.getString(R.string.today_hero_track_purchases_automatically))
         Text(
-            "Penny Circle can read payment alerts on this phone and log purchases for you. Messages are read on the phone only and are never stored or sent.",
+            context.getString(R.string.today_hero_penny_circle_can_read_payment_alerts),
             style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(top = 6.dp, end = 8.dp)
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onNotNow, modifier = Modifier.heightIn(min = 48.dp)) { Text("Not now") }
-            TextButton(onClick = onTurnOn, modifier = Modifier.heightIn(min = 48.dp)) { Text("Set it up", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onNotNow, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.today_hero_not_now)) }
+            TextButton(onClick = onTurnOn, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.today_hero_set_up_automatic_tracking)) }
         }
     }
 }
@@ -299,18 +308,19 @@ internal fun AutoPromptCard(onTurnOn: () -> Unit, onNotNow: () -> Unit, modifier
 /** A payment the app was not sure about. Nothing is saved until the user chooses. */
 @Composable
 internal fun PendingDetectionCard(pending: PendingDetection, onAdd: () -> Unit, onSkip: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     NoticeCard(modifier) {
-        NoticeTitle("Add this payment?")
+        NoticeTitle(context.getString(R.string.today_hero_add_this_payment))
         Text(
-            "${rupees(pending.amountPaise)} · ${pending.merchant.ifBlank { "No shop name" }}",
+            context.getString(R.string.today_hero_amount_merchant, rupees(pending.amountPaise), pending.merchant.ifBlank { context.getString(R.string.today_hero_no_shop_name) }),
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = t.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp, end = 8.dp)
         )
-        Text("${pending.why}.", style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(end = 8.dp))
+        Text(context.getString(R.string.today_hero_reason_sentence, context.paymentReviewReason(pending.why)), style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(end = 8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onSkip, modifier = Modifier.heightIn(min = 48.dp)) { Text("Skip") }
-            TextButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) { Text("Add", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onSkip, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.today_hero_skip)) }
+            TextButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.today_hero_add), fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -318,23 +328,24 @@ internal fun PendingDetectionCard(pending: PendingDetection, onAdd: () -> Unit, 
 /** A purchase that was just added automatically and can still be undone before the circle sees it. */
 @Composable
 internal fun HeldPurchaseCard(expense: Expense, inCircle: Boolean, minutesLeft: Long, onUndo: () -> Unit, onKeep: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     NoticeCard(modifier) {
-        NoticeTitle("Added automatically")
+        NoticeTitle(context.getString(R.string.today_hero_added_automatically))
         Text(
-            "${rupees(expense.amountPaise)} · ${expense.merchant.ifBlank { expense.category }}",
+            context.getString(R.string.today_hero_amount_merchant, rupees(expense.amountPaise), expense.merchant.ifBlank { expense.category }),
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = t.text, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp, end = 8.dp)
         )
         val minutes = minutesLeft.coerceAtLeast(1)
         Text(
-            (if (expense.needsCategory) "Needs a category. " else "${expense.category}. ") +
-                if (inCircle) "Your circle sees it in about $minutes min, or now if you keep it." else "You can undo it for about $minutes min.",
+            if (expense.needsCategory) context.getString(if (inCircle) R.string.today_hero_hold_circle_needs_category else R.string.today_hero_hold_solo_needs_category, minutes)
+                else context.getString(if (inCircle) R.string.today_hero_hold_circle_category else R.string.today_hero_hold_solo_category, expense.category, minutes),
             style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(end = 8.dp)
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = onUndo, modifier = Modifier.heightIn(min = 48.dp)) { Text("Undo") }
-            TextButton(onClick = onKeep, modifier = Modifier.heightIn(min = 48.dp)) { Text("Keep", fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onUndo, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.today_hero_undo)) }
+            TextButton(onClick = onKeep, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.today_hero_keep), fontWeight = FontWeight.Bold) }
         }
     }
 }

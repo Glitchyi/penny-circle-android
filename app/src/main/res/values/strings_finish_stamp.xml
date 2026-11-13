@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finish_stamp_finished_at">Finished at %1$s</string>
+    <string name="finish_stamp_done">Done</string>
+    <string name="finish_stamp_day_finished">Day finished</string>
+    <string name="finish_stamp_finished_today">Finished today</string>
+</resources>

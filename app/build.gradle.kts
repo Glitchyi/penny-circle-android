@@ -13,8 +13,8 @@ android {
         applicationId = "com.spendingbuddy.app"
         minSdk = 33
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.3.1"
         // Distribution targets ARM64 phones; the debug variant also supports our x86_64 emulators.
         ndk { abiFilters += "arm64-v8a" }
     }

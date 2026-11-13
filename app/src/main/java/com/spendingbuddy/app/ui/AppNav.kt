@@ -1,8 +1,12 @@
 package com.spendingbuddy.app.ui
 
+import android.content.Context
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import com.spendingbuddy.app.R
+import com.spendingbuddy.app.RecoveryKind
 import com.spendingbuddy.app.rupees
 import com.spendingbuddy.app.IMPULSE
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +27,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -48,8 +53,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Brush
@@ -57,6 +69,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.window.DialogProperties
@@ -77,8 +90,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
@@ -97,6 +114,7 @@ import com.spendingbuddy.app.detect.PurchaseDetector
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.spendingbuddy.app.Destinations
+import com.spendingbuddy.app.notificationTopLevelRoute
 import com.spendingbuddy.app.Expense
 import com.spendingbuddy.app.INDIA_ZONE
 import com.spendingbuddy.app.MainActivity
@@ -108,6 +126,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import androidx.compose.animation.core.Animatable
 import java.time.ZonedDateTime
 import java.time.LocalDate
@@ -127,12 +149,12 @@ private const val AUTO_DETECT = "autodetect"
 private const val IMPORT = "import"
 private const val ONBOARDING = "onboarding"
 
-private class TopLevel(val route: String, val label: String, val icon: ImageVector)
+private class TopLevel(val route: String, @StringRes val labelRes: Int, val icon: ImageVector)
 
 private val topLevel = listOf(
-    TopLevel(TODAY, "Today", PennyIcons.Today),
-    TopLevel(ACTIVITY, "Activity", PennyIcons.Activity),
-    TopLevel(CIRCLE, "Circle", PennyIcons.Circle)
+    TopLevel(TODAY, R.string.shell_today, PennyIcons.Today),
+    TopLevel(ACTIVITY, R.string.shell_activity, PennyIcons.Activity),
+    TopLevel(CIRCLE, R.string.shell_circle, PennyIcons.Circle)
 )
 
 /** The one place that reads per-member reachability from the manager's status. */
@@ -153,15 +175,54 @@ fun SpendingBuddyApp() {
     }
     val peerStatus by peerManager.status.collectAsState()
     val loadProblem by repo.loadProblem.collectAsState()
+    val recoveryOperation by repo.recoveryOperation.collectAsState()
+    val restoreInProgress = recoveryOperation?.kind == RecoveryKind.Restore
+    val recoveryInProgress = recoveryOperation != null
     val nav = rememberNavController()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val actions = remember { ManagerCircleActions(peerManager, scope, snackbar) { code -> activity?.shareInvite(code) } }
+    val actions = remember { ManagerCircleActions(context.applicationContext, peerManager, scope, snackbar) { code -> activity?.shareInvite(code) } }
     val now by produceState(ZonedDateTime.now(INDIA_ZONE)) {
         while (true) { delay(30_000); value = ZonedDateTime.now(INDIA_ZONE) }
     }
     var addOpen by rememberSaveable { mutableStateOf(false) }
     var finishDate by rememberSaveable { mutableStateOf<String?>(null) }
+    var dailyLimitDraft by rememberSaveable { mutableStateOf<String?>(null) }
+    var weeklyLimitDraft by rememberSaveable { mutableStateOf<String?>(null) }
+    var circleCreateDraft by rememberSaveable { mutableStateOf("") }
+    var circleJoinDraft by rememberSaveable { mutableStateOf("") }
+    val purchaseDrafts = rememberSaveableStateHolder()
+    val localActionMutex = remember { Mutex() }
+    var lastLocalFailure by remember { mutableStateOf<String?>(null) }
+    var localBusyKeys by remember { mutableStateOf(emptySet<String>()) }
+    var loadRecoveryError by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmFreshStart by rememberSaveable { mutableStateOf(false) }
+    var recoveryBusy by remember { mutableStateOf(false) }
+    var recoveryJob by remember { mutableStateOf<Job?>(null) }
+    fun safeLocalAction(key: String? = null, onSuccess: () -> Unit = {}, operation: suspend () -> Unit) {
+        if (key != null && key in localBusyKeys) return
+        if (key != null) localBusyKeys = localBusyKeys + key
+        scope.launch {
+            var ownsKey = key != null
+            try {
+                // One queue preserves name keystroke order and preference changes across IO dispatches.
+                val problem = localActionMutex.withLock {
+                    localOperationError(context.getString(R.string.shell_settings_save_error)) { operation(); null }
+                }
+                // Snackbar lifetime must not keep a failed command locked against an immediate retry.
+                if (key != null) localBusyKeys = localBusyKeys - key
+                ownsKey = false
+                if (problem == null) { lastLocalFailure = null; onSuccess() }
+                else if (lastLocalFailure != problem || snackbar.currentSnackbarData == null) {
+                    lastLocalFailure = problem
+                    snackbar.currentSnackbarData?.dismiss()
+                    snackbar.showSnackbar(problem)
+                }
+            } finally {
+                if (ownsKey && key != null) localBusyKeys = localBusyKeys - key
+            }
+        }
+    }
     var accessTick by remember { mutableIntStateOf(0) }
     LifecycleResumeEffect(Unit) { accessTick++; onPauseOrDispose { } }
     val detectionAccess = remember(accessTick) {
@@ -171,27 +232,26 @@ fun SpendingBuddyApp() {
         )
     }
 
-    val saveExpense: (Expense) -> Unit = { expense ->
-        val previousCheckIns = state.checkIns.filter { it.date == expense.date }
-        val isNew = state.expenses.none { it.id == expense.id }
-        try {
-            repo.saveExpense(expense)
-            addOpen = false
+    val saveExpense: suspend (Expense) -> String? = { expense ->
+        val before = repo.state.value
+        val previousCheckIns = before.checkIns.filter { it.date == expense.date }
+        val isNew = before.expenses.none { it.id == expense.id }
+        val problem = localOperationError(context.getString(R.string.shell_save_purchase_error)) { repo.saveExpense(expense); null }
+        if (problem == null) {
             scope.launch {
                 snackbar.currentSnackbarData?.dismiss()
                 val result = snackbar.showSnackbar(
-                    "Purchase saved",
-                    actionLabel = if (isNew) "Undo" else null,
+                    context.getString(R.string.shell_purchase_saved),
+                    actionLabel = if (isNew) context.getString(R.string.shell_undo) else null,
                     duration = SnackbarDuration.Short
                 )
-                if (result == SnackbarResult.ActionPerformed) repo.undoSave(expense.id, previousCheckIns)
-            }
-        } catch (e: Exception) {
-            scope.launch {
-                snackbar.currentSnackbarData?.dismiss()
-                snackbar.showSnackbar(e.message?.takeIf { it.isNotBlank() } ?: "Couldn't save that purchase. Try again.")
+                if (result == SnackbarResult.ActionPerformed) {
+                    localOperationError(context.getString(R.string.shell_undo_purchase_error)) { repo.undoSave(expense.id, previousCheckIns); null }
+                        ?.let { snackbar.showSnackbar(it) }
+                }
             }
         }
+        problem
     }
 
     var openPurchaseId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -206,9 +266,8 @@ fun SpendingBuddyApp() {
     LaunchedEffect(activity) {
         activity?.onUiReady()
         activity?.destination?.collect { requested ->
+            notificationTopLevelRoute(requested)?.let { nav.goTopLevel(it) }
             when (requested) {
-                Destinations.ACTIVITY -> nav.goTopLevel(ACTIVITY)
-                Destinations.CIRCLE, Destinations.BUDDY -> nav.goTopLevel(CIRCLE)
                 Destinations.SETTINGS -> nav.navigate(SETTINGS)
                 Destinations.IMPORT -> if (nav.currentDestination?.route != IMPORT) nav.navigate(IMPORT)
                 Destinations.ADD -> { addOpen = true }
@@ -230,10 +289,21 @@ fun SpendingBuddyApp() {
         }
     }
     LaunchedEffect(activity) {
-        activity?.messages?.collect { snackbar.showSnackbar(it, duration = SnackbarDuration.Short) }
+        activity?.messages?.collect {
+            if (repo.loadProblem.value != null) loadRecoveryError = it
+            else snackbar.showSnackbar(it, duration = SnackbarDuration.Short)
+        }
     }
     LaunchedEffect(peerStatus.lastError) {
-        peerStatus.lastError?.let { snackbar.showSnackbar("Sync problem: $it", duration = SnackbarDuration.Short) }
+        peerStatus.lastError?.let { snackbar.showSnackbar(context.getString(R.string.shell_sync_error, it), duration = SnackbarDuration.Short) }
+    }
+    LaunchedEffect(recoveryOperation) {
+        if (restoreInProgress && repo.loadProblem.value == null) {
+            val progress = context.getString(R.string.backup_restoring)
+            snackbar.currentSnackbarData?.dismiss()
+            try { snackbar.showSnackbar(progress, duration = SnackbarDuration.Indefinite) }
+            finally { if (snackbar.currentSnackbarData?.visuals?.message == progress) snackbar.currentSnackbarData?.dismiss() }
+        }
     }
 
     SpendingBuddyTheme(AppTheme.fromId(state.theme)) {
@@ -248,55 +318,207 @@ fun SpendingBuddyApp() {
         var paneSettleJob by remember { mutableStateOf<Job?>(null) }
         var gestureSourceRoute by remember { mutableStateOf<String?>(null) }
         var gestureTargetRoute by remember { mutableStateOf<String?>(null) }
-        LaunchedEffect(currentRoute) {
-            if (gestureSourceRoute == null && gestureTargetRoute == null) {
+        var paneWidthPx by remember { mutableFloatStateOf(0f) }
+        var paneGestureGeneration by remember { mutableIntStateOf(0) }
+        LaunchedEffect(reducedMotion, layoutSign) {
+            paneSettleJob?.cancel()
+            paneDragOffset = 0f
+            gestureSourceRoute = null
+            gestureTargetRoute = null
+        }
+        LaunchedEffect(currentRoute, paneSwipeEnabled) {
+            if (!paneSwipeEnabled || (gestureSourceRoute != null && currentRoute != gestureSourceRoute)) {
+                // Keep the full-width preview until the new NavHost entry has composed its first frame.
+                if (currentRoute == gestureTargetRoute) withFrameNanos { }
                 paneSettleJob?.cancel()
                 paneDragOffset = 0f
+                gestureSourceRoute = null
+                gestureTargetRoute = null
             }
         }
         loadProblem?.let { reason ->
+            val closeSafely: () -> Unit = { recoveryJob?.cancel(); activity?.closeForRecovery() }
+            if (!confirmFreshStart) {
             AlertDialog(
-                onDismissRequest = {},
-                properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-                title = { Text("Your saved data couldn't be opened") },
+                onDismissRequest = closeSafely,
+                properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = false),
+                title = { Text(context.getString(R.string.shell_load_problem_title)) },
                 text = {
-                    Text(
-                        "$reason\n\nA copy of the file was kept on this phone and nothing has been overwritten. " +
-                            "Until you choose, new changes are not saved. Starting fresh begins with empty data; restoring loads a backup file you exported earlier."
-                    )
+                    Column {
+                        Text(stringResource(R.string.shell_load_problem_body, reason))
+                        if (restoreInProgress) Text(stringResource(R.string.backup_restoring), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                        ErrorText(loadRecoveryError)
+                        TextButton(
+                            enabled = !recoveryInProgress,
+                            onClick = { if (repo.recoveryOperation.value == null) { loadRecoveryError = null; confirmFreshStart = true } },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text(stringResource(R.string.shell_start_fresh)) }
+                    }
                 },
-                confirmButton = { TextButton(onClick = { repo.acknowledgeLoadProblem() }) { Text("Start fresh") } },
+                confirmButton = { TextButton(enabled = !recoveryInProgress, onClick = { if (repo.recoveryOperation.value == null) { loadRecoveryError = null; activity?.restoreBackup() } }) { Text(context.getString(R.string.shell_restore_backup)) } },
                 dismissButton = {
-                    TextButton(onClick = { repo.acknowledgeLoadProblem(); activity?.restoreBackup() }) { Text("Restore a backup") }
+                    TextButton(onClick = closeSafely) { Text(stringResource(R.string.shell_close_app)) }
                 }
             )
+            } else {
+                AlertDialog(
+                    onDismissRequest = { if (recoveryBusy || repo.recoveryOperation.value != null) closeSafely() else confirmFreshStart = false },
+                    title = { Text(stringResource(R.string.shell_start_fresh_title)) },
+                    text = {
+                        Column {
+                            Text(stringResource(R.string.shell_start_fresh_body))
+                            if (restoreInProgress) Text(stringResource(R.string.backup_restoring), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                            ErrorText(loadRecoveryError)
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            enabled = !recoveryBusy && !recoveryInProgress,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            onClick = {
+                                if (!recoveryBusy) {
+                                    val operation = repo.beginFreshStart() ?: return@TextButton
+                                    recoveryBusy = true
+                                    loadRecoveryError = null
+                                    val job = scope.launch {
+                                    try {
+                                        loadRecoveryError = localOperationError(context.getString(R.string.shell_start_fresh_error)) { repo.startFreshAfterLoadProblem(operation); null }
+                                        if (loadRecoveryError == null) confirmFreshStart = false
+                                    } finally { recoveryBusy = false }
+                                    }
+                                    recoveryJob = job
+                                    job.invokeOnCompletion { repo.finishRecovery(operation) }
+                                }
+                            }
+                        ) { Text(stringResource(if (recoveryBusy) R.string.shell_starting_fresh else R.string.shell_start_fresh)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { if (recoveryBusy || repo.recoveryOperation.value != null) closeSafely() else confirmFreshStart = false }) {
+                            Text(stringResource(if (recoveryBusy || recoveryInProgress) R.string.shell_close_app else R.string.shell_keep_existing_file))
+                        }
+                    }
+                )
+            }
         }
         state.expenses.find { it.id == openPurchaseId }?.let { expense ->
             PurchaseDetailsSheet(
                 expense = expense,
                 onDismiss = { openPurchaseId = null },
                 onEdit = { openPurchaseId = null; editPurchaseId = expense.id },
-                onToggleImpulse = { repo.setImpulse(expense.id, expense.reason != IMPULSE); openPurchaseId = null },
+                onToggleImpulse = { impulse ->
+                    localOperationError(context.getString(R.string.shell_update_purchase_error)) { repo.setImpulse(expense.id, impulse); null }
+                },
                 onDelete = {
-                        val previousCheckIns = state.checkIns.filter { it.date == expense.date }
-                        openPurchaseId = null
-                        val removed = repo.deleteExpense(expense.id)
-                        if (removed != null) scope.launch {
+                        val previousCheckIns = repo.state.value.checkIns.filter { it.date == expense.date }
+                        var removed: Expense? = null
+                        val problem = localOperationError(context.getString(R.string.shell_delete_purchase_error)) { removed = repo.deleteExpense(expense.id); null }
+                        val deleted = removed
+                        if (problem == null) openPurchaseId = null
+                        if (problem == null && deleted != null) scope.launch {
                             snackbar.currentSnackbarData?.dismiss()
-                            val result = snackbar.showSnackbar("Purchase deleted", actionLabel = "Undo", duration = SnackbarDuration.Long)
-                            if (result == SnackbarResult.ActionPerformed) repo.undoDelete(removed, previousCheckIns)
+                            val result = snackbar.showSnackbar(context.getString(R.string.shell_purchase_deleted), actionLabel = context.getString(R.string.shell_undo), duration = SnackbarDuration.Long)
+                            if (result == SnackbarResult.ActionPerformed) {
+                                localOperationError(context.getString(R.string.shell_restore_purchase_error)) { repo.undoDelete(deleted, previousCheckIns); null }
+                                    ?.let { snackbar.showSnackbar(it) }
+                            }
                         }
+                        problem
                 }
             )
         }
         state.expenses.find { it.id == editPurchaseId }?.let { expense ->
+            val draftKey = "purchase:edit:${expense.id}"
+            purchaseDrafts.SaveableStateProvider(draftKey) {
             AddSheet(
                 state,
                 initial = expense,
                 onDismiss = { editPurchaseId = null },
-                onSave = { saveExpense(it); editPurchaseId = null },
-                onSavePreset = { name, cat, why -> repo.savePreset(name, cat, why) }
+                onSave = { saveExpense(it).also { problem -> if (problem == null) purchaseDrafts.removeState(draftKey) } },
+                onSavePreset = { name, cat, why -> localOperationError(context.getString(R.string.shell_save_preset_error)) { repo.savePreset(name, cat, why) } }
             )
+            }
+        }
+        if (addOpen) {
+            purchaseDrafts.SaveableStateProvider("purchase:add") {
+                AddSheet(
+                    state,
+                    onDismiss = { addOpen = false },
+                    onSave = { saveExpense(it).also { problem -> if (problem == null) purchaseDrafts.removeState("purchase:add") } },
+                    onSavePreset = { name, cat, why -> localOperationError(context.getString(R.string.shell_save_preset_error)) { repo.savePreset(name, cat, why) } }
+                )
+            }
+        }
+        finishDate?.let { date ->
+            FinishSheet(
+                state,
+                date,
+                onConfirm = { context.finishDayMessage(localOperationError(context.getString(R.string.shell_finish_day_error)) { repo.completeDay(date) }) },
+                onAdd = { finishDate = null; addOpen = true },
+                onDismiss = { finishDate = null }
+            )
+        }
+        // Preview and committed panes use the same screens and callbacks; no data work starts here.
+        val topLevelContent: @Composable (String) -> Unit = { route ->
+            when (route) {
+                TODAY -> {
+                TodayScreen(
+                    state = state,
+                    now = now,
+                    bottomBar = bottomBar,
+                    onAdd = { addOpen = true },
+                    onFinish = { finishDate = it },
+                    onFinishNow = { date ->
+                        scope.launch {
+                            context.finishDayMessage(localOperationError(context.getString(R.string.shell_finish_day_error)) { repo.completeDay(date) })
+                                ?.let { snackbar.showSnackbar(it) }
+                        }
+                    },
+                    onSettings = { nav.navigate(SETTINGS) },
+                    onFinishYesterday = { finishDate = now.toLocalDate().minusDays(1).toString() },
+                    snackbar = snackbar,
+                    onPurchase = openPurchase,
+                    autoAccessReady = detectionAccess.sms || detectionAccess.notificationAccess,
+                    auto = AutoActions(
+                        setUp = { nav.navigate(AUTO_DETECT) },
+                        notNow = { safeLocalAction { repo.dismissAutoDetectOffer() } },
+                        undo = { id -> safeLocalAction { repo.undoAuto(id); DetectionNotifications.cancelAdded(context, id) } },
+                        keep = { id -> safeLocalAction { repo.keepAuto(id); DetectionNotifications.cancelAdded(context, id) } },
+                        addPending = { id -> safeLocalAction { repo.addPending(id); DetectionNotifications.cancelAsk(context, id) } },
+                        skipPending = { id -> safeLocalAction { repo.skipPending(id); DetectionNotifications.cancelAsk(context, id) } }
+                    )
+                )
+                }
+                ACTIVITY -> {
+                ActivityScreen(state, now, bottomBar, onAdd = { addOpen = true }, snackbar = snackbar, onPurchase = openPurchase)
+                }
+                CIRCLE -> {
+                CircleScreen(
+                    state = state,
+                    joinProgress = peerStatus.joinProgress,
+                    reachableIds = reachableIds(peerStatus),
+                    actions = actions,
+                    snackbar = snackbar,
+                    bottomBar = bottomBar,
+                    onCreate = { nav.navigate(CIRCLE_CREATE) },
+                    onJoin = { nav.navigate(CIRCLE_JOIN) },
+                    onInvite = { nav.navigate(CIRCLE_INVITE) },
+                    onCircleSettings = { nav.navigate(CIRCLE_SETTINGS) },
+                    memberLinks = peerStatus.members
+                )
+                }
+                else -> Unit
+            }
+        }
+        val latestTopLevelContent by rememberUpdatedState(topLevelContent)
+        // This owner outlives every NavHost entry. Previews and taps must restore the same per-tab
+        // values even when the destination has not yet entered the navigation back stack.
+        val topLevelStateHolder = rememberSaveableStateHolder()
+        val topLevelPanes = remember {
+            topLevel.associate { item ->
+                item.route to movableContentOf {
+                    topLevelStateHolder.SaveableStateProvider(item.route) { latestTopLevelContent(item.route) }
+                }
+            }
         }
         // One drifting background for the whole app, in its own layer so its animation does not redraw the
         // screens. Screens use transparent scaffolds and inherit the content colour from here.
@@ -305,18 +527,26 @@ fun SpendingBuddyApp() {
         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
         Column(Modifier.fillMaxSize()) {
         Box(
-            Modifier.weight(1f).pointerInput(currentRoute, paneSwipeEnabled, layoutSign, state.haptics, reducedMotion) {
+            Modifier.weight(1f).clipToBounds().onSizeChanged { measured ->
+                if (paneWidthPx != measured.width.toFloat()) {
+                    paneSettleJob?.cancel()
+                    paneDragOffset = 0f
+                    gestureSourceRoute = null
+                    gestureTargetRoute = null
+                    paneWidthPx = measured.width.toFloat()
+                }
+            }.pointerInput(currentRoute, paneSwipeEnabled, layoutSign, state.haptics, reducedMotion, paneWidthPx, paneGestureGeneration) {
                 if (!paneSwipeEnabled) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    // One gesture owns a complete settle. A second down must not strand its offset.
+                    if (gestureSourceRoute != null) return@awaitEachGesture
                     val widthPx = size.width.toFloat()
                     val safeBottom = size.height - bottomExclusionPx
                     if (down.position.x < edgeBandPx || down.position.x > widthPx - edgeBandPx || down.position.y > safeBottom) {
                         return@awaitEachGesture
                     }
 
-                    paneSettleJob?.cancel()
-                    paneSettleJob = null
                     var dragX = 0f
                     val dragStarted = awaitHorizontalTouchSlopOrCancellation(down.id) { change, overSlop ->
                         change.consume()
@@ -324,12 +554,19 @@ fun SpendingBuddyApp() {
                     }
                     if (dragStarted == null) return@awaitEachGesture
                     gestureSourceRoute = currentRoute
-                    if (!reducedMotion) paneDragOffset = resistedPaneOffset(dragX, widthPx)
-
+                    paneWidthPx = widthPx
+                    fun updatePreview() {
+                        val neighbor = topLevelSwipePreviewIndex(topLevelIndex, dragX, layoutSign.toFloat())
+                        gestureTargetRoute = neighbor?.let { topLevel[it].route }
+                        paneDragOffset = if (reducedMotion || neighbor == null) 0f else resistedPaneOffset(dragX, widthPx)
+                    }
+                    var handedToSettle = false
+                    try {
+                    updatePreview()
                     val dragCompleted = horizontalDrag(down.id) { change ->
                         if (!change.isConsumed) {
                             dragX += change.position.x - change.previousPosition.x
-                            if (!reducedMotion) paneDragOffset = resistedPaneOffset(dragX, widthPx)
+                            updatePreview()
                             change.consume()
                         }
                     }
@@ -337,21 +574,38 @@ fun SpendingBuddyApp() {
                         topLevelSwipeTargetIndex(topLevelIndex, dragX, widthPx, layoutSign.toFloat())
                     } else null
                     val destination = destinationIndex?.let { topLevel[it].route }
-                    if (destination != null) {
-                        gestureTargetRoute = destination
-                        nav.goTopLevel(destination)
-                        if (state.haptics) view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                    }
+                    handedToSettle = true
                     paneSettleJob = scope.launch {
+                        var committed = false
+                        try {
                         val animation = Animatable(paneDragOffset)
                         val settleTarget = if (destination == null || reducedMotion) 0f else kotlin.math.sign(dragX) * widthPx
                         if (reducedMotion) animation.snapTo(0f)
                         else if (destination != null) {
                             animation.animateTo(settleTarget, tween(300, easing = FastOutSlowInEasing)) { paneDragOffset = value }
-                        } else animation.animateTo(0f, spring(dampingRatio = 0.82f, stiffness = 420f)) { paneDragOffset = value }
-                        paneDragOffset = 0f
-                        gestureSourceRoute = null
-                        gestureTargetRoute = null
+                        } else animation.animateTo(0f, spring(dampingRatio = 1f, stiffness = 420f)) { paneDragOffset = value }
+                        if (destination != null) {
+                            gestureTargetRoute = destination
+                            committed = true
+                            nav.goTopLevel(destination)
+                            if (state.haptics) view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                        }
+                        } finally {
+                            // A committed handoff is cleared after its NavHost entry composes; every other
+                            // completion/cancellation restores the source immediately.
+                            if (!committed) {
+                                paneDragOffset = 0f
+                                gestureSourceRoute = null
+                                gestureTargetRoute = null
+                            }
+                        }
+                    }
+                    } finally {
+                        if (!handedToSettle) {
+                            paneDragOffset = 0f
+                            gestureSourceRoute = null
+                            gestureTargetRoute = null
+                        }
                     }
                 }
             }
@@ -360,7 +614,8 @@ fun SpendingBuddyApp() {
             navController = nav,
             startDestination = if (state.onboardingDone) TODAY else ONBOARDING,
             enterTransition = {
-                PaneMotion.enter(PaneMotion.direction(initialState.destination.route, targetState.destination.route) * layoutSign, reducedMotion)
+                if (gestureSourceRoute == initialState.destination.route && gestureTargetRoute == targetState.destination.route) EnterTransition.None
+                else PaneMotion.enter(PaneMotion.direction(initialState.destination.route, targetState.destination.route) * layoutSign, reducedMotion)
             },
             exitTransition = {
                 if (gestureTargetRoute != null && gestureSourceRoute == initialState.destination.route) ExitTransition.None
@@ -376,70 +631,14 @@ fun SpendingBuddyApp() {
             },
             modifier = Modifier
         ) {
-            pane(TODAY, Modifier.offset { IntOffset(if (gestureSourceRoute == TODAY) paneDragOffset.roundToInt() else 0, 0) }) {
-                TodayScreen(
-                    state = state,
-                    now = now,
-                    bottomBar = bottomBar,
-                    onAdd = { addOpen = true },
-                    onFinish = { finishDate = it },
-                    onFinishNow = { repo.completeDay(it) },
-                    onSettings = { nav.navigate(SETTINGS) },
-                    onFinishYesterday = { finishDate = now.toLocalDate().minusDays(1).toString() },
-                    snackbar = snackbar,
-                    onPurchase = openPurchase,
-                    autoAccessReady = detectionAccess.sms || detectionAccess.notificationAccess,
-                    auto = AutoActions(
-                        setUp = { nav.navigate(AUTO_DETECT) },
-                        notNow = { repo.dismissAutoDetectOffer() },
-                        undo = { id -> repo.undoAuto(id); DetectionNotifications.cancelAdded(context, id) },
-                        keep = { id -> repo.keepAuto(id); DetectionNotifications.cancelAdded(context, id) },
-                        addPending = { id -> repo.addPending(id); DetectionNotifications.cancelAsk(context, id) },
-                        skipPending = { id -> repo.skipPending(id); DetectionNotifications.cancelAsk(context, id) }
-                    )
-                )
-                if (addOpen) {
-                    AddSheet(
-                        state,
-                        onDismiss = { addOpen = false },
-                        onSave = saveExpense,
-                        onSavePreset = { name, cat, why -> repo.savePreset(name, cat, why) }
-                    )
-                }
-                finishDate?.let { date ->
-                    FinishSheet(
-                        state,
-                        date,
-                        onConfirm = { repo.completeDay(date); finishDate = null },
-                        onAdd = { finishDate = null; addOpen = true },
-                        onDismiss = { finishDate = null }
-                    )
-                }
+            pane(TODAY, Modifier.absoluteOffset { IntOffset(if (gestureSourceRoute == TODAY) paneDragOffset.roundToInt() else 0, 0) }) {
+                if (gestureTargetRoute != TODAY || reducedMotion) topLevelPanes.getValue(TODAY)()
             }
-            pane(ACTIVITY, Modifier.offset { IntOffset(if (gestureSourceRoute == ACTIVITY) paneDragOffset.roundToInt() else 0, 0) }) {
-                ActivityScreen(state, now, bottomBar, onAdd = { addOpen = true }, snackbar = snackbar, onPurchase = openPurchase)
-                if (addOpen) {
-                    AddSheet(
-                        state,
-                        onDismiss = { addOpen = false },
-                        onSave = saveExpense,
-                        onSavePreset = { name, cat, why -> repo.savePreset(name, cat, why) }
-                    )
-                }
+            pane(ACTIVITY, Modifier.absoluteOffset { IntOffset(if (gestureSourceRoute == ACTIVITY) paneDragOffset.roundToInt() else 0, 0) }) {
+                if (gestureTargetRoute != ACTIVITY || reducedMotion) topLevelPanes.getValue(ACTIVITY)()
             }
-            pane(CIRCLE, Modifier.offset { IntOffset(if (gestureSourceRoute == CIRCLE) paneDragOffset.roundToInt() else 0, 0) }) {
-                CircleScreen(
-                    state = state,
-                    joinProgress = peerStatus.joinProgress,
-                    reachableIds = reachableIds(peerStatus),
-                    actions = actions,
-                    snackbar = snackbar,
-                    bottomBar = bottomBar,
-                    onCreate = { nav.navigate(CIRCLE_CREATE) },
-                    onJoin = { nav.navigate(CIRCLE_JOIN) },
-                    onInvite = { nav.navigate(CIRCLE_INVITE) },
-                    onCircleSettings = { nav.navigate(CIRCLE_SETTINGS) }
-                )
+            pane(CIRCLE, Modifier.absoluteOffset { IntOffset(if (gestureSourceRoute == CIRCLE) paneDragOffset.roundToInt() else 0, 0) }) {
+                if (gestureTargetRoute != CIRCLE || reducedMotion) topLevelPanes.getValue(CIRCLE)()
             }
             pane(CIRCLE_CREATE) {
                 CircleCreateScreen(
@@ -447,8 +646,13 @@ fun SpendingBuddyApp() {
                     snackbar = snackbar,
                     onBack = { nav.popBackStack() },
                     onCreated = {
-                        nav.navigate(CIRCLE_INVITE) { popUpTo(CIRCLE_CREATE) { inclusive = true } }
-                    }
+                        circleCreateDraft = ""
+                        if (nav.currentDestination?.route == CIRCLE_CREATE) {
+                            nav.navigate(CIRCLE_INVITE) { popUpTo(CIRCLE_CREATE) { inclusive = true } }
+                        }
+                    },
+                    draftName = circleCreateDraft,
+                    onDraftNameChange = { circleCreateDraft = it }
                 )
             }
             pane(CIRCLE_INVITE) {
@@ -461,8 +665,10 @@ fun SpendingBuddyApp() {
                     actions = actions,
                     snackbar = snackbar,
                     onBack = { nav.popBackStack() },
-                    onJoined = { nav.popBackStack(CIRCLE, inclusive = false) },
-                    onScan = activity?.let { a -> { onCode -> a.scanInvite(onCode) } }
+                    onJoined = { circleJoinDraft = ""; if (nav.currentDestination?.route == CIRCLE_JOIN) nav.popBackStack(CIRCLE, inclusive = false) },
+                    onScan = activity?.let { a -> { onCode -> a.scanInvite(onCode) } },
+                    draftCode = circleJoinDraft,
+                    onDraftCodeChange = { circleJoinDraft = it }
                 )
             }
             pane(CIRCLE_SETTINGS) {
@@ -471,27 +677,27 @@ fun SpendingBuddyApp() {
                     actions = actions,
                     snackbar = snackbar,
                     onBack = { nav.popBackStack() },
-                    onLeft = { nav.popBackStack(CIRCLE, inclusive = false) }
+                    onLeft = { if (nav.currentDestination?.route == CIRCLE_SETTINGS) nav.popBackStack(CIRCLE, inclusive = false) }
                 )
             }
             pane(SETTINGS) {
                 SettingsScreen(
                     state = state,
                     onBack = { nav.popBackStack() },
-                    onName = repo::updateName,
-                    onTheme = { repo.setTheme(it) },
+                    onName = { name -> safeLocalAction { repo.updateName(name) } },
+                    onTheme = { theme -> safeLocalAction { repo.setTheme(theme) } },
                     onLimits = { nav.navigate(LIMITS) },
                     onAutoDetect = { nav.navigate(AUTO_DETECT) },
                     onCircle = if (state.group != null) ({ nav.navigate(CIRCLE_SETTINGS) }) else null,
                     onPresets = { nav.navigate(PRESETS) },
-                    onAmountInput = repo::setAmountInput,
-                    onHaptics = repo::setHaptics,
-                    onReminders = repo::setReminders,
-                    onFinishCountdown = repo::setFinishCountdown,
-                    onPaymentUpdateMinutes = repo::setPaymentUpdateMinutes,
-                    onFinishCountdownLeadMinutes = repo::setFinishCountdownLeadMinutes,
-                    onAlerts = repo::setFriendAlerts,
-                    onReachable = peerManager::setStayReachable,
+                    onAmountInput = { mode -> safeLocalAction { repo.setAmountInput(mode) } },
+                    onHaptics = { enabled -> safeLocalAction { repo.setHaptics(enabled) } },
+                    onReminders = { enabled -> safeLocalAction { repo.setReminders(enabled) } },
+                    onFinishCountdown = { enabled -> safeLocalAction { repo.setFinishCountdown(enabled) } },
+                    onPaymentUpdateMinutes = { minutes -> safeLocalAction { repo.setPaymentUpdateMinutes(minutes) } },
+                    onFinishCountdownLeadMinutes = { minutes -> safeLocalAction { repo.setFinishCountdownLeadMinutes(minutes) } },
+                    onAlerts = { enabled -> safeLocalAction { repo.setFriendAlerts(enabled) } },
+                    onReachable = { enabled -> safeLocalAction { peerManager.setStayReachableAwait(enabled) } },
                     onExport = { activity?.exportBackup() },
                     onRestore = { activity?.restoreBackup() },
                     onBattery = { activity?.openBatterySettings() },
@@ -502,14 +708,13 @@ fun SpendingBuddyApp() {
                 PresetsScreen(
                     state = state,
                     onBack = { nav.popBackStack() },
-                    onSave = { id, name, cat, why -> if (id == null) repo.savePreset(name, cat, why) else repo.updatePreset(id, name, cat, why) },
-                    onSetDefault = repo::setDefaultPreset,
-                    onDelete = { id ->
-                        val removed = repo.deletePreset(id)
-                        if (removed != null) scope.launch {
-                            snackbar.currentSnackbarData?.dismiss()
-                            val r = snackbar.showSnackbar("Deleted \"${removed.name}\"", actionLabel = "Undo", duration = SnackbarDuration.Long)
-                            if (r == SnackbarResult.ActionPerformed) repo.restorePreset(removed)
+                    onSave = { id, name, cat, why -> localOperationError(context.getString(R.string.shell_save_preset_error)) { if (id == null) repo.savePreset(name, cat, why) else repo.updatePreset(id, name, cat, why) } },
+                    onSetDefault = { id -> localOperationError(context.getString(R.string.shell_default_preset_error)) { repo.setDefaultPreset(id); null } },
+                    onDelete = { id -> localOperationError(context.getString(R.string.shell_delete_preset_error)) { repo.deletePreset(id); null } },
+                    onUndoDelete = { preset ->
+                        localOperationError(context.getString(R.string.shell_restore_preset_error)) {
+                            repo.restorePreset(preset)
+                            if (repo.state.value.presets.any { it.id == preset.id }) null else context.getString(R.string.shell_restore_preset_conflict)
                         }
                     },
                     snackbar = snackbar
@@ -521,55 +726,105 @@ fun SpendingBuddyApp() {
                     state = state,
                     access = access,
                     onBack = { nav.popBackStack() },
-                    onEnabled = repo::setAutoDetect,
+                    onEnabled = { enabled -> localOperationError(context.getString(R.string.shell_settings_save_error)) { repo.setAutoDetect(enabled); null } },
                     onNotificationAccess = { activity?.openNotificationAccess() },
                     onSms = { if (access.sms) activity?.openAppSettings() else activity?.requestSms { accessTick++ } },
                     onNotifications = { if (access.canNotify) activity?.openLiveUpdateSettings() else activity?.requestNotifications { accessTick++ } },
                     onLiveUpdates = { activity?.openLiveUpdateSettings() },
-                    onSaveRule = repo::saveMerchantRule,
-                    onDeleteRule = repo::removeMerchantRule,
+                    onSaveRule = { merchant, category, reason -> localOperationError(context.getString(R.string.shell_save_rule_error)) { repo.saveMerchantRule(merchant, category, reason); null } },
+                    onDeleteRule = { key -> localOperationError(context.getString(R.string.shell_delete_rule_error)) { repo.removeMerchantRule(key); null } },
                     snackbar = snackbar
                 )
             }
             pane(LIMITS) {
-                LimitsScreen(state, onBack = { nav.popBackStack() }) { daily, weekly ->
-                    repo.setBudgets(daily, weekly)
-                    nav.popBackStack()
-                }
+                LimitsScreen(
+                    state,
+                    onBack = { nav.popBackStack() },
+                    dailyDraft = dailyLimitDraft,
+                    weeklyDraft = weeklyLimitDraft,
+                    onDraftChange = { daily, weekly -> dailyLimitDraft = daily; weeklyLimitDraft = weekly },
+                    onSave = { daily, weekly ->
+                        val problem = localOperationError(context.getString(R.string.shell_save_limits_error)) { repo.setBudgets(daily, weekly); null }
+                        if (problem == null) {
+                            dailyLimitDraft = null
+                            weeklyLimitDraft = null
+                            nav.popBackStack()
+                        }
+                        problem
+                    }
+                )
             }
             pane(IMPORT) {
+                purchaseDrafts.SaveableStateProvider("import:review") {
                 ImportScreen(
                     state,
                     onBack = { nav.popBackStack() },
                     onAddMore = { activity?.pickMoreScreenshots() },
                     onRetry = repo::retryImportImage,
-                    onRemove = repo::deleteImportImage,
-                    onUpdate = repo::updateCandidate,
+                    onRemove = { id -> localOperationError(context.getString(R.string.shell_remove_screenshot_error)) { repo.deleteImportImage(id); null } },
+                    onUpdate = { candidate -> localOperationError(context.getString(R.string.shell_save_correction_error)) { repo.updateCandidate(candidate); null } },
                     onSave = {
-                        val problem = repo.saveImport()
-                        if (problem == null) nav.popBackStack() else scope.launch { snackbar.showSnackbar(problem) }
+                        val problem = localOperationError(context.getString(R.string.shell_save_import_error)) { repo.saveImport() }
+                        if (problem == null) {
+                            purchaseDrafts.removeState("import:review")
+                            nav.popBackStack()
+                        }
+                        problem
                     },
-                    onDiscard = { repo.discardImport(); nav.popBackStack() },
+                    onDiscard = {
+                        val problem = localOperationError(context.getString(R.string.shell_discard_import_error)) { repo.discardImport(); null }
+                        if (problem == null) {
+                            purchaseDrafts.removeState("import:review")
+                            nav.popBackStack()
+                        }
+                        problem
+                    },
+                    onAddByHand = { nav.goTopLevel(TODAY); addOpen = true },
                     snackbar = snackbar
                 )
+                }
             }
             pane(ONBOARDING) {
                 val finish = { nav.navigate(TODAY) { popUpTo(ONBOARDING) { inclusive = true } } }
                 OnboardingFlow(
                     state = state,
                     access = detectionAccess,
-                    onTheme = { repo.setTheme(it) },
+                    onTheme = { theme -> safeLocalAction { repo.setTheme(theme) } },
                     onNotificationAccess = { activity?.openNotificationAccess() },
                     onSms = { activity?.requestSms { accessTick++ } },
-                    onNotifications = { activity?.requestNotifications { accessTick++ } },
+                    onNotifications = { if (detectionAccess.canNotify) activity?.openLiveUpdateSettings() else activity?.requestNotifications { accessTick++ } },
                     onComplete = { name, daily, weekly, automatic, reminders ->
-                        repo.completeOnboarding(name, daily, weekly)
-                        repo.setAutoDetect(automatic)
-                        repo.setReminders(reminders)
-                        finish()
-                    }
+                        safeLocalAction(key = "onboardingComplete", onSuccess = { if (nav.currentDestination?.route == ONBOARDING) finish() }) {
+                            repo.completeOnboarding(name, daily, weekly)
+                            repo.setAutoDetect(automatic)
+                            repo.setReminders(reminders)
+                        }
+                    },
+                    snackbar = snackbar
                 )
             }
+        }
+        val previewRoute = gestureTargetRoute
+        if (previewRoute != null && paneDragOffset != 0f && !reducedMotion) {
+            Box(
+                Modifier.fillMaxSize()
+                    .absoluteOffset { IntOffset(panePreviewOffset(paneDragOffset, paneWidthPx).roundToInt(), 0) }
+                    .auroraBackground(animate = false)
+                    .clearAndSetSemantics { }
+            ) {
+                // A preview is already the destination, rather than a disposable screenshot/copy.
+                // Moving this content into its NavHost entry preserves its week and scroll state.
+                CompositionLocalProvider(LocalReducedMotion provides true) { topLevelPanes.getValue(previewRoute)() }
+            }
+        }
+        if (gestureSourceRoute != null) {
+            // New touches during settling cannot activate controls in the moving preview or start a
+            // second navigation. The pointer chain of the gesture already in progress is retained.
+            Box(Modifier.matchParentSize().pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                }
+            })
         }
         }
         AnimatedVisibility(
@@ -578,6 +833,7 @@ fun SpendingBuddyApp() {
             exit = if (reducedMotion) ExitTransition.None else slideOutVertically(tween(220)) { it } + shrinkVertically(tween(220))
         ) {
             TopLevelBar(currentRoute, haptics = state.haptics) {
+                paneGestureGeneration++
                 paneSettleJob?.cancel()
                 paneDragOffset = 0f
                 gestureSourceRoute = null
@@ -629,7 +885,7 @@ private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect
                 label = "tabIndicator"
             )
             Box(
-                Modifier.fillMaxWidth().height(rowHeight).glass(shape)
+                Modifier.fillMaxWidth().height(rowHeight).glass(shape, shadow = true)
             ) {
             if (hasSelection) Box(
                 Modifier.align(Alignment.CenterStart)
@@ -644,12 +900,12 @@ private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 topLevel.forEach { item ->
                     val isSelected = currentRoute == item.route
-                    val tint by animateColorAsState(
+                    val tint by pennyAnimatedColor(
                         if (isSelected) tokens.accent else tokens.muted,
                         animationSpec = if (reduced) snap<Color>() else PennyMotion.effects(),
                         label = "tabTint"
                     )
-                    val labelColor by animateColorAsState(
+                    val labelColor by pennyAnimatedColor(
                         if (isSelected) tokens.text else tokens.muted,
                         animationSpec = if (reduced) snap<Color>() else PennyMotion.effects(),
                         label = "tabLabel"
@@ -678,7 +934,7 @@ private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect
                         }
                         Spacer(Modifier.height(if (largeText) 4.dp else 3.dp))
                         Text(
-                            item.label,
+                            stringResource(item.labelRes),
                             style = if (largeText) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelMedium,
                             color = labelColor,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
@@ -700,14 +956,18 @@ private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect
  */
 @Stable
 private class ManagerCircleActions(
+    private val context: Context,
     private val manager: PeerSyncManager,
     private val scope: CoroutineScope,
     private val snackbar: SnackbarHostState,
     private val shareCode: (String) -> Unit
 ) : CircleActions {
     private var busy by mutableStateOf(emptySet<String>())
+    private var failures by mutableStateOf(emptyMap<String, String>())
 
     override fun isBusy(key: String) = key in busy
+    override fun failure(key: String): String? = failures[key]
+    override fun clearFailure(key: String) { failures = failures - key }
 
     override fun notify(message: String) {
         scope.launch {
@@ -720,6 +980,7 @@ private class ManagerCircleActions(
     private fun <T> run(key: String, failure: String, onSuccess: (T) -> Unit = {}, block: suspend () -> T) {
         if (key in busy) return
         busy = busy + key
+        clearFailure(key)
         scope.launch {
             val outcome = try {
                 val value = block()
@@ -735,58 +996,72 @@ private class ManagerCircleActions(
             outcome.fold(
                 onSuccess = onSuccess,
                 onFailure = { e ->
-                    val detail = e.message?.takeIf { it.isNotBlank() }
+                    val detail = manager.userFacingError(e).takeIf { it.isNotBlank() }
+                    val message = if (detail != null) context.getString(R.string.shell_action_error_detail, failure, detail)
+                        else context.getString(R.string.shell_action_error_retry, failure)
+                    failures = failures + (key to message)
                     snackbar.currentSnackbarData?.dismiss()
-                    snackbar.showSnackbar(if (detail != null) "$failure $detail" else "$failure Try again in a moment.")
+                    snackbar.showSnackbar(message)
                 }
             )
         }
     }
 
     override fun createCircle(name: String, onDone: () -> Unit) =
-        run("create", "Couldn't create the circle.", { onDone() }) { manager.createCircle(name) }
+        run("create", context.getString(R.string.shell_create_circle_error), { onDone() }) { manager.createCircle(name) }
 
     override fun issueCode(rotate: Boolean, onCode: (String) -> Unit) =
-        run("code", "Couldn't make a code.", onCode) { manager.issueJoinCode(rotate = rotate) }
+        run("code", context.getString(R.string.shell_make_code_error), onCode) { manager.issueJoinCode(rotate = rotate) }
 
     override fun join(code: String) =
-        run("join", "Couldn't send the request.", { }) { manager.joinWithCode(code.trim()) }
+        run("join", context.getString(R.string.shell_join_circle_error), { }) { manager.joinWithCode(code.trim()) }
+
+    override fun cancelJoin(onDone: () -> Unit) =
+        run("cancelJoin", context.getString(R.string.shell_cancel_join_error), { clearFailure("join"); onDone() }) {
+            withContext(Dispatchers.IO) { manager.cancelJoin() }
+        }
+
+    override fun checkJoin() =
+        run("join", context.getString(R.string.shell_check_join_error)) { manager.checkPendingJoin() }
+
+    override fun retryMember(memberId: String) =
+        run("retry:$memberId", context.getString(R.string.shell_retry_member_error)) { manager.retryMember(memberId) }
 
     override fun approve(requestId: String) =
-        run("approve:$requestId", "Couldn't approve the request.", { notify("Approved. They will see the circle when both phones connect.") }) {
+        run("approve:$requestId", context.getString(R.string.shell_approve_join_error), { notify(context.getString(R.string.shell_approve_join_success)) }) {
             manager.approveJoin(requestId)
         }
 
     override fun decline(requestId: String) =
-        run("decline:$requestId", "Couldn't decline the request.", { notify("Request declined.") }) {
+        run("decline:$requestId", context.getString(R.string.shell_decline_join_error), { notify(context.getString(R.string.shell_decline_join_success)) }) {
             manager.declineJoin(requestId)
         }
 
     override fun leave(successorId: String?, onDone: () -> Unit) =
-        run("leave", "Couldn't leave the circle.", { onDone() }) { manager.leaveCircle(successorId) }
+        run("leave", context.getString(R.string.shell_leave_circle_error), { onDone() }) { manager.leaveCircle(successorId) }
 
     override fun transferAdmin(memberId: String, onDone: () -> Unit) =
-        run("transfer", "Couldn't transfer the admin role.", { onDone(); notify("Admin role transferred.") }) {
+        run("transfer", context.getString(R.string.shell_transfer_admin_error), { onDone(); notify(context.getString(R.string.shell_transfer_admin_success)) }) {
             manager.transferAdmin(memberId)
         }
 
     override fun setVisibility(visibility: Visibility) =
-        run("visibility", "Couldn't change what you share.", { notify("Sharing updated from now on.") }) {
+        run("visibility", context.getString(R.string.shell_visibility_error), { notify(context.getString(R.string.shell_visibility_success)) }) {
             manager.setVisibility(visibility)
         }
 
     override fun nudge(memberId: String, name: String) =
-        run("nudge:$memberId", "Couldn't send the nudge.", { notify("Nudge queued. $name gets it when their phone connects.") }) {
+        run("nudge:$memberId", context.getString(R.string.shell_send_nudge_error), { notify(context.getString(R.string.shell_send_nudge_success, name)) }) {
             manager.nudge(memberId)
         }
 
     override fun suggest(targetId: String, dailyPaise: Long, weeklyPaise: Long, name: String, onDone: () -> Unit) =
-        run("suggest", "Couldn't send the suggestion.", { onDone(); notify("Suggestion queued. $name decides whether to accept.") }) {
+        run("suggest", context.getString(R.string.shell_send_suggestion_error), { onDone(); notify(context.getString(R.string.shell_send_suggestion_success, name)) }) {
             manager.suggestBudget(targetId, dailyPaise, weeklyPaise)
         }
 
     override fun respond(suggestionId: String, accepted: Boolean) =
-        run("respond:$suggestionId", "Couldn't send your answer.", { notify(if (accepted) "Limits updated." else "Kept your limits.") }) {
+        run("respond:$suggestionId", context.getString(R.string.shell_respond_error), { notify(if (accepted) context.getString(R.string.shell_limits_updated) else context.getString(R.string.shell_limits_kept)) }) {
             manager.respondToSuggestion(suggestionId, accepted)
         }
 

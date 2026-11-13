@@ -28,3 +28,16 @@ internal fun resistedPaneOffset(dragXPx: Float, widthPx: Float): Float {
     else resistanceStart + (magnitude - resistanceStart) * 0.34f
     return sign(dragXPx) * resisted.coerceAtMost(widthPx * 0.88f)
 }
+
+/** A neighbor must be present from the first drag pixel, before the commit threshold is reached. */
+internal fun topLevelSwipePreviewIndex(currentIndex: Int, dragXPx: Float, layoutDirectionSign: Float): Int? =
+    if (dragXPx == 0f) null else topLevelSwipeTargetIndex(
+        currentIndex, dragXPx, 1f, layoutDirectionSign, thresholdFraction = 0f
+    )
+
+/** The two opaque panes share this edge throughout the gesture, including its final frame. */
+internal fun panePreviewOffset(sourceOffsetPx: Float, widthPx: Float): Float = when {
+    sourceOffsetPx < 0f -> sourceOffsetPx + widthPx
+    sourceOffsetPx > 0f -> sourceOffsetPx - widthPx
+    else -> widthPx
+}

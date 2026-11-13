@@ -5,10 +5,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -16,6 +18,10 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,9 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
@@ -41,6 +44,7 @@ fun SecondaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     shape: Shape = CircleShape,
+    enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit
 ) {
     val t = LocalPennyTokens.current
@@ -49,22 +53,24 @@ fun SecondaryButton(
         modifier
             .pressScale(interactionSource)
             .glass(shape)
-            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, role = Role.Button, onClick = onClick)
+            .clickable(interactionSource = interactionSource, indication = LocalIndication.current, enabled = enabled, role = Role.Button, onClick = onClick)
             .defaultMinSize(minHeight = 52.dp),
         contentAlignment = Alignment.Center
     ) {
-        CompositionLocalProvider(LocalContentColor provides t.text) {
+        CompositionLocalProvider(LocalContentColor provides if (enabled) t.text else ButtonDefaults.textButtonColors().disabledContentColor) {
+            ProvideTextStyle(MaterialTheme.typography.labelLarge) {
             Row(
                 Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
             )
+            }
         }
     }
 }
 
-/** Bold accent-gradient button with a press squish and an optional haptic tick. */
+/** One-accent primary action with native focus/disabled states and an optional haptic tick. */
 @Composable
 fun AccentButton(
     onClick: () -> Unit,
@@ -79,18 +85,22 @@ fun AccentButton(
     val view = LocalView.current
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
+    val colors = ButtonDefaults.buttonColors(containerColor = t.accent, contentColor = t.onAccent)
+    val fill = if (enabled) colors.containerColor else colors.disabledContainerColor
+    val contentColor = if (enabled) colors.contentColor else colors.disabledContentColor
     val pressScale = animateFloatAsState(
-        if (pressed) 0.96f else 1f,
-        if (reduced) snap() else spring(dampingRatio = 0.55f, stiffness = 500f),
+        if (pressed && enabled) 0.96f else 1f,
+        if (reduced) snap() else PennyMotion.spatial(),
         label = "press"
     )
-    LaunchedEffect(pressed) {
-        if (pressed && haptics) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+    LaunchedEffect(pressed, enabled, haptics) {
+        if (pressed && enabled && haptics) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
     }
     Box(
         modifier
             .shadow(
-                elevation = 18.dp,
+                elevation = if (enabled) 18.dp else 0.dp,
                 shape = shape,
                 ambientColor = t.accent.copy(alpha = 0.35f),
                 spotColor = t.accent.copy(alpha = 0.55f)
@@ -100,35 +110,27 @@ fun AccentButton(
                 scaleY = pressScale.value
             }
             .clip(shape)
-            .background(Brush.horizontalGradient(listOf(t.accent, t.accent2)), shape)
+            .background(fill, shape)
+            .then(if (focused && enabled) Modifier.border(OutlinedTextFieldDefaults.FocusedBorderThickness, t.onAccent, shape) else Modifier)
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = LocalIndication.current,
                 enabled = enabled,
                 role = Role.Button,
                 onClick = onClick
             )
-            .drawWithContent {
-                drawContent()
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(Color.White.copy(alpha = 0.22f), Color.Transparent),
-                        startY = 0f,
-                        endY = size.height / 2f
-                    ),
-                    size = size.copy(height = size.height / 2f)
-                )
-            }
             .defaultMinSize(minHeight = 52.dp),
         contentAlignment = Alignment.Center
     ) {
-        CompositionLocalProvider(LocalContentColor provides t.onAccent) {
+        CompositionLocalProvider(LocalContentColor provides contentColor) {
+            ProvideTextStyle(MaterialTheme.typography.labelLarge) {
             Row(
                 Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
                 content = content
             )
+            }
         }
     }
 }

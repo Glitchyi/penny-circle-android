@@ -40,13 +40,13 @@ object BuddyNotifications {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannels(
             listOf(
-                NotificationChannel(NUDGE_CHANNEL, "Circle nudges", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Countdowns sent by members of your circle"
+                NotificationChannel(NUDGE_CHANNEL, context.getString(R.string.notification_channel_nudges), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = context.getString(R.string.notification_channel_nudges_description)
                 },
-                NotificationChannel(ACTIVITY_CHANNEL, "Circle activity", NotificationManager.IMPORTANCE_DEFAULT),
-                NotificationChannel(LINK_CHANNEL, "Staying reachable", NotificationManager.IMPORTANCE_LOW),
-                NotificationChannel(CHECK_IN_CHANNEL, "Check-in reminders", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                    description = "Gentle local spending check-in reminders"
+                NotificationChannel(ACTIVITY_CHANNEL, context.getString(R.string.notification_channel_activity), NotificationManager.IMPORTANCE_DEFAULT),
+                NotificationChannel(LINK_CHANNEL, context.getString(R.string.notification_channel_link), NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(CHECK_IN_CHANNEL, context.getString(R.string.notification_channel_check_ins), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = context.getString(R.string.notification_channel_check_ins_description)
                 }
             )
         )
@@ -59,11 +59,11 @@ object BuddyNotifications {
         val now = System.currentTimeMillis()
         val builder = baseBuilder(context, NUDGE_CHANNEL)
             .setSmallIcon(com.spendingbuddy.app.R.drawable.ic_stat_buddy)
-            .setContentTitle("${nudge.sender} nudged you")
-            .setContentText("Finish today's check-in within ${nudge.minutes} minutes")
+            .setContentTitle(context.getString(R.string.notification_nudge_title, nudge.sender))
+            .setContentText(context.resources.getQuantityString(R.plurals.notification_nudge_body, nudge.minutes, nudge.minutes))
             .setAutoCancel(true)
-            .addAction(NotificationCompat.Action.Builder(0, "Add purchase", mainActivityIntent(context, Destinations.ADD)).build())
-            .addAction(NotificationCompat.Action.Builder(0, "Finish today", mainActivityIntent(context, Destinations.TODAY)).build())
+            .addAction(NotificationCompat.Action.Builder(0, context.getString(R.string.notification_add_purchase), mainActivityIntent(context, Destinations.ADD)).build())
+            .addAction(NotificationCompat.Action.Builder(0, context.getString(R.string.notification_finish_today), mainActivityIntent(context, Destinations.TODAY)).build())
         if (nudge.endsAt > now) {
             builder.setUsesChronometer(true)
                 .setChronometerCountDown(true)
@@ -111,8 +111,8 @@ object BuddyNotifications {
         NotificationManagerCompat.from(context).notify(
             JOIN_REQUEST_NOTIFICATION_ID,
             baseBuilder(context, ACTIVITY_CHANNEL).setSmallIcon(com.spendingbuddy.app.R.drawable.ic_stat_buddy)
-                .setContentTitle("$name asked to join your circle")
-                .setContentText("Open Penny Circle to approve or decline. Nothing is shared with them until you approve.")
+                .setContentTitle(context.getString(R.string.notification_join_title, name))
+                .setContentText(context.getString(R.string.notification_join_body))
                 .setAutoCancel(true)
                 .setContentIntent(mainActivityIntent(context, Destinations.BUDDY)).build()
         )
@@ -156,6 +156,7 @@ object BuddyNotifications {
     private fun mainActivityIntent(context: Context, destination: String = Destinations.TODAY): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            action = notificationActivityAction(destination)
             putExtra(Destinations.EXTRA, destination)
         }
         return PendingIntent.getActivity(
@@ -264,8 +265,8 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
             if (!ownCheckInComplete && markOnce(prefs, KEY_CHECK_IN_DATE, today)) {
                 BuddyNotifications.notifyCheckIn(
                     context,
-                    "Quick check-in",
-                    "Review and log today's spending before the evening ends."
+                    context.getString(R.string.notification_quick_title),
+                    context.getString(R.string.notification_quick_body)
                 )
             }
 
@@ -274,8 +275,9 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
                 val names = candidates.map { state.friends[it.endpointId]?.name?.ifBlank { null } ?: it.displayName }
                 BuddyNotifications.notifyCheckIn(
                     context,
-                    if (names.size == 1) "${names[0]} may like a nudge" else "${names.size} members may like a nudge",
-                    "Their check-in is still pending. Open Penny Circle to decide whether to send a nudge."
+                    if (names.size == 1) context.getString(R.string.notification_friend_prompt_title, names[0])
+                    else context.resources.getQuantityString(R.plurals.notification_friends_prompt_title, names.size, names.size),
+                    context.getString(R.string.notification_friend_prompt_body)
                 )
             }
         }
@@ -289,8 +291,8 @@ class ReminderWorker(appContext: Context, workerParams: WorkerParameters) : Coro
             if (ownYesterdayIncomplete && markOnce(prefs, KEY_DEADLINE_DATE, today)) {
                 BuddyNotifications.notifyCheckIn(
                     context,
-                    "10 AM check-in deadline",
-                    "Yesterday's grace window has ended; late logs still allowed. Open check-in."
+                    context.getString(R.string.notification_deadline_title),
+                    context.getString(R.string.notification_deadline_body)
                 )
             }
         }

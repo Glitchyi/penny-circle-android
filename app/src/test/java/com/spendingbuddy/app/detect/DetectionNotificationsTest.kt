@@ -17,7 +17,7 @@ class DetectionNotificationsTest {
             Triple(1L, 0L, "Over")
         )
         samples.forEach { (spent, limit, expected) ->
-            val text = budgetCriticalText(spent, limit)
+            val text = budgetCriticalText(spent, limit, "Over")
             assertEquals("spent=$spent limit=$limit", expected, text)
             assertTrue("critical text must fit comfortably in the status chip: $text", text.length <= 7)
         }
@@ -27,6 +27,12 @@ class DetectionNotificationsTest {
         assertEquals(120_000L, DetectionNotifications.ADDED_NOTIFICATION_DURATION_MS)
         assertEquals(120_000L, paymentUpdateDurationMillis(DEFAULT_PAYMENT_UPDATE_MINUTES))
         assertEquals(listOf(60_000L, 120_000L, 300_000L), PAYMENT_UPDATE_MINUTES.map(::paymentUpdateDurationMillis))
+    }
+
+    @Test fun criticalTextUsesTheResourceLabelForBothOverLimitStates() {
+        assertEquals("Above", budgetCriticalText(51_000L, 50_000L, "Above"))
+        assertEquals("Above", budgetCriticalText(1L, 0L, "Above"))
+        assertEquals("₹0", budgetCriticalText(0L, 0L, "Above"))
     }
 
 }

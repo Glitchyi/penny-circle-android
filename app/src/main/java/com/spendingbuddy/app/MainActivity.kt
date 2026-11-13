@@ -29,11 +29,15 @@ import androidx.compose.runtime.getValue
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
 
 class MainActivity : ComponentActivity() {
     private val repo by lazy { BuddyRepository.get(applicationContext) }
     private var handledShareKey: String? = null
     private var uiReady = false
+    private val restoreJobLock = Any()
+    private var backupRestoreJob: Job? = null
     /** Destination requested by an intent (notification tap, share). The UI navigates to it and then clears it. */
     val destination = MutableStateFlow<String?>(null)
     /** One-off user-facing results (backup saved/restored, failures) shown as snackbars by the UI. */
@@ -44,17 +48,24 @@ class MainActivity : ComponentActivity() {
         uri?.let {
             lifecycleScope.launch {
                 val saved = runCatching { contentResolver.openOutputStream(it)?.let { out -> repo.exportBackup(out) } != null }.getOrDefault(false)
-                messages.tryEmit(if (saved) "Backup saved." else "Couldn't save the backup. Try another location.")
+                messages.tryEmit(getString(if (saved) R.string.backup_saved else R.string.backup_save_error))
             }
         }
     }
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
-            lifecycleScope.launch {
-                val input = runCatching { contentResolver.openInputStream(it) }.getOrNull()
-                val problem = if (input == null) "Couldn't open that file." else repo.importBackup(input)
-                messages.tryEmit(problem ?: "Backup restored.")
+            val operation = repo.beginBackupRestore() ?: return@let
+            val job = lifecycleScope.launch(start = CoroutineStart.LAZY) {
+                val problem = repo.importBackup(operation) { contentResolver.openInputStream(it) }
+                messages.tryEmit(problem ?: getString(R.string.backup_restored))
             }
+            synchronized(restoreJobLock) { backupRestoreJob = job }
+            // Also releases a reservation if lifecycle cancellation happens before the coroutine starts.
+            job.invokeOnCompletion {
+                synchronized(restoreJobLock) { if (backupRestoreJob === job) backupRestoreJob = null }
+                repo.finishRecovery(operation)
+            }
+            job.start()
         }
     }
     private var notificationsResult: (() -> Unit)? = null
@@ -66,6 +77,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handledShareKey = savedInstanceState?.getString("handled_share_key")
         // Apply the saved theme before the first frame: window background and system bar icon style.
         val savedTheme = AppTheme.fromId(ThemeStore.load(this))
         val bg = savedTheme.tokens().bg.toArgb()
@@ -85,8 +97,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("handled_share_key", handledShareKey)
+        super.onSaveInstanceState(outState)
+    }
+
     fun onUiReady() { uiReady = true; handleIntent(intent) }
-    fun clearDestination() { destination.value = null }
+    fun clearDestination() {
+        destination.value = null
+        // A consumed notification must not reopen its route after a theme/font recreation.
+        intent?.removeExtra(Destinations.EXTRA)
+    }
 
     /** Makes the next cold start's system splash screen use the colours of the chosen theme (API 33+). */
     fun applySplashTheme(themeId: String) {
@@ -124,7 +145,11 @@ class MainActivity : ComponentActivity() {
 
     fun pickMoreScreenshots() { pickImages.launch("image/*") }
     fun exportBackup() { createDocument.launch("Penny-Circle-backup.json") }
-    fun restoreBackup() { openDocument.launch(arrayOf("application/json", "text/*")) }
+    fun restoreBackup() { if (repo.recoveryOperation.value == null) openDocument.launch(arrayOf("application/json", "text/*")) }
+    fun closeForRecovery() {
+        synchronized(restoreJobLock) { backupRestoreJob }?.cancel()
+        finish()
+    }
     fun requestNotifications(onResult: () -> Unit = {}) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             notificationsResult = onResult
@@ -144,9 +169,9 @@ class MainActivity : ComponentActivity() {
     }
     fun openAppSettings() { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) }
     fun openBatterySettings() { runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }.getOrElse { startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))) } }
-    fun shareInvite(code: String) { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "Join my Penny Circle. Open the app, go to the Circle tab, tap Join with a code, and paste this. The admin approves each request, and approval can take a little while: $code") }, "Share circle code")) }
+    fun shareInvite(code: String) { startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, getString(R.string.share_circle_invite, code)) }, getString(R.string.share_circle_title))) }
     fun makeQr(text: String): Bitmap = qrBitmap(text, 720)
-    fun scanInvite(onCode: (String) -> Unit) { pendingScan = onCode; GmsBarcodeScanning.getClient(this).startScan().addOnSuccessListener { it.rawValue?.let(onCode) }.addOnFailureListener { pendingScan = null; messages.tryEmit("Couldn't scan. Paste the code instead.") } }
+    fun scanInvite(onCode: (String) -> Unit) { pendingScan = onCode; GmsBarcodeScanning.getClient(this).startScan().addOnSuccessListener { it.rawValue?.let(onCode) }.addOnFailureListener { pendingScan = null; messages.tryEmit(getString(R.string.share_scan_error)) } }
 
     private fun qrBitmap(value: String, size: Int): Bitmap {
         val matrix: BitMatrix = MultiFormatWriter().encode(value, BarcodeFormat.QR_CODE, size, size)

@@ -198,8 +198,8 @@ private fun DrawScope.drawTrail(t: Float, w: Float, h: Float, len: Float, dens: 
         drawPath(
             plume,
             brush = Brush.verticalGradient(
-                colors = if (outer) listOf(tokens.accent2.copy(alpha = 0.34f), tokens.accent.copy(alpha = 0.12f), Color.Transparent)
-                else listOf(Color(0xFFFFEDB5).copy(alpha = 0.64f), tokens.accent2.copy(alpha = 0.24f), Color.Transparent),
+                colors = if (outer) listOf(tokens.accent.copy(alpha = 0.34f), tokens.accent.copy(alpha = 0.12f), Color.Transparent)
+                else listOf(tokens.text.copy(alpha = 0.64f), tokens.accent.copy(alpha = 0.24f), Color.Transparent),
                 startY = startY,
                 endY = endY
             )
@@ -226,7 +226,7 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
         drawPath(
             path = flame,
             brush = Brush.verticalGradient(
-                colors = listOf(Color(0xFFFFEDB5), tokens.accent2.copy(alpha = 0.94f), Color.Transparent),
+                colors = listOf(tokens.text, tokens.accent.copy(alpha = 0.94f), Color.Transparent),
                 startY = flameTop,
                 endY = flameTop + flameLen
             )
@@ -237,7 +237,7 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
             cubicTo(1.dp.toPx(), flameTop + flameLen * 0.56f, 4.dp.toPx(), flameTop + flameLen * 0.30f, 4.dp.toPx(), flameTop)
             close()
         }
-        drawPath(innerFlame, color = Color(0xFFFFF6D9).copy(alpha = 0.9f))
+        drawPath(innerFlame, color = tokens.text.copy(alpha = 0.9f))
 
         // Body: capsule with pointed nose
         val body = Path().apply {
@@ -259,7 +259,7 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
                 endX = w2
             )
         )
-        drawPath(path = body, color = tokens.accent2.copy(alpha = 0.82f), style = Stroke(width = 1.5.dp.toPx()))
+        drawPath(path = body, color = tokens.accent.copy(alpha = 0.82f), style = Stroke(width = 1.5.dp.toPx()))
 
         // Nose cone: top 30% of the body
         val noseBottom = -len / 2f + len * 0.3f
@@ -270,7 +270,7 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
             cubicTo(-w2 * 0.9f, -len * 0.35f, -w2 * 0.6f, -len / 2f, 0f, -len / 2f)
             close()
         }
-        drawPath(path = nose, brush = Brush.verticalGradient(listOf(tokens.accent2, tokens.accent), startY = -len / 2f, endY = noseBottom))
+        drawPath(path = nose, brush = Brush.verticalGradient(listOf(tokens.accent, tokens.accent), startY = -len / 2f, endY = noseBottom))
 
         // Fins
         val leftFin = Path().apply {
@@ -285,12 +285,12 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
             lineTo(w2 - 2.dp.toPx(), len * 0.29f)
             close()
         }
-        drawPath(path = leftFin, color = tokens.accent2)
-        drawPath(path = rightFin, brush = Brush.horizontalGradient(listOf(tokens.accent2, tokens.accent)))
+        drawPath(path = leftFin, color = tokens.accent)
+        drawPath(path = rightFin, brush = Brush.horizontalGradient(listOf(tokens.accent, tokens.accent)))
 
         // A slim body band gives the tail a clear visual anchor.
         drawRoundRect(
-            color = tokens.accent2.copy(alpha = 0.88f),
+            color = tokens.accent.copy(alpha = 0.88f),
             topLeft = Offset(-w2 * 0.78f, len * 0.27f),
             size = Size(w2 * 1.56f, 5.dp.toPx()),
             cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.5.dp.toPx())
@@ -300,7 +300,7 @@ private fun DrawScope.drawRocket(t: Float, w: Float, h: Float, len: Float, token
         val portholeCentre = Offset(0f, -len * 0.08f)
         drawCircle(color = tokens.bg, radius = portholeR, center = portholeCentre)
         drawCircle(
-            color = tokens.accent2,
+            color = tokens.accent,
             radius = portholeR + 1.dp.toPx(),
             center = portholeCentre,
             style = Stroke(width = 2.dp.toPx())
@@ -347,9 +347,9 @@ private fun DrawScope.drawConfetti(
     val cy = height * 0.32f
     val palette = listOf(
         tokens.accent,
-        tokens.accent2,
-        lerp(tokens.accent, Color.White, 0.28f),
-        lerp(tokens.accent2, Color.White, 0.34f)
+        tokens.accent,
+        lerp(tokens.accent, tokens.text, 0.28f),
+        lerp(tokens.accent, tokens.text, 0.34f)
     )
     val twoPi = (2.0 * PI).toFloat()
     for (i in 0 until particleCount) {

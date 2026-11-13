@@ -1,6 +1,8 @@
 package com.spendingbuddy.app.ui
 
-import android.provider.Settings
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -15,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -41,13 +42,20 @@ fun FinishStamp(date: String, finishedAt: Long?, animate: Boolean, haptics: Bool
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var playedFor by rememberSaveable { mutableStateOf("") }
-    val reduced = remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
-    val shouldRun = remember { animate && playedFor != date }
+    val reduced = LocalReducedMotion.current
+    val shouldRun = animate && playedFor != date
     val play = shouldRun && !reduced
     val scale = remember { Animatable(if (play) 1.9f else 1f) }
     val rotation = remember { Animatable(if (play) -18f else STAMP_REST_ROTATION) }
     val alpha = remember { Animatable(if (play) 0f else 1f) }
-    LaunchedEffect(date) {
+    LaunchedEffect(date, animate, reduced) {
+        if (reduced) {
+            scale.snapTo(1f)
+            rotation.snapTo(STAMP_REST_ROTATION)
+            alpha.snapTo(1f)
+            playedFor = date
+            return@LaunchedEffect
+        }
         if (!shouldRun) return@LaunchedEffect
         playedFor = date
         if (!play) { if (haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress); return@LaunchedEffect }
@@ -64,19 +72,19 @@ fun FinishStamp(date: String, finishedAt: Long?, animate: Boolean, haptics: Bool
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.fillMaxWidth()) {
         Text(
-            "Done",
+            context.getString(R.string.finish_stamp_done),
             color = MaterialTheme.colorScheme.onTertiaryContainer,
             style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = MaterialTheme.typography.displaySmall.fontWeight,
             modifier = Modifier
                 .graphicsLayer { scaleX = scale.value; scaleY = scale.value; rotationZ = rotation.value; this.alpha = alpha.value }
-                .semantics(mergeDescendants = true) { contentDescription = "Day finished" }
+                .semantics(mergeDescendants = true) { contentDescription = context.getString(R.string.finish_stamp_day_finished) }
                 .background(MaterialTheme.colorScheme.tertiaryContainer, PennyShapes.Small)
-                .border(3.dp, MaterialTheme.colorScheme.tertiary, PennyShapes.Small)
+                .border(PennyBorders.Hairline, MaterialTheme.colorScheme.tertiary, PennyShapes.Small)
                 .padding(horizontal = 18.dp, vertical = 5.dp)
         )
         Text(
-            if (finishedAt != null) "Finished at ${java.time.Instant.ofEpochMilli(finishedAt).atZone(INDIA_ZONE).format(DateTimeFormatter.ofPattern("h:mm a"))}" else "Finished today",
+            if (finishedAt != null) context.getString(R.string.finish_stamp_finished_at, java.time.Instant.ofEpochMilli(finishedAt).atZone(INDIA_ZONE).format(DateTimeFormatter.ofPattern("h:mm a"))) else context.getString(R.string.finish_stamp_finished_today),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="import_review_title">Import review</string>
+    <string name="import_discard">Discard draft</string>
+    <plurals name="import_save_purchases"><item quantity="one">Save %1$d purchase</item><item quantity="other">Save %1$d purchases</item></plurals>
+    <string name="import_step">Step %1$d of 2</string>
+    <string name="import_screenshots">Screenshots</string>
+    <string name="import_review_purchases">Review purchases</string>
+    <string name="import_reading">Reading…</string>
+    <string name="import_ready">Ready</string>
+    <string name="import_failed">Couldn\'t read: %1$s</string>
+    <string name="import_reading_description">Reading screenshot</string>
+    <string name="import_retry">Retry</string>
+    <string name="import_remove">Remove</string>
+    <string name="import_add_more">Add more screenshots</string>
+    <string name="import_no_results">No purchases found</string>
+    <string name="import_no_results_body">Add another screenshot, or add the purchase by hand from Today.</string>
+    <string name="import_continue">Continue</string>
+    <string name="import_select_purchase">Select %1$s</string>
+    <string name="import_summary">%1$s · %2$s</string>
+    <string name="import_possible_duplicate">Possible duplicate · Looks like a purchase you already logged</string>
+    <string name="import_amount_label">Amount (₹)</string>
+    <string name="import_merchant_label">Merchant</string>
+    <string name="import_error_amount">Fix the amount for %1$s</string>
+    <string name="import_error_positive">Amounts must be above ₹0</string>
+    <string name="import_error_date">Confirm the date for %1$s</string>
+    <string name="import_error_future">Purchase dates can\'t be in the future</string>
+    <string name="import_error_details">Add a merchant, category and reason for each purchase</string>
+    <string name="import_error_each_purchase">each purchase</string>
+    <string name="import_error_a_purchase">a purchase</string>
+    <string name="import_no_selection">Select at least one purchase, or add it by hand</string>
+    <string name="import_wait_reading">Wait until every screenshot has been read</string>
+    <string name="import_timeout">Reading timed out. Retry or remove this screenshot.</string>
+    <string name="import_interrupted">Import was interrupted. Retry or remove this screenshot.</string>
+    <string name="import_read_error">Couldn\'t read this screenshot</string>
+    <string name="import_retry_error">Retry failed</string>
+    <string name="import_copy_unavailable">Temporary screenshot copy is unavailable</string>
+    <string name="import_decode_error">The image could not be decoded</string>
+    <string name="import_too_large">Screenshot is larger than 20 MB</string>
+    <string name="import_uri_error">Unable to read shared image</string>
+    <string name="import_copy_error">Unable to save temporary screenshot</string>
+    <string name="import_processing_error">Screenshot processing failed</string>
+    <string name="import_waiting">Waiting to read</string>
+    <string name="import_warning_review">Review extracted details</string>
+    <string name="import_warning_date">Date not detected; enter it before saving</string>
+    <string name="import_warning_merchant">Merchant not detected; add it manually</string>
+    <string name="import_warning_incoming">Incoming/refund transaction; do not count automatically</string>
+    <string name="import_warning_today">Relative date \'Today\'; review before saving</string>
+    <string name="import_warning_yesterday">Relative date \'Yesterday\'; review before saving</string>
+    <string name="import_warning_year">Date year is uncertain; review before saving</string>
+</resources>

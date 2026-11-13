@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today_parts_swipe_right_description">Finish today. Swipe right to finish now, or activate to review first.</string>
+    <string name="today_parts_swipe_left_description">Finish today. Swipe left to finish now, or activate to review first.</string>
+    <string name="today_parts_review_and_finish_today">Review and finish today</string>
+    <string name="today_parts_swipe_to_finish_today">Swipe to finish today</string>
+    <string name="today_parts_finish_today">Finish today</string>
+    <string name="today_parts_close_out_the_day_and_keep">Close out the day and keep your streak</string>
+</resources>

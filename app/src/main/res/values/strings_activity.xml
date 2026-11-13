@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="activity_day_names">
+        <item>Mon</item><item>Tue</item><item>Wed</item><item>Thu</item><item>Fri</item><item>Sat</item><item>Sun</item>
+    </string-array>
+    <string name="activity_week_amount">%1$s of %2$s</string>
+    <string name="activity_week_over">%1$s over the weekly limit</string>
+    <string name="activity_week_left">%1$s left this week</string>
+    <string name="activity_relative_note">%1$s · %2$s</string>
+    <plurals name="activity_weeks_ago">
+        <item quantity="one">%1$d week ago</item>
+        <item quantity="other">%1$d weeks ago</item>
+    </plurals>
+    <string name="activity_day_purchases">%1$s: %2$s, show purchases</string>
+    <string name="activity_day_no_purchases">%1$s: %2$s, no purchases</string>
+    <string name="activity_day_today_purchases">%1$s: %2$s, today, show purchases</string>
+    <string name="activity_day_today_no_purchases">%1$s: %2$s, today, no purchases</string>
+    <string name="activity_nothing_logged_this_week">Nothing logged this week.</string>
+    <string name="activity_purchases_and_no_spend_days_will">Purchases and no-spend days will show up here.</string>
+    <string name="activity_done">Done</string>
+    <string name="activity_grace">Grace</string>
+    <string name="activity_finished_late">Finished late</string>
+    <string name="activity_not_finished">Not finished</string>
+    <string name="activity_open">Open</string>
+    <string name="activity_this_week">This week</string>
+    <string name="activity_last_week">Last week</string>
+    <string name="activity_your_first_week">Your first week</string>
+    <string name="activity_earliest_week_with_entries">Earliest week with entries</string>
+    <string name="activity_no_earlier_weeks">No earlier weeks</string>
+    <string name="activity_shows_the_earlier_week">Shows the earlier week</string>
+    <string name="activity_earlier_week">Earlier week</string>
+    <string name="activity_you_are_on_the_current_week">You are on the current week</string>
+    <string name="activity_shows_the_later_week">Shows the later week</string>
+    <string name="activity_later_week">Later week</string>
+</resources>

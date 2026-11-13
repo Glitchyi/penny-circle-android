@@ -1,5 +1,8 @@
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +37,7 @@ import androidx.compose.ui.unit.sp
 /** A theme-aware loading/error surface for real local app startup. */
 @Composable
 fun StartupSurface(failed: Boolean = false, onRetry: () -> Unit = {}) {
+    val context = LocalContext.current
     val tokens = LocalPennyTokens.current
     val reducedMotion = LocalReducedMotion.current
 
@@ -48,7 +53,7 @@ fun StartupSurface(failed: Boolean = false, onRetry: () -> Unit = {}) {
             PennyCircleMark(Modifier.size(88.dp))
             Spacer(Modifier.height(22.dp))
             Text(
-                "PENNY CIRCLE",
+                context.getString(R.string.startup_penny_circle),
                 style = MaterialTheme.typography.labelLarge.copy(fontFamily = PennyType.Mono, letterSpacing = 1.8.sp),
                 color = tokens.muted
             )
@@ -56,44 +61,46 @@ fun StartupSurface(failed: Boolean = false, onRetry: () -> Unit = {}) {
 
             if (failed) {
                 Text(
-                    "The app couldn't finish starting.",
+                    context.getString(R.string.startup_the_app_couldn_t_finish_starting),
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleLarge,
                     color = tokens.text,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Your data was not reset. Try again when you're ready.",
+                    context.getString(R.string.startup_your_data_was_not_reset_try),
                     style = MaterialTheme.typography.bodyMedium,
                     color = tokens.muted,
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(20.dp))
-                Button(onClick = onRetry) { Text("Try again") }
+                Button(onClick = onRetry) { Text(context.getString(R.string.startup_try_again)) }
             } else {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
                     if (reducedMotion) {
-                        StartupGlyph(Modifier.size(26.dp).semantics { contentDescription = "Getting things ready" })
+                        StartupGlyph(Modifier.size(26.dp).semantics { contentDescription = context.getString(R.string.startup_getting_things_ready) })
                     } else {
                         CircularProgressIndicator(
-                            Modifier.size(26.dp).semantics { contentDescription = "Getting things ready" },
+                            Modifier.size(26.dp).semantics { contentDescription = context.getString(R.string.startup_getting_things_ready) },
                             color = tokens.accent,
                             strokeWidth = 2.5.dp
                         )
                     }
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        "Getting things ready",
+                        context.getString(R.string.startup_getting_things_ready),
+                        modifier = Modifier.semantics { heading() },
                         style = MaterialTheme.typography.titleMedium,
                         color = tokens.text
                     )
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Opening your local notebook.",
+                    context.getString(R.string.startup_opening_your_local_notebook),
                     style = MaterialTheme.typography.bodyMedium,
                     color = tokens.muted,
                     textAlign = TextAlign.Center
@@ -105,9 +112,10 @@ fun StartupSurface(failed: Boolean = false, onRetry: () -> Unit = {}) {
 
 @Composable
 private fun PennyCircleMark(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     Canvas(
-        modifier.semantics { contentDescription = "Penny Circle emblem" }.then(modifier)
+        modifier.semantics { contentDescription = context.getString(R.string.startup_penny_circle_emblem) }.then(modifier)
     ) {
         val cx = size.width / 2f
         val cy = size.height / 2f
@@ -117,7 +125,7 @@ private fun PennyCircleMark(modifier: Modifier = Modifier) {
         drawCircle(t.accent, r, center = androidx.compose.ui.geometry.Offset(cx, cy), style = Stroke(stroke))
         val sunRadius = r * 0.42f
         drawArc(
-            color = t.accent2,
+            color = t.accent,
             startAngle = 180f,
             sweepAngle = -180f,
             useCenter = true,

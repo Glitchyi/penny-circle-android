@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="circle_event_suggest_title">%1$s suggested new limits</string>
+    <string name="circle_event_suggest_body">Open Circle to accept or decline. Your limits only change if you accept.</string>
+    <string name="circle_event_accept_title">%1$s accepted your suggested limits</string>
+    <string name="circle_event_keep_title">%1$s kept their limits</string>
+    <string name="circle_event_reply_body">Open Circle to see the update.</string>
+    <string name="circle_event_leave_title">%1$s left the circle</string>
+    <string name="circle_event_leave_body">Their shared data is no longer kept on this phone.</string>
+    <string name="circle_event_finish_title">%1$s finished today</string>
+    <string name="circle_event_finish_body">They completed a check-in.</string>
+    <string name="circle_copy_just_now" formatted="false">just now</string>
+    <string name="circle_copy_min_ago">%1$d min ago</string>
+    <string name="circle_copy_h_ago">%1$d h ago</string>
+    <string name="circle_copy_d_ago">%1$d d ago</string>
+    <string name="circle_copy_friend" formatted="false">Friend</string>
+    <string name="circle_copy_circle" formatted="false">Circle</string>
+    <string name="circle_copy_circle_settings" formatted="false">Circle settings</string>
+    <string name="circle_copy_spend_side_by_side" formatted="false">Spend side by side</string>
+    <string name="circle_copy_a_circle_is_a_small_group_of" formatted="false">A circle is a small group of friends who see each other\'s day, send nudges and suggest limits. The admin approves everyone who joins.</string>
+    <string name="circle_copy_join_request_in_progress" formatted="false">Join request in progress</string>
+    <string name="circle_copy_your_request_was_sent_the_admin_has" formatted="false">Your request was sent. The admin has not answered yet.</string>
+    <string name="circle_copy_see_request" formatted="false">See request</string>
+    <string name="circle_copy_create_a_circle" formatted="false">Create a circle</string>
+    <string name="circle_copy_join_with_a_code" formatted="false">Join with a code</string>
+    <string name="circle_copy_your_data_goes_straight_between_phones_encrypted" formatted="false">Your data goes straight between phones, encrypted. No account, and no server keeps a copy.</string>
+    <string name="circle_copy_limit_suggestions_for_you" formatted="false">Limit suggestions for you</string>
+    <string name="circle_copy_admin" formatted="false">Admin</string>
+    <string name="circle_copy_members_of">Members (%1$d of %2$d)</string>
+    <string name="circle_copy_your_circle_is_full_members">Your circle is full (%1$d members).</string>
+    <string name="circle_copy_you" formatted="false">You</string>
+    <string name="circle_copy_nobody_else_is_here_yet_share_a" formatted="false">Nobody else is here yet. Share a code from the admin section so friends can ask to join.</string>
+    <string name="circle_copy_updates_travel_directly_between_phones_so_they" formatted="false">Updates travel directly between phones, so they arrive when both phones can reach each other. Nudges and suggestions wait for the other phone; delivery is not instant.</string>
+    <string name="circle_copy_join_requests" formatted="false">Join requests</string>
+    <string name="circle_copy_waiting">%1$d waiting</string>
+    <string name="circle_copy_your_circle_is_full_members_so_new">Your circle is full (%1$d members), so new requests cannot be approved right now.</string>
+    <string name="circle_copy_requests_reach_you_while_penny_circle_is" formatted="false">Requests reach you while Penny Circle is open or Stay reachable is on. They wait up to 24 hours.</string>
+    <string name="circle_copy_no_one_is_waiting_anyone_with_your" formatted="false">No one is waiting. Anyone with your code can ask to join, and you approve each request.</string>
+    <string name="circle_copy_someone" formatted="false">Someone</string>
+    <string name="circle_copy_asked_to_join">%1$s asked to join</string>
+    <string name="circle_copy_requested">Requested %1$s, %2$s</string>
+    <string name="circle_copy_approve">Approve %1$s</string>
+    <string name="circle_copy_approving" formatted="false">Approving…</string>
+    <string name="circle_copy_approve_2" formatted="false">Approve</string>
+    <string name="circle_copy_decline">Decline %1$s</string>
+    <string name="circle_copy_decline_2" formatted="false">Decline</string>
+    <string name="circle_copy_declining" formatted="false">Declining…</string>
+    <string name="circle_copy_join_code_circle_full" formatted="false">Join code (circle full)</string>
+    <string name="circle_copy_show_join_code" formatted="false">Show join code</string>
+    <string name="circle_copy_decline_s_request">Decline %1$s’s request?</string>
+    <string name="circle_copy_this_circle_will_reject_further_requests_from" formatted="false">This circle will reject new requests from the same phone while it remembers this decline. It keeps a limited number of declines; creating a new circle clears them.</string>
+    <string name="circle_copy_cancel" formatted="false">Cancel</string>
+    <string name="circle_copy_a_friend" formatted="false">A friend</string>
+    <string name="circle_copy_suggests_a_day_and_a_week">%1$s suggests %2$s a day and %3$s a week</string>
+    <string name="circle_copy_sending_your_answer" formatted="false">Sending your answer…</string>
+    <string name="circle_copy_your_limits_only_change_if_you_accept" formatted="false">Your limits only change if you accept.</string>
+    <string name="circle_copy_keep_mine" formatted="false">Keep mine</string>
+    <string name="circle_copy_accept" formatted="false">Accept</string>
+    <string name="circle_copy_no_update_received_yet" formatted="false">No update received yet</string>
+    <string name="circle_copy_checked_in" formatted="false">Checked in</string>
+    <string name="circle_copy_not_checked_in_yet" formatted="false">Not checked in yet</string>
+    <string name="circle_copy_reachable_now" formatted="false">Reachable now</string>
+    <string name="circle_copy_last_seen">Last seen %1$s</string>
+    <string name="circle_copy_waiting_to_connect" formatted="false">Waiting to connect</string>
+    <string name="circle_copy_of_today">%1$s of %2$s today</string>
+    <string name="circle_copy_today">%1$s today</string>
+    <string name="circle_copy_template">%1$s, %2$s</string>
+    <string name="circle_copy_connection_issue" formatted="false">Connection issue</string>
+    <string name="circle_copy_shares_full_details" formatted="false">Shares full details</string>
+    <string name="circle_copy_shares_totals_and_status_only" formatted="false">Shares totals and status only</string>
+    <string name="circle_copy_connection_issue_2">Connection issue: %1$s</string>
+    <string name="circle_copy_last_successful_exchange">Last successful exchange %1$s</string>
+    <string name="circle_copy_no_successful_exchange_yet" formatted="false">No successful exchange yet.</string>
+    <string name="circle_copy_checking" formatted="false">Checking…</string>
+    <string name="circle_copy_try_again" formatted="false">Try again</string>
+    <string name="circle_copy_has_already_checked_in_today">%1$s has already checked in today.</string>
+    <string name="circle_copy_you_already_nudged_today_one_nudge_per">You already nudged %1$s today. One nudge per day.</string>
+    <string name="circle_copy_nudge">Nudge %1$s</string>
+    <string name="circle_copy_sending_nudge" formatted="false">Sending nudge…</string>
+    <string name="circle_copy_nudge_2" formatted="false">Nudge</string>
+    <string name="circle_copy_suggest_new_limits_to">Suggest new limits to %1$s</string>
+    <string name="circle_copy_suggest_new_limits" formatted="false">Suggest new limits</string>
+    <string name="circle_copy_nudge_sent_waiting_for_s_phone_to">Nudge sent, waiting for %1$s\'s phone to receive it.</string>
+    <string name="circle_copy_suggest_limits_to">Suggest limits to %1$s</string>
+    <string name="circle_copy_all_fields_are_required_unless_marked_optional" formatted="false">All fields are required unless marked optional.</string>
+    <string name="circle_copy_decides_whether_to_accept_their_limits_do">%1$s decides whether to accept. Their limits do not change unless they say yes.</string>
+    <string name="circle_copy_daily_limit" formatted="false">Daily limit (₹)</string>
+    <string name="circle_copy_weekly_limit" formatted="false">Weekly limit (₹)</string>
+    <string name="circle_copy_sending_suggestion" formatted="false">Sending suggestion…</string>
+    <string name="circle_copy_send_suggestion" formatted="false">Send suggestion</string>
+    <string name="circle_copy_your_earlier_suggestions" formatted="false">Your earlier suggestions</string>
+    <string name="circle_copy_accepted" formatted="false">Accepted</string>
+    <string name="circle_copy_declined" formatted="false">Declined</string>
+    <string name="circle_copy_pending_has_it">Pending, %1$s has it</string>
+    <string name="circle_copy_pending_waiting_for_s_phone">Pending, waiting for %1$s\'s phone</string>
+    <string name="circle_copy_a_day_a_week">%1$s a day, %2$s a week: %3$s</string>
+    <string name="circle_copy_name_your_circle" formatted="false">Name your circle</string>
+    <string name="circle_copy_you_will_be_the_admin_you_approve" formatted="false">You will be the admin. You approve everyone who asks to join with your code.</string>
+    <string name="circle_copy_circle_name" formatted="false">Circle name</string>
+    <string name="circle_copy_up_to_characters">Up to %1$d characters</string>
+    <string name="circle_copy_enter_a_name_between_1_and_characters">Enter a name between 1 and %1$d characters.</string>
+    <string name="circle_copy_creating" formatted="false">Creating…</string>
+    <string name="circle_copy_create_circle" formatted="false">Create circle</string>
+    <string name="circle_copy_join_code" formatted="false">Join code</string>
+    <string name="circle_copy_join_code_for">Join code for %1$s</string>
+    <string name="circle_copy_your_circle_is_full_members_2">Your circle is full (%1$d members)</string>
+    <string name="circle_copy_new_join_codes_and_requests_are_paused" formatted="false">New join codes and requests are paused. If someone leaves, a spot opens up.</string>
+    <string name="circle_copy_share_this_code" formatted="false">Share this code</string>
+    <string name="circle_copy_of_members">%1$d of %2$d members</string>
+    <string name="circle_copy_making_a_code" formatted="false">Making a code…</string>
+    <string name="circle_copy_no_code_yet" formatted="false">No code yet.</string>
+    <string name="circle_copy_qr_of_the_join_code_the_other" formatted="false">QR of the join code. The other person can scan it from Join with a code.</string>
+    <string name="circle_copy_expires_in_h">Expires in %1$dh</string>
+    <string name="circle_copy_share" formatted="false">Share</string>
+    <string name="circle_copy_code_copied" formatted="false">Code copied</string>
+    <string name="circle_copy_copy" formatted="false">Copy</string>
+    <string name="circle_copy_create_new_code" formatted="false">Create new code</string>
+    <string name="circle_copy_keep_penny_circle_open" formatted="false">Keep Penny Circle open</string>
+    <string name="circle_copy_keep_penny_circle_open_or_turn_on" formatted="false">Keep Penny Circle open (or turn on Stay reachable in Settings) so requests reach you. Requests wait up to 24 hours, and you cannot approve one while your phone is offline.</string>
+    <string name="circle_copy_online_now" formatted="false">Online now</string>
+    <string name="circle_copy_connecting" formatted="false">Connecting…</string>
+    <string name="circle_copy_no_network" formatted="false">No network</string>
+    <string name="circle_copy_not_reachable_right_now" formatted="false">Not reachable right now</string>
+    <string name="circle_copy_not_listening_right_now" formatted="false">Not listening right now</string>
+    <string name="circle_copy_right_now_stay_reachable_is">Right now: %1$s Stay reachable is %2$s.</string>
+    <string name="circle_copy_a_code_on_its_own_does_not" formatted="false">A code on its own does not let anyone in. Each person who uses it appears in your join requests, and you approve or decline them. Making a new code stops older codes from working; requests already waiting stay waiting.</string>
+    <string name="circle_copy_replace_the_join_code" formatted="false">Replace the join code?</string>
+    <string name="circle_copy_the_code_you_already_shared_will_stop" formatted="false">The code you already shared will stop working; waiting requests stay waiting.</string>
+    <string name="circle_copy_new_code_ready_the_old_one_no" formatted="false">New code ready. The old one no longer works.</string>
+    <string name="circle_copy_keep_current_code" formatted="false">Keep current code</string>
+    <string name="circle_copy_paste_or_scan_a_circle_code" formatted="false">Paste or scan a circle code.</string>
+    <string name="circle_copy_this_code_has_expired_ask_the_admin" formatted="false">This code has expired. Ask the admin for a new one.</string>
+    <string name="circle_copy_that_circle_code_is_not_valid_ask" formatted="false">That circle code is not valid. Ask for a new one.</string>
+    <string name="circle_copy_sending_your_request" formatted="false">Sending your request…</string>
+    <string name="circle_copy_this_can_take_a_moment_if_the" formatted="false">This can take a moment if the admin\'s phone is asleep or offline.</string>
+    <string name="circle_copy_request_sent_waiting_for_the_admin_to" formatted="false">Request sent. Waiting for the admin to approve</string>
+    <string name="circle_copy_the_admin_has_to_open_penny_circle">The admin has to open Penny Circle on their phone to approve. Requests wait up to 24 hours. Yours expires at %1$s (about %2$dh from now). After approval you join when both phones can reach each other; delivery is not instant.</string>
+    <string name="circle_copy_check_again" formatted="false">Check again</string>
+    <string name="circle_copy_the_circle_could_not_take_this_request" formatted="false">The circle could not take this request</string>
+    <string name="circle_copy_no_reason_was_given" formatted="false">No reason was given.</string>
+    <string name="circle_copy_paste_the_circle_code" formatted="false">Paste the circle code</string>
+    <string name="circle_copy_ask_the_circles_admin_to_share_a" formatted="false">Ask the circle\'s admin to share a code. The admin approves your request before you see anything.</string>
+    <string name="circle_copy_circle_code" formatted="false">Circle code</string>
+    <string name="circle_copy_starts_with_pc1" formatted="false">Starts with pc1.</string>
+    <string name="circle_copy_the_clipboard_is_empty" formatted="false">The clipboard is empty.</string>
+    <string name="circle_copy_paste_from_clipboard" formatted="false">Paste from clipboard</string>
+    <string name="circle_copy_scan_a_qr_code" formatted="false">Scan a QR code</string>
+    <string name="circle_copy_send_request" formatted="false">Send request</string>
+    <string name="circle_copy_settings">%1$s settings</string>
+    <string name="circle_copy_you_are_not_in_a_circle" formatted="false">You are not in a circle.</string>
+    <string name="circle_copy_what_you_share" formatted="false">What you share</string>
+    <string name="circle_copy_totals_status" formatted="false">Totals &amp; status</string>
+    <string name="circle_copy_your_spending_totals_limits_check_in_status" formatted="false">Your spending totals, limits, check-in status and streak. No purchase details.</string>
+    <string name="circle_copy_full_details" formatted="false">Full details</string>
+    <string name="circle_copy_also_your_saved_purchase_details_including_auto" formatted="false">Also your saved purchase details, including Auto purchases after their 10-minute undo window or when you tap Keep.</string>
+    <string name="circle_copy_updating_sharing" formatted="false">Updating sharing…</string>
+    <string name="circle_copy_a_change_applies_from_now_on_anything" formatted="false">A change applies from now on. Anything already shared with the circle cannot be recalled.</string>
+    <string name="circle_copy_transfer_admin" formatted="false">Transfer admin</string>
+    <string name="circle_copy_the_admin_approves_join_requests_pick_who" formatted="false">The admin approves join requests. Pick who takes over; you will stay a regular member.</string>
+    <string name="circle_copy_invite_another_member_from_circle_first_then" formatted="false">Invite another member from Circle first. Then return here to choose who becomes the admin.</string>
+    <string name="circle_copy_transferring" formatted="false">Transferring…</string>
+    <string name="circle_copy_leave_circle" formatted="false">Leave circle</string>
+    <string name="circle_copy_your_own_data_stays_on_this_phone" formatted="false">Your own data stays on this phone. You stop seeing the circle and it stops seeing you. After leaving, this phone’s current identity cannot rejoin this circle.</string>
+    <string name="circle_copy_leaving" formatted="false">Leaving…</string>
+    <string name="circle_copy_make_the_admin">Make %1$s the admin?</string>
+    <string name="circle_copy_will_approve_join_requests_and_make_join">%1$s will approve join requests and make join codes. You will no longer be the admin, and you cannot take the role back yourself.</string>
+    <string name="circle_copy_transfer" formatted="false">Transfer</string>
+    <string name="circle_copy_this_circle" formatted="false">this circle</string>
+    <string name="circle_copy_leave">Leave %1$s?</string>
+    <string name="circle_copy_you_are_the_admin_so_the_role" formatted="false">You are the admin, so the role goes to someone else when you leave. Choose who, or let the longest-standing member take it.</string>
+    <string name="circle_copy_longest_standing_member" formatted="false">Longest-standing member</string>
+    <string name="circle_copy_you_are_the_only_member_so_nobody" formatted="false">You are the only member, so nobody needs to take over as admin. Your circle\'s code stops working.</string>
+    <string name="circle_copy_the_circle_is_told_that_you_left" formatted="false">Your own data stays on this phone. Other members may learn that you left on a later connection.</string>
+    <string name="circle_copy_leave_2" formatted="false">Leave</string>
+    <string name="circle_copy_stay" formatted="false">Stay</string>
+    <string name="circle_state_on" formatted="false">on</string>
+    <string name="circle_reach_state">Right now: %1$s. Stay reachable is %2$s.</string>
+    <string name="circle_reachable_error" formatted="false">Couldn\'t keep Penny Circle reachable. Try again while the app is open.</string>
+    <string name="circle_cancel_request_help" formatted="false">Cancel stops this phone from joining. A request already delivered may still appear on the admin’s phone.</string>
+    <string name="circle_state_off" formatted="false">off</string>
+    <string name="circle_status_streak">%1$s · %2$d-day streak</string>
+    <string name="circle_status_named_streak">%1$s, %2$s, %3$d-day streak</string>
+    <string name="circle_amount_over">%1$s, over the limit by %2$s</string>
+    <plurals name="circle_members_spots">
+        <item quantity="one">%1$d of %2$d members. %3$d spot left.</item>
+        <item quantity="other">%1$d of %2$d members. %3$d spots left.</item>
+    </plurals>
+    <plurals name="circle_impulse_free">
+        <item quantity="one">%1$d day impulse-free</item>
+        <item quantity="other">%1$d days impulse-free</item>
+    </plurals>
+    <plurals name="circle_impulse_week">
+        <item quantity="one">%1$d day impulse-free · %2$s on impulse this week</item>
+        <item quantity="other">%1$d days impulse-free · %2$s on impulse this week</item>
+    </plurals>
+    <string name="circle_error_this_phone_s_circle_connection_could_not" formatted="false">This phone’s circle connection could not be prepared. Reopen Penny Circle and try again.</string>
+    <string name="circle_error_the_phones_could_not_read_this_update" formatted="false">The phones could not read this update. Update Penny Circle on both phones, then try again.</string>
+    <string name="circle_error_couldnt_reach_that_phone_delivery_is_approximate" formatted="false">Couldn\'t reach that phone. Delivery is approximate and needs their app to be open or online; it will retry.</string>
+    <string name="circle_error_couldnt_complete_that_circle_action_try_again" formatted="false">Couldn\'t complete that circle action. Try again.</string>
+    <string name="circle_error_only_the_circle_admin_can_make_a" formatted="false">Only the circle admin can make a code.</string>
+    <string name="circle_error_only_the_circle_admin_can_approve_join" formatted="false">Only the circle admin can approve join requests.</string>
+    <string name="circle_error_only_the_circle_admin_can_decline_join" formatted="false">Only the circle admin can decline join requests.</string>
+    <string name="circle_error_only_the_circle_admin_can_transfer_the" formatted="false">Only the circle admin can transfer the role.</string>
+    <string name="circle_error_that_request_is_no_longer_pending" formatted="false">That request is no longer pending.</string>
+    <string name="circle_error_already_a_member" formatted="false">Already a member.</string>
+    <string name="circle_error_pick_another_member_of_your_circle" formatted="false">Pick another member of your circle.</string>
+    <string name="circle_error_pick_a_member_of_your_circle" formatted="false">Pick a member of your circle.</string>
+    <string name="circle_error_you_already_nudged_them_today" formatted="false">You already nudged them today.</string>
+    <string name="circle_error_you_already_nudged_them_today_or_they" formatted="false">You already nudged them today, or they are not in your circle.</string>
+    <string name="circle_error_that_suggestion_is_no_longer_available" formatted="false">That suggestion is no longer available.</string>
+    <string name="circle_error_no_join_request_is_pending" formatted="false">No join request is pending.</string>
+    <string name="circle_error_that_circle_code_is_not_valid_ask" formatted="false">That circle code is not valid. Ask for a new one.</string>
+    <string name="circle_error_this_circle_code_has_expired_ask_the" formatted="false">This circle code has expired. Ask the admin for a new one.</string>
+    <string name="circle_error_the_request_expired_ask_the_admin_for" formatted="false">The request expired. Ask the admin for a new code.</string>
+    <string name="circle_error_that_circle_code_has_expired_or_been" formatted="false">That circle code has expired or been replaced. Ask for a new one.</string>
+    <string name="circle_error_that_code_is_for_a_different_circle" formatted="false">That code is for a different circle.</string>
+    <string name="circle_error_the_admin_declined_this_request" formatted="false">The admin declined this request.</string>
+    <string name="circle_error_only_the_circle_admin_can_take_join" formatted="false">Only the circle admin can take join requests.</string>
+    <string name="circle_error_you_are_already_in_this_circle" formatted="false">You are already in this circle.</string>
+    <string name="circle_error_this_phone_is_not_in_a_circle" formatted="false">This phone is not in a circle.</string>
+    <string name="circle_error_this_phone_left_the_circle_and_cannot" formatted="false">This phone left the circle and cannot rejoin with the same identity.</string>
+    <string name="circle_error_the_join_request_was_not_valid" formatted="false">The join request was not valid.</string>
+    <string name="circle_error_too_many_requests_are_waiting_try_again" formatted="false">Too many requests are waiting. Try again later.</string>
+    <string name="circle_error_you_are_already_in_a_circle_leave" formatted="false">You are already in a circle. Leave it first.</string>
+    <string name="circle_error_already_in_a_circle_leave_it_first" formatted="false">Already in a circle. Leave it first.</string>
+    <string name="circle_error_penny_circle_is_still_getting_ready_try" formatted="false">Penny Circle is still getting ready. Try again.</string>
+    <string name="circle_error_this_circle_is_full_members">This circle is full (%1$d members).</string>
+    <string name="circle_error_circle_names_are_1_to_characters">Circle names are 1 to %1$d characters.</string>
+</resources>

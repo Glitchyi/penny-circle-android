@@ -34,9 +34,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.spendingbuddy.app.R
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
@@ -55,6 +64,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 /** A spacious, scrollable detail and action surface for one logged purchase. */
 @Composable
@@ -62,11 +72,15 @@ fun PurchaseDetailsSheet(
     expense: Expense,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onToggleImpulse: () -> Unit,
-    onDelete: () -> Unit
+    onToggleImpulse: suspend (Boolean) -> String?,
+    onDelete: suspend () -> String?
 ) {
+    var error by rememberSaveable(expense.id) { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val tokens = LocalPennyTokens.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true,
+        confirmValueChange = { !busy || it != androidx.compose.material3.SheetValue.Hidden })
     val isImpulse = expense.kind == "expense" && expense.reason == IMPULSE
     val isAuto = expense.source == SOURCE_AUTO
     val now = System.currentTimeMillis()
@@ -74,14 +88,14 @@ fun PurchaseDetailsSheet(
         !isAuto -> null
         expense.heldUntil > now -> {
             val minutesLeft = ((expense.heldUntil - now + 59_999L) / 60_000L).coerceAtLeast(1L)
-            "Undo window · $minutesLeft min left"
+            pluralStringResource(R.plurals.purchase_hold_remaining, minutesLeft.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(), minutesLeft)
         }
-        expense.heldUntil > 0L -> "Undo window ended"
-        else -> "Undo window complete"
+        expense.heldUntil > 0L -> stringResource(R.string.purchase_hold_ended)
+        else -> stringResource(R.string.purchase_hold_complete)
     }
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) onDismiss() },
         sheetState = sheetState,
         containerColor = tokens.surface,
         contentColor = tokens.text
@@ -100,7 +114,7 @@ fun PurchaseDetailsSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "PURCHASE DETAILS",
+                    stringResource(R.string.purchase_details_heading),
                     modifier = Modifier.weight(1f).semantics { heading() },
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontFamily = PennyType.Mono,
@@ -111,9 +125,10 @@ fun PurchaseDetailsSheet(
                 )
                 IconButton(
                     onClick = onDismiss,
+                    enabled = !busy,
                     modifier = Modifier.size(48.dp)
                 ) {
-                    Icon(Icons.Rounded.Close, contentDescription = "Close purchase details", tint = tokens.muted)
+                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.purchase_close_details), tint = tokens.muted)
                 }
             }
 
@@ -135,7 +150,7 @@ fun PurchaseDetailsSheet(
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        expense.merchant.ifBlank { expense.category.ifBlank { "Purchase" } },
+                        expense.merchant.ifBlank { expense.category.ifBlank { stringResource(R.string.purchase_fallback_name) } },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = tokens.text
@@ -156,7 +171,7 @@ fun PurchaseDetailsSheet(
                             )
                         }
                         Text(
-                            if (expense.needsCategory) "Needs category" else if (isImpulse) "Impulse" else expense.reason,
+                            if (expense.needsCategory) stringResource(R.string.purchase_needs_category) else if (isImpulse) stringResource(R.string.purchase_impulse) else expense.reason,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = if (isImpulse || expense.needsCategory) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (isImpulse) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
@@ -165,7 +180,7 @@ fun PurchaseDetailsSheet(
                     if (expense.note.isNotBlank()) {
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "NOTE",
+                            stringResource(R.string.purchase_note_heading),
                             style = MaterialTheme.typography.labelSmall.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp),
                             color = tokens.muted
                         )
@@ -183,30 +198,32 @@ fun PurchaseDetailsSheet(
                 border = BorderStroke(1.dp, tokens.border)
             ) {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    DetailFact(label = "DATE", value = formatPurchaseDate(expense.date))
-                    DetailFact(label = "SOURCE", value = if (isAuto) "Auto-tracked" else "Logged on this phone")
-                    if (holdStatus != null) DetailFact(label = "STATUS", value = holdStatus)
+                    DetailFact(label = stringResource(R.string.purchase_date_heading), value = formatPurchaseDate(expense.date))
+                    DetailFact(label = stringResource(R.string.purchase_source_heading), value = if (isAuto) stringResource(R.string.purchase_source_auto) else stringResource(R.string.purchase_source_manual))
+                    if (holdStatus != null) DetailFact(label = stringResource(R.string.purchase_status_heading), value = holdStatus)
                 }
             }
 
             Spacer(Modifier.height(22.dp))
+            ErrorText(error)
             Text(
-                "ACTIONS",
+                stringResource(R.string.purchase_actions_heading),
                 style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.4.sp),
                 color = tokens.muted
             )
             Spacer(Modifier.height(10.dp))
             PurchaseActionRow(
-                title = "Edit purchase",
-                detail = "Change the amount, date, category or note",
+                title = stringResource(R.string.purchase_edit),
+                detail = stringResource(R.string.purchase_edit_detail),
                 icon = { Icon(Icons.Rounded.Edit, null, tint = tokens.accent, modifier = Modifier.size(22.dp)) },
+                enabled = !busy,
                 onClick = onEdit
             )
             if (expense.kind == "expense") {
                 Spacer(Modifier.height(8.dp))
                 PurchaseActionRow(
-                    title = if (isImpulse) "Unmark impulse" else "Mark as impulse",
-                    detail = if (isImpulse) "Remove it from your impulse total" else "Include it in your impulse total",
+                    title = if (isImpulse) stringResource(R.string.purchase_unmark_impulse) else stringResource(R.string.purchase_mark_impulse),
+                    detail = if (isImpulse) stringResource(R.string.purchase_remove_impulse_detail) else stringResource(R.string.purchase_add_impulse_detail),
                     titleColor = if (isImpulse) MaterialTheme.colorScheme.error else tokens.text,
                     icon = {
                         Icon(
@@ -216,7 +233,11 @@ fun PurchaseDetailsSheet(
                             modifier = Modifier.size(22.dp)
                         )
                     },
-                    onClick = onToggleImpulse
+                    enabled = !busy,
+                    onClick = { scope.launch {
+                        busy = true
+                        try { error = onToggleImpulse(!isImpulse); if (error == null) onDismiss() } finally { busy = false }
+                    } }
                 )
             }
 
@@ -229,16 +250,20 @@ fun PurchaseDetailsSheet(
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                     PurchaseActionRow(
-                        title = "Delete purchase",
-                        detail = "Remove this entry from your log",
+                        title = stringResource(R.string.purchase_delete),
+                        detail = stringResource(R.string.purchase_delete_detail),
                         titleColor = tokens.danger,
                         icon = { Icon(Icons.Rounded.Delete, null, tint = tokens.danger, modifier = Modifier.size(22.dp)) },
-                        onClick = onDelete,
+                        enabled = !busy,
+                        onClick = { scope.launch {
+                            busy = true
+                            try { error = onDelete(); if (error == null) onDismiss() } finally { busy = false }
+                        } },
                         inset = 0.dp
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Deleting re-opens that day’s check-in. You can undo right after.",
+                        stringResource(R.string.purchase_delete_consequence),
                         style = MaterialTheme.typography.bodySmall,
                         color = tokens.muted,
                         modifier = Modifier.padding(start = 48.dp, end = 4.dp, bottom = 2.dp)
@@ -282,6 +307,7 @@ private fun PurchaseActionRow(
     detail: String,
     icon: @Composable () -> Unit,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     titleColor: Color = LocalPennyTokens.current.text,
     inset: androidx.compose.ui.unit.Dp = 12.dp
 ) {
@@ -293,7 +319,7 @@ private fun PurchaseActionRow(
             .clip(RoundedCornerShape(18.dp))
             .background(tokens.surface2)
             .border(1.dp, tokens.border, RoundedCornerShape(18.dp))
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = inset, vertical = 12.dp)
             .semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically
@@ -309,6 +335,6 @@ private fun PurchaseActionRow(
     }
 }
 
-private fun formatPurchaseDate(date: String): String = runCatching {
+internal fun formatPurchaseDate(date: String): String = runCatching {
     LocalDate.parse(date).atStartOfDay(INDIA_ZONE).format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.getDefault()))
 }.getOrDefault(date)

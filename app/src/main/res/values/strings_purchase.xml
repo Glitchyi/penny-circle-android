@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="purchase_add">Add purchase</string>
+    <string name="purchase_edit">Edit purchase</string>
+    <string name="purchase_details_next">Add purchase details</string>
+    <string name="purchase_change_amount">Change amount</string>
+    <string name="purchase_amount_summary">Amount %1$s</string>
+    <string name="purchase_save">Save purchase</string>
+    <string name="purchase_keypad">Keypad</string>
+    <string name="purchase_dial">Dial</string>
+    <string name="purchase_presets">Presets</string>
+    <string name="purchase_default_preset">%1$s (default)</string>
+    <string name="purchase_category">Category</string>
+    <string name="purchase_reason">Why did you buy it?</string>
+    <string name="purchase_impulse_notice">Marked as impulse. Worth a pause next time.</string>
+    <string name="purchase_merchant_optional">Merchant or what for (optional)</string>
+    <string name="purchase_save_preset">Save \"%1$s\" as a preset (only on this phone)</string>
+    <string name="purchase_when">When</string>
+    <string name="purchase_today">Today</string>
+    <string name="purchase_yesterday">Yesterday</string>
+    <string name="purchase_date_label">Date (YYYY-MM-DD)</string>
+    <string name="purchase_note_optional">Note (optional)</string>
+    <string name="purchase_error_amount">Enter an amount above ₹0</string>
+    <string name="purchase_error_category">Choose a category and a reason</string>
+    <string name="purchase_error_reason">Choose a reason</string>
+    <string name="purchase_error_date">Choose today or an earlier date</string>
+    <string name="purchase_finish_title">Finish %1$s</string>
+    <plurals name="purchase_finish_summary"><item quantity="one">%1$d purchase · %2$s · %3$s</item><item quantity="other">%1$d purchases · %2$s · %3$s</item></plurals>
+    <plurals name="purchase_impulse_count"><item quantity="one">%1$d impulse purchase</item><item quantity="other">%1$d impulse purchases</item></plurals>
+    <string name="purchase_no_spend_question">No purchases today?</string>
+    <string name="purchase_under_limit">You stayed %1$s under your daily limit.</string>
+    <string name="purchase_over_limit">You went %1$s over today\'s limit.</string>
+    <string name="purchase_no_spend_action">Mark as no-spend day</string>
+    <string name="purchase_finish_today">Finish today</string>
+    <string name="purchase_finish_day">Finish day</string>
+    <string name="purchase_add_missed">Add something I missed</string>
+    <string name="purchase_details_heading">PURCHASE DETAILS</string>
+    <string name="purchase_close_details">Close purchase details</string>
+    <string name="purchase_fallback_name">Purchase</string>
+    <string name="purchase_needs_category">Needs category</string>
+    <string name="purchase_impulse">Impulse</string>
+    <string name="purchase_note_heading">NOTE</string>
+    <string name="purchase_date_heading">DATE</string>
+    <string name="purchase_source_heading">SOURCE</string>
+    <string name="purchase_status_heading">STATUS</string>
+    <string name="purchase_source_auto">Auto-tracked</string>
+    <string name="purchase_source_manual">Logged on this phone</string>
+    <plurals name="purchase_hold_remaining"><item quantity="one">Undo window · %1$d minute left</item><item quantity="other">Undo window · %1$d minutes left</item></plurals>
+    <string name="purchase_hold_ended">Undo window ended</string>
+    <string name="purchase_hold_complete">Undo window complete</string>
+    <string name="purchase_actions_heading">ACTIONS</string>
+    <string name="purchase_edit_detail">Change the amount, date, category or note</string>
+    <string name="purchase_unmark_impulse">Unmark impulse</string>
+    <string name="purchase_mark_impulse">Mark as impulse</string>
+    <string name="purchase_remove_impulse_detail">Remove it from your impulse total</string>
+    <string name="purchase_add_impulse_detail">Include it in your impulse total</string>
+    <string name="purchase_delete">Delete purchase</string>
+    <string name="purchase_delete_detail">Remove this entry from your log</string>
+    <string name="purchase_delete_consequence">Deleting re-opens that day’s check-in. You can undo right after.</string>
+    <string name="purchase_today_greeting">Hi, %1$s</string>
+    <string name="purchase_open_settings">Open settings</string>
+    <string name="purchase_settings">Settings</string>
+    <string name="purchase_add_by_hand">Add by hand</string>
+    <string name="purchase_connect_alerts">Connect payment alerts</string>
+    <string name="purchase_source_missing">Tracking is on, but no message source is connected. Manual entry still works.</string>
+    <string name="purchase_finish_tracking_setup">Finish tracking setup</string>
+    <string name="purchase_yesterday_open">Yesterday is still open</string>
+    <string name="purchase_yesterday_grace">Finish it before 10 AM to keep your streak.</string>
+    <string name="purchase_finish_yesterday">Finish yesterday</string>
+    <plurals name="purchase_impulse_free_days"><item quantity="one">%1$d day</item><item quantity="other">%1$d days</item></plurals>
+    <string name="purchase_impulse_short">%1$s impulse</string>
+    <string name="purchase_impulse_week">%1$s impulse this week</string>
+    <string name="purchase_no_impulse_short">No impulse buys</string>
+    <string name="purchase_no_impulse_week">No impulse buys this week</string>
+    <string name="purchase_this_week">This week</string>
+    <string name="purchase_impulse_free">Impulse-free</string>
+    <string name="purchase_of_limit">of %1$s</string>
+    <string name="purchase_list_heading">Purchases</string>
+    <plurals name="purchase_item_count"><item quantity="one">%1$d item</item><item quantity="other">%1$d items</item></plurals>
+    <string name="purchase_circle_friend">A friend in your circle</string>
+    <string name="purchase_nudge_title">%1$s nudged you</string>
+    <string name="purchase_nudge_detail">Finish today before it runs out.</string>
+</resources>

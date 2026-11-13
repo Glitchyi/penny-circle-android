@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="backup_saved">Backup saved.</string>
+    <string name="backup_save_error">Couldn\'t save the backup. Try another location.</string>
+    <string name="backup_open_error">Couldn\'t open that file. Choose another backup file.</string>
+    <string name="backup_restored">Backup restored.</string>
+    <string name="backup_restoring">Restoring backup…</string>
+    <string name="backup_local_newer_version">This data was saved by a newer version of Penny Circle. Update the app to open it.</string>
+    <string name="backup_local_unreadable">The saved data could not be read.</string>
+    <string name="backup_newer_version">This backup was made by a newer version of Penny Circle. Update the app, then try restoring it again. Nothing was restored.</string>
+    <string name="backup_invalid_file">Choose a JSON backup exported from Penny Circle. Nothing was restored.</string>
+    <string name="backup_unsupported_version">That backup has an unsupported version. Nothing was restored. Update Penny Circle, then try again.</string>
+    <string name="backup_unsupported_timers">That backup has unsupported timer preferences. Nothing was restored. Choose another backup, or export a new one from the original phone.</string>
+    <string name="backup_invalid_limits">That backup has invalid limits. Nothing was restored. Choose another backup, or export a new one from the original phone.</string>
+    <string name="backup_invalid_purchases">That backup has invalid purchases. Nothing was restored. Choose another backup, or export a new one from the original phone.</string>
+    <string name="backup_too_many_members">That backup has too many circle members. Nothing was restored. Choose another backup, or export a new one from the original phone.</string>
+    <string name="backup_empty">That backup is empty. Nothing was restored. Choose another backup, or export a new one from the original phone.</string>
+    <string name="backup_no_purchases">That backup has no purchases. Nothing was restored. Choose another backup, or export a new one from the original phone.</string>
+    <string name="backup_restore_error">Couldn\'t restore that backup. Your existing data was kept. Try again or choose another backup file.</string>
+    <string name="share_circle_invite">Join my Penny Circle. Open the app, go to the Circle tab, tap Join with a code, and paste this. The admin approves each request, and approval can take a little while: %1$s</string>
+    <string name="share_circle_title">Share circle code</string>
+    <string name="share_scan_error">Couldn\'t scan. Paste the code instead.</string>
+</resources>

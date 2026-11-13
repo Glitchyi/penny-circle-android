@@ -8,6 +8,8 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.FileOutputStream
@@ -15,12 +17,6 @@ import java.time.LocalDate
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.max
-
-const val INCOMING_WARNING = "Incoming/refund transaction; do not count automatically"
-
-/** Incoming candidates are saved as refunds, never as plain expenses. */
-fun ImportCandidate.isIncoming(): Boolean = warning.contains(INCOMING_WARNING)
-fun kindFor(candidate: ImportCandidate): String = if (candidate.isIncoming()) "refund" else "expense"
 
 /** Marks imports left mid-processing (e.g. after the app was killed) as failed so they can be retried. */
 fun recoverInterruptedImports(images: List<ImportImage>): List<ImportImage> = images.map {
@@ -54,7 +50,10 @@ class ScreenshotImporter(private val context: Context) {
         // Keep a successfully copied image when recognition fails so the user can retry OCR.
         return try {
             recognize(destination, id)
+        } catch (_: TimeoutCancellationException) {
+            ImportImage(id = id, path = destination.absolutePath, status = "failed", error = appContext.getString(R.string.import_timeout)) to emptyList()
         } catch (cancelled: CancellationException) {
+            destination.delete()
             throw cancelled
         } catch (error: Exception) {
             ImportImage(id = id, path = destination.absolutePath, status = "failed", error = safeMessage(error)) to emptyList()
@@ -66,9 +65,11 @@ class ScreenshotImporter(private val context: Context) {
         val id = image.id
         return try {
             if (!isPrivateImport(file) || !file.isFile) {
-                return image.copy(status = "failed", error = "Temporary screenshot copy is unavailable") to emptyList()
+                return image.copy(status = "failed", error = appContext.getString(R.string.import_copy_unavailable)) to emptyList()
             }
             recognize(file, id)
+        } catch (_: TimeoutCancellationException) {
+            image.copy(status = "failed", error = appContext.getString(R.string.import_timeout)) to emptyList()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -84,11 +85,11 @@ class ScreenshotImporter(private val context: Context) {
 
     private suspend fun recognize(file: File, imageId: String): Pair<ImportImage, List<ImportCandidate>> {
         val bitmap = decodeSampled(file)
-            ?: return ImportImage(imageId, file.absolutePath, "failed", "The image could not be decoded") to emptyList()
+            ?: return ImportImage(imageId, file.absolutePath, "failed", appContext.getString(R.string.import_decode_error)) to emptyList()
         return try {
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             val text = try {
-                recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text
+                withTimeout(OCR_TIMEOUT_MS) { recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text }
             } finally {
                 recognizer.close()
             }
@@ -102,7 +103,7 @@ class ScreenshotImporter(private val context: Context) {
     private fun copyCapped(uri: Uri, destination: File) {
         val expectedLength = appContext.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
         if (expectedLength != null && expectedLength > MAX_BYTES) {
-            throw IllegalArgumentException("Screenshot is larger than 20 MB")
+            throw IllegalArgumentException(appContext.getString(R.string.import_too_large))
         }
         val temporary = File(destination.parentFile, ".${destination.name}.part")
         try {
@@ -114,13 +115,13 @@ class ScreenshotImporter(private val context: Context) {
                         val count = input.read(buffer)
                         if (count < 0) break
                         copied += count
-                        if (copied > MAX_BYTES) throw IllegalArgumentException("Screenshot is larger than 20 MB")
+                        if (copied > MAX_BYTES) throw IllegalArgumentException(appContext.getString(R.string.import_too_large))
                         output.write(buffer, 0, count)
                     }
                     output.fd.sync()
                 }
-            } ?: throw IllegalArgumentException("Unable to read shared image")
-            if (!temporary.renameTo(destination)) throw IllegalStateException("Unable to save temporary screenshot")
+            } ?: throw IllegalArgumentException(appContext.getString(R.string.import_uri_error))
+            if (!temporary.renameTo(destination)) throw IllegalStateException(appContext.getString(R.string.import_copy_error))
         } finally {
             temporary.delete()
         }
@@ -148,13 +149,14 @@ class ScreenshotImporter(private val context: Context) {
         }
     }
 
-    private fun safeMessage(error: Exception): String = error.message?.takeIf { it.isNotBlank() } ?: "Screenshot processing failed"
+    private fun safeMessage(error: Exception): String = error.message?.takeIf { it.isNotBlank() } ?: appContext.getString(R.string.import_processing_error)
 
     private companion object {
         const val IMPORT_DIRECTORY = "imports"
         const val MAX_BYTES = 20L * 1024L * 1024L
         const val COPY_BUFFER_SIZE = 32 * 1024
         const val MAX_BITMAP_DIMENSION = 2048
+        const val OCR_TIMEOUT_MS = 30_000L
     }
 }
 

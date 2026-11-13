@@ -1,8 +1,6 @@
 package com.spendingbuddy.app.ui
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.runtime.LaunchedEffect
@@ -25,41 +23,41 @@ import kotlinx.coroutines.flow.collectLatest
  */
 fun Modifier.pressScale(interaction: InteractionSource, pressed: Float = 0.965f): Modifier = composed {
     val reduced = LocalReducedMotion.current
-    if (reduced) return@composed this
     val scale = remember { Animatable(1f) }
-    LaunchedEffect(interaction) {
+    LaunchedEffect(interaction, reduced) {
+        if (reduced) { scale.snapTo(1f); return@LaunchedEffect }
         interaction.interactions.collectLatest { event ->
             when (event) {
-                is PressInteraction.Press -> scale.animateTo(pressed, spring(dampingRatio = 1f, stiffness = 1400f))
+                is PressInteraction.Press -> scale.animateTo(pressed, PennyMotion.effects())
                 is PressInteraction.Release, is PressInteraction.Cancel -> {
-                    if (scale.value > (1f + pressed) / 2f) scale.animateTo(pressed, spring(dampingRatio = 1f, stiffness = 2600f))
-                    scale.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 520f))
+                    if (scale.value > (1f + pressed) / 2f) scale.animateTo(pressed, PennyMotion.effects())
+                    scale.animateTo(1f, PennyMotion.spatial())
                 }
             }
         }
     }
     graphicsLayer {
-        scaleX = scale.value
-        scaleY = scale.value
+        scaleX = if (reduced) 1f else scale.value
+        scaleY = if (reduced) 1f else scale.value
     }
 }
 
 /** A short scale kick whenever [key] changes (not on first show), for a number that has just been updated. */
 fun Modifier.bumpOnChange(key: Any?, amount: Float = 0.07f): Modifier = composed {
     val reduced = LocalReducedMotion.current
-    if (reduced) return@composed this
     val scale = remember { Animatable(1f) }
     val last = remember { arrayOf(key) }
-    LaunchedEffect(key) {
+    LaunchedEffect(key, reduced) {
+        if (reduced) { last[0] = key; scale.snapTo(1f); return@LaunchedEffect }
         if (key != last[0]) {
             last[0] = key
             scale.snapTo(1f + amount)
-            scale.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 300f))
+            scale.animateTo(1f, PennyMotion.spatial())
         }
     }
     graphicsLayer {
-        scaleX = scale.value
-        scaleY = scale.value
+        scaleX = if (reduced) 1f else scale.value
+        scaleY = if (reduced) 1f else scale.value
     }
 }
 
@@ -69,16 +67,17 @@ fun Modifier.bumpOnChange(key: Any?, amount: Float = 0.07f): Modifier = composed
  */
 fun Modifier.popIn(delayMillis: Int = 0): Modifier = composed {
     val reduced = LocalReducedMotion.current
-    if (reduced) return@composed this
-    val progress = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        if (delayMillis > 0) delay(delayMillis.toLong())
-        progress.animateTo(1f, spring(dampingRatio = 0.5f, stiffness = 620f))
+    val progress = remember { Animatable(if (reduced) 1f else 0f) }
+    LaunchedEffect(reduced) {
+        if (reduced) progress.snapTo(1f) else if (progress.value < 1f) {
+            if (delayMillis > 0) delay(delayMillis.toLong())
+            progress.animateTo(1f, PennyMotion.spatial())
+        }
     }
     graphicsLayer {
-        val p = progress.value
+        val p = if (reduced) 1f else progress.value
         alpha = (p * 2f).coerceIn(0f, 1f)
-        val s = 0.5f + 0.5f * p
+        val s = (0.5f + 0.5f * p).coerceAtMost(1f)
         scaleX = s
         scaleY = s
         translationY = (1f - p) * 14.dp.toPx()
@@ -91,29 +90,30 @@ fun Modifier.popIn(delayMillis: Int = 0): Modifier = composed {
  */
 fun Modifier.enterRise(order: Int = 0): Modifier = composed {
     val reduced = LocalReducedMotion.current
-    if (reduced) return@composed this
     var entered by rememberSaveable { mutableStateOf(false) }
     val progress = remember { Animatable(if (entered || reduced) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (progress.value < 1f) {
+    LaunchedEffect(reduced) {
+        if (reduced) progress.snapTo(1f) else if (progress.value < 1f) {
             delay(30L * order.coerceIn(0, 2))
-            progress.animateTo(1f, tween(durationMillis = 240))
+            progress.animateTo(1f, PennyMotion.effects())
         }
         entered = true
     }
     graphicsLayer {
-        val p = progress.value
+        val p = if (reduced) 1f else progress.value
         translationY = (1f - p) * 12.dp.toPx()
     }
 }
 
 /** A quiet one-time content fade for changing details that do not need to move or scale. */
 fun Modifier.fadeInContent(delayMillis: Int = 0): Modifier = composed {
-    if (LocalReducedMotion.current) return@composed this
-    val alpha = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        if (delayMillis > 0) delay(delayMillis.toLong())
-        alpha.animateTo(1f, tween(durationMillis = 180))
+    val reduced = LocalReducedMotion.current
+    val alpha = remember { Animatable(if (reduced) 1f else 0f) }
+    LaunchedEffect(reduced) {
+        if (reduced) alpha.snapTo(1f) else if (alpha.value < 1f) {
+            if (delayMillis > 0) delay(delayMillis.toLong())
+            alpha.animateTo(1f, PennyMotion.effects())
+        }
     }
-    graphicsLayer { this.alpha = alpha.value }
+    graphicsLayer { this.alpha = if (reduced) 1f else alpha.value }
 }

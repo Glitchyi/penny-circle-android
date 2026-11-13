@@ -6,6 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import com.spendingbuddy.app.p2p.*
 import org.junit.Test
 
@@ -64,7 +65,7 @@ class StateCodecTest {
         val loaded = StateCodec.load(StateCodec.encode(invalid)) as StateCodec.LoadResult.Loaded
         assertEquals(DEFAULT_PAYMENT_UPDATE_MINUTES, loaded.state.paymentUpdateMinutes)
         assertEquals(DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES, loaded.state.finishCountdownLeadMinutes)
-        assertNotNull(StateCodec.validateRestore(BuddyState(), invalid))
+        assertEquals(BackupRestoreIssue.UnsupportedTimers, StateCodec.validateRestore(BuddyState(), invalid))
     }
 
     @Test fun backupExcludesPeerSecretsAndDrafts() {
@@ -82,6 +83,22 @@ class StateCodecTest {
         assertTrue(r is StateCodec.LoadResult.Unreadable)
     }
 
+    @Test fun backupDecodeDistinguishesANewerSchemaFromMalformedJson() {
+        val newerVersion = STATE_SCHEMA_VERSION + 1
+        try {
+            StateCodec.decode("""{"schemaVersion":$newerVersion,"name":"X"}""")
+            fail("A newer backup must be rejected before restore")
+        } catch (newer: UnsupportedSchemaException) {
+            assertEquals(newerVersion, newer.version)
+        }
+        try {
+            StateCodec.decode("{not json")
+            fail("Malformed data must be rejected before restore")
+        } catch (malformed: Exception) {
+            assertFalse(malformed is UnsupportedSchemaException)
+        }
+    }
+
     @Test fun corruptTextIsUnreadableAndNullIsMissing() {
         assertTrue(StateCodec.load("{not json") is StateCodec.LoadResult.Unreadable)
         assertTrue(StateCodec.load(null) is StateCodec.LoadResult.Missing)
@@ -94,7 +111,7 @@ class StateCodecTest {
 
     @Test fun restoreRejectsEmptyBackupOverExistingData() {
         val current = BuddyState(name = "Asha", onboardingDone = true)
-        assertNotNull(StateCodec.validateRestore(current, BuddyState()))
+        assertEquals(BackupRestoreIssue.EmptyBackup, StateCodec.validateRestore(current, BuddyState()))
     }
 
     @Test fun restoreAllowsEmptyOverEmptyAndValidOverExisting() {
@@ -104,8 +121,15 @@ class StateCodecTest {
     }
 
     @Test fun restoreRejectsWrongSchemaAndNegativeLimits() {
-        assertNotNull(StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", schemaVersion = 1)))
-        assertNotNull(StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", dailyLimitPaise = -1)))
+        assertEquals(BackupRestoreIssue.UnsupportedVersion, StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", schemaVersion = 1)))
+        assertEquals(BackupRestoreIssue.InvalidLimits, StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", dailyLimitPaise = -1)))
+    }
+
+    @Test fun restoreGivesDistinctReasonsForInvalidPurchasesAndAnEmptyPurchaseHistory() {
+        assertEquals(BackupRestoreIssue.InvalidPurchases, StateCodec.validateRestore(BuddyState(), BuddyState(expenses = listOf(Expense(amountPaise = 0)))))
+        val current = BuddyState(name = "Asha", expenses = listOf(Expense(amountPaise = 100)))
+        assertEquals(BackupRestoreIssue.NoPurchases, StateCodec.validateRestore(current, BuddyState(name = "Asha")))
+        assertEquals(100L, current.expenses.single().amountPaise)
     }
 
     private val v2 = """
@@ -169,6 +193,6 @@ class StateCodecTest {
 
     @Test fun restoreRejectsOversizedMemberList() {
         val many = List(MAX_MEMBERS + 101) { Member("m$it") }
-        assertNotNull(StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", members = many)))
+        assertEquals(BackupRestoreIssue.TooManyMembers, StateCodec.validateRestore(BuddyState(), BuddyState(name = "B", members = many)))
     }
 }

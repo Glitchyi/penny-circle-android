@@ -24,6 +24,8 @@ import com.spendingbuddy.app.paymentUpdateDurationMillis
 import com.spendingbuddy.app.liveProgressAppearance
 import com.spendingbuddy.app.rupeeProgressTrackerIcon
 import com.spendingbuddy.app.MainActivity
+import com.spendingbuddy.app.notificationActivityAction
+import com.spendingbuddy.app.paymentReviewReason
 import com.spendingbuddy.app.PendingDetection
 import com.spendingbuddy.app.R
 import com.spendingbuddy.app.rupees
@@ -58,8 +60,8 @@ object DetectionNotifications {
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Detected purchases", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Purchases found in payment messages, with your budget for the day"
+            NotificationChannel(CHANNEL, context.getString(R.string.notification_channel_detected), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = context.getString(R.string.notification_channel_detected_description)
             }
         )
     }
@@ -73,13 +75,14 @@ object DetectionNotifications {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     /** Budget facts for the notification, worked out once so both Android versions say the same thing. */
-    private class Budget(state: BuddyState) {
+    private class Budget(context: Context, state: BuddyState) {
         val spent = spentOn(state.expenses, todayIndia())
         val limit = state.dailyLimitPaise
         val over = spent > limit
-        val headline = if (over) "${rupees(spent - limit)} over today's limit" else "${rupees(limit - spent)} left today"
-        val chip = budgetCriticalText(spent, limit)
-        val detail = "${rupees(spent.coerceAtLeast(0))} of ${rupees(limit)} spent"
+        val headline = if (over) context.getString(R.string.notification_budget_over, rupees(spent - limit))
+            else context.getString(R.string.notification_budget_left, rupees(limit - spent))
+        val chip = budgetCriticalText(spent, limit, context.getString(R.string.notification_budget_critical_over))
+        val detail = context.getString(R.string.notification_budget_detail, rupees(spent.coerceAtLeast(0)), rupees(limit))
         val progress = budgetProgress(spent, limit)
     }
 
@@ -139,10 +142,10 @@ object DetectionNotifications {
     }
 
     private fun buildAddedNotification(context: Context, state: BuddyState, expense: Expense, timeoutAfterMs: Long): Notification {
-        val budget = Budget(state)
+        val budget = Budget(context, state)
         val appearance = liveProgressAppearance(state.theme)
-        val what = listOf(rupees(expense.amountPaise), expense.merchant.ifBlank { expense.category }).joinToString(" · ")
-        val body = "Added $what. ${budget.detail}."
+        val what = context.getString(R.string.notification_amount_merchant, rupees(expense.amountPaise), expense.merchant.ifBlank { expense.category })
+        val body = context.getString(R.string.notification_budget_added, what, budget.detail)
         val held = expense.heldUntil > System.currentTimeMillis()
         val undo = broadcast(context, ACTION_UNDO, expense.id)
         val keep = broadcast(context, ACTION_KEEP, expense.id)
@@ -167,9 +170,9 @@ object DetectionNotifications {
                 .setTimeoutAfter(timeoutAfterMs)
                 .setContentIntent(open)
                 .addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED, true) })
-                .apply { if (held) addAction(Notification.Action.Builder(null as Icon?, "Undo", undo).build()) }
-                .addAction(Notification.Action.Builder(null as Icon?, "Edit", edit).build())
-                .apply { if (held) addAction(Notification.Action.Builder(null as Icon?, "Keep", keep).build()) }
+                .apply { if (held) addAction(Notification.Action.Builder(null as Icon?, context.getString(R.string.notification_undo), undo).build()) }
+                .addAction(Notification.Action.Builder(null as Icon?, context.getString(R.string.notification_edit), edit).build())
+                .apply { if (held) addAction(Notification.Action.Builder(null as Icon?, context.getString(R.string.notification_keep), keep).build()) }
                 .build()
         } else {
             NotificationCompat.Builder(context, CHANNEL)
@@ -182,9 +185,9 @@ object DetectionNotifications {
                 .setOnlyAlertOnce(true)
                 .setTimeoutAfter(timeoutAfterMs)
                 .setContentIntent(open)
-                .apply { if (held) addAction(0, "Undo", undo) }
-                .addAction(0, "Edit", edit)
-                .apply { if (held) addAction(0, "Keep", keep) }
+                .apply { if (held) addAction(0, context.getString(R.string.notification_undo), undo) }
+                .addAction(0, context.getString(R.string.notification_edit), edit)
+                .apply { if (held) addAction(0, context.getString(R.string.notification_keep), keep) }
                 .build()
         }
     }
@@ -193,16 +196,16 @@ object DetectionNotifications {
     fun showAsk(context: Context, pending: PendingDetection) {
         if (!granted(context)) return
         ensureChannel(context)
-        val who = pending.merchant.ifBlank { "a payment" }
+        val who = pending.merchant.ifBlank { context.getString(R.string.notification_unknown_payment) }
         val notification = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_buddy)
-            .setContentTitle("${rupees(pending.amountPaise)} · $who. Add it?")
-            .setContentText("${pending.why}. Nothing is saved until you choose.")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("${pending.why}. Nothing is saved until you choose."))
+            .setContentTitle(context.getString(R.string.notification_ask_title, rupees(pending.amountPaise), who))
+            .setContentText(context.getString(R.string.notification_ask_body, context.paymentReviewReason(pending.why)))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(R.string.notification_ask_body, context.paymentReviewReason(pending.why))))
             .setAutoCancel(true)
             .setContentIntent(activity(context, Destinations.TODAY, 9101))
-            .addAction(0, "Add", broadcast(context, ACTION_ADD, pending.id))
-            .addAction(0, "Skip", broadcast(context, ACTION_SKIP, pending.id))
+            .addAction(0, context.getString(R.string.notification_add), broadcast(context, ACTION_ADD, pending.id))
+            .addAction(0, context.getString(R.string.notification_skip), broadcast(context, ACTION_SKIP, pending.id))
             .build()
         NotificationManagerCompat.from(context).notify(pending.id, ASK_ID, notification)
     }
@@ -252,7 +255,7 @@ object DetectionNotifications {
         Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             // A distinct action keeps this intent separate from the other notification intents.
-            action = "com.spendingbuddy.app.OPEN.$destination"
+            action = notificationActivityAction(destination)
             putExtra(Destinations.EXTRA, destination)
         },
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -267,10 +270,10 @@ internal fun isCurrentAddedNotification(latestExpenseId: String?, requestedExpen
     latestExpenseId == requestedExpenseId
 
 /** Keep status-chip critical text compact while the notification title carries the exact rupee amount. */
-internal fun budgetCriticalText(spentPaise: Long, limitPaise: Long): String = when {
-    limitPaise <= 0L && spentPaise > 0L -> "Over"
-    limitPaise <= 0L -> "₹0"
-    spentPaise > limitPaise -> "Over"
+internal fun budgetCriticalText(spentPaise: Long, limitPaise: Long, overLabel: String): String = when {
+    limitPaise <= 0L && spentPaise > 0L -> overLabel
+    limitPaise <= 0L -> rupees(0L)
+    spentPaise > limitPaise -> overLabel
     else -> {
         val percentage = BigDecimal.valueOf(spentPaise.coerceAtLeast(0L))
             .multiply(BigDecimal.valueOf(100L))

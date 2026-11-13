@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="validation_daily_amount">Enter a valid daily amount, with up to two decimal places.</string>
+    <string name="validation_weekly_amount">Enter a valid weekly amount, with up to two decimal places.</string>
+    <string name="validation_preset_name_required">Give the preset a name</string>
+    <string name="validation_preset_name_length">Keep the name to %1$d characters or fewer</string>
+    <string name="validation_category_required">Choose a category</string>
+    <string name="validation_reason_required">Choose a reason</string>
+    <string name="validation_preset_duplicate">You already have a preset called \"%1$s\"</string>
+    <string name="validation_preset_capacity">You can keep up to %1$d presets</string>
+    <string name="validation_preset_missing">That preset no longer exists. Return to Presets and try again.</string>
+    <string name="validation_preset_save_failed">Couldn\'t save the preset. Try again.</string>
+</resources>

@@ -9,6 +9,7 @@ import com.spendingbuddy.app.BuddyState
 import com.spendingbuddy.app.Member
 import com.spendingbuddy.app.SecretVault
 import com.spendingbuddy.app.Visibility
+import com.spendingbuddy.app.R
 import computer.iroh.EndpointAddr
 import computer.iroh.EndpointId
 import computer.iroh.EndpointTicket
@@ -22,7 +23,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -65,6 +68,9 @@ class PeerSyncManager private constructor(private val app: Context) {
     private var acceptJob: Job? = null
     private var periodicJob: Job? = null
     private var pollJob: Job? = null
+    private var pollGeneration: Long? = null
+    @Volatile private var activeJoinJob: Job? = null
+    private val joinAttempts = JoinAttemptGate()
     @Volatile private var foreground = false
     @Volatile private var service = false
     @Volatile private var worker = false
@@ -95,7 +101,7 @@ class PeerSyncManager private constructor(private val app: Context) {
     // ---- Circle lifecycle ----
 
     suspend fun createCircle(name: String) = guarded {
-        ensureIdentity()
+        if (ensureIdentity() == null) throw IllegalStateException("Endpoint id not set; call ensureSelf first")
         repo.mutate { createGroup(it, name) }
         runCatching { ensureEndpoint() }
     }
@@ -103,7 +109,7 @@ class PeerSyncManager private constructor(private val app: Context) {
     /** Admin only. [rotate] = true starts a new code so outstanding unused codes stop working. Throws IllegalStateException (with a user-presentable message) when this phone is not the admin or cannot start networking. */
     suspend fun issueJoinCode(rotate: Boolean = false): String = withContext(Dispatchers.IO) {
         if (!isAdmin(repo.state.value)) throw IllegalStateException("Only the circle admin can make a code.")
-        val t = try { ensureEndpoint() } catch (e: Exception) { throw IllegalStateException(friendlyError(e), e) }
+        val t = try { ensureEndpoint() } catch (e: Exception) { throw CircleActionException(friendlyError(e, app), e) }
         runCatching { withTimeout(10_000) { t.online() } }
         val ticket = t.ticket
         val now = System.currentTimeMillis()
@@ -119,36 +125,76 @@ class PeerSyncManager private constructor(private val app: Context) {
 
     /** Parses [code], sends a join request to the admin and, while the admin has not decided, keeps checking in the background. Progress is in `status.joinProgress`. */
     suspend fun joinWithCode(code: String): Unit = withContext(Dispatchers.IO) {
+        val operation = currentCoroutineContext()[Job]
+        val attempt = joinAttempts.begin {
+            activeJoinJob?.cancel()
+            activeJoinJob = null
+            pollJob?.cancel(); pollJob = null; pollGeneration = null
+            // A push for the previous code must not be accepted under the replacement generation.
+            clearPendingJoin()
+            activeJoinJob = operation
+        }
         try {
-            if (repo.state.value.group != null) return@withContext refuseJoin("You are already in a circle. Leave it first.", clear = false)
-            val parsed = try { parseJoinCode(code) } catch (e: IllegalArgumentException) { return@withContext refuseJoin(e.message ?: "That circle code is not valid.") }
-            if (parsed.expired) return@withContext refuseJoin("This circle code has expired. Ask the admin for a new one.")
-            ensureIdentity()
-            joinPrefs.edit().putString(PREF_CODE, code.trim()).putLong(PREF_POLL_UNTIL, System.currentTimeMillis() + PENDING_JOIN_TTL_MS).apply()
-            status0.update { it.copy(joinProgress = JoinProgress.Requesting, lastError = null) }
-            when (val r = requestJoinOnce(parsed.payload)) {
-                is JoinStep.Waiting -> startPolling()
-                is JoinStep.Failed -> refuseJoin(friendlyError(r.cause))
+            if (repo.state.value.group != null) return@withContext refuseJoin("You are already in a circle. Leave it first.", attempt, clear = false)
+            val parsed = try { parseJoinCode(code) } catch (e: IllegalArgumentException) { return@withContext refuseJoin(e.message ?: "That circle code is not valid.", attempt) }
+            if (parsed.expired) return@withContext refuseJoin("This circle code has expired. Ask the admin for a new one.", attempt)
+            if (ensureIdentity() == null) throw IllegalStateException("Endpoint id not set; call ensureSelf first")
+            joinAttempts.ifCurrent(attempt) {
+                joinPrefs.edit().putString(PREF_CODE, code.trim()).putLong(PREF_POLL_UNTIL, System.currentTimeMillis() + PENDING_JOIN_TTL_MS).apply()
+                status0.update { it.copy(joinProgress = JoinProgress.Requesting, lastError = null) }
+            } ?: return@withContext
+            when (val r = requestJoinOnce(parsed.payload, attempt)) {
+                is JoinStep.Waiting -> startPolling(attempt)
+                is JoinStep.Failed -> refuseJoin(friendlyError(r.cause, app), attempt)
                 else -> Unit
             }
-        } catch (e: Exception) { rethrowIfCancelled(e); refuseJoin(friendlyError(e)) }
+        } catch (e: Exception) { rethrowIfCancelled(e); refuseJoin(friendlyError(e, app), attempt) }
+        finally { joinAttempts.ifCurrent(attempt) { if (activeJoinJob === operation) activeJoinJob = null } }
     }
 
     /** Stops waiting for a join decision and clears the join state shown by `status.joinProgress` (also dismisses a finished or refused result). */
+    fun userFacingError(cause: Throwable): String = userFacingCircleError(cause, app)
+
     fun cancelJoin() {
-        pollJob?.cancel(); pollJob = null
-        clearPendingJoin()
-        status0.update { it.copy(joinProgress = JoinProgress.None) }
+        joinAttempts.cancel {
+            activeJoinJob?.cancel(); activeJoinJob = null
+            pollJob?.cancel(); pollJob = null; pollGeneration = null
+            clearPendingJoin()
+            status0.update { it.copy(joinProgress = JoinProgress.None, lastError = null) }
+        }
         scope.launch { releaseEndpointIfIdle() }
     }
+
+    /** Checks the retained request without requiring the code to be pasted again. */
+    suspend fun checkPendingJoin() = withContext(Dispatchers.IO) {
+        val attempt = joinAttempts.current()
+        val operation = currentCoroutineContext()[Job]
+        joinAttempts.ifCurrent(attempt) { activeJoinJob = operation } ?: return@withContext
+        try {
+            when (val result = requestJoinOnce(pendingPayload(attempt), attempt)) {
+                is JoinStep.Waiting -> startPolling(attempt)
+                is JoinStep.Failed -> joinAttempts.ifCurrent(attempt) {
+                    val message = friendlyError(result.cause, app)
+                    setError(message)
+                    throw CircleActionException(message, result.cause)
+                }
+                is JoinStep.Refused -> joinAttempts.ifCurrent(attempt) { throw CircleActionException(userFacingCircleError(IllegalStateException(result.reason), app)) }
+                else -> Unit
+            }
+        } finally { joinAttempts.ifCurrent(attempt) { if (activeJoinJob === operation) activeJoinJob = null } }
+    }
+
+    suspend fun retryMember(memberId: String) = guarded { syncOnce(only = memberId) }
 
     suspend fun approveJoin(requestId: String) = guarded {
         var result: ApproveResult? = null
         repo.mutate { s -> coreApproveJoin(s, requestId).also { result = it }.state }
         val approved = result ?: return@guarded
-        // Best effort: push the join_ok so the joiner does not have to wait for its next check.
-        runCatching { withTimeout(15_000) { exchangeWith(approved.member, approved.joinOk, 12_000L) } }
-        syncOnce()
+        // Local approval is complete. Delivery continues without holding the form open.
+        scope.launch {
+            runCatching { withTimeout(15_000) { exchangeWith(approved.member, approved.joinOk, 12_000L) } }
+            syncOnce()
+        }
     }
 
     suspend fun declineJoin(requestId: String) = guarded { repo.mutate { coreDeclineJoin(it, requestId) } }
@@ -163,6 +209,14 @@ class PeerSyncManager private constructor(private val app: Context) {
         val left = result ?: return@guarded
         cancelJoin()
         status0.update { it.copy(members = emptyMap(), joinCodeExpiresAt = 0) }
+        // Complete local cleanup before returning; a late notice must not change a newly created circle.
+        if (repo.state.value.stayReachable) {
+            repo.mutate { it.copy(stayReachable = false) }
+            service = false
+            runCatching { app.stopService(Intent(app, BuddyLinkService::class.java)) }
+            status0.update { it.copy(serviceRunning = false) }
+        }
+        scope.launch {
         if (left.notices.isNotEmpty()) {
             val t = runCatching { ensureEndpoint() }.getOrNull()
             if (t != null) {
@@ -173,18 +227,18 @@ class PeerSyncManager private constructor(private val app: Context) {
                 }
             }
         }
-        if (repo.state.value.stayReachable) setStayReachable(false)
         releaseEndpointIfIdle()
+        }
     }
 
     suspend fun transferAdmin(memberId: String) = guarded {
         repo.mutate { coreTransferAdmin(it, memberId) }
-        syncOnce()
+        scope.launch { syncOnce() }
     }
 
     suspend fun setVisibility(v: Visibility) = guarded {
         repo.mutate { coreSetVisibility(it, v) }
-        syncOnce()
+        scope.launch { syncOnce() }
     }
 
     /** Queues a 30 minute nudge for [memberId] (at most one per member per day) and sends it as soon as their phone is reachable. */
@@ -192,12 +246,12 @@ class PeerSyncManager private constructor(private val app: Context) {
         val now = System.currentTimeMillis()
         if (!canNudge(repo.state.value, memberId, now)) throw IllegalStateException("You already nudged them today, or they are not in your circle.")
         repo.mutate { s -> queueNudge(s, memberId, NUDGE_MINUTES, now).copy(lastNudgedDate = com.spendingbuddy.app.todayIndia().toString()) }
-        syncOnce(only = memberId)
+        scope.launch { syncOnce(only = memberId) }
     }
 
     suspend fun suggestBudget(targetId: String, dailyPaise: Long, weeklyPaise: Long) = guarded {
         repo.mutate { queueSuggestion(it, targetId, dailyPaise, weeklyPaise) }
-        syncOnce(only = targetId)
+        scope.launch { syncOnce(only = targetId) }
     }
 
     suspend fun respondToSuggestion(id: String, accepted: Boolean) = guarded {
@@ -205,31 +259,39 @@ class PeerSyncManager private constructor(private val app: Context) {
         var ok = false
         repo.mutate { s -> (coreRespondToSuggestion(s, id, accepted)?.also { ok = true }) ?: s }
         if (!ok) throw IllegalStateException("That suggestion is no longer available.")
-        syncOnce(only = senderId)
+        scope.launch { syncOnce(only = senderId) }
     }
 
     fun syncNow() { scope.launch { syncOnce() } }
 
     fun setStayReachable(enabled: Boolean) {
         scope.launch {
+            // Lifecycle/service callers report through status; UI callers await the same operation below.
+            runCatching { setStayReachableAwait(enabled) }
+        }
+    }
+
+    suspend fun setStayReachableAwait(enabled: Boolean) = guarded {
             if (enabled) {
                 try {
                     ContextCompat.startForegroundService(app, Intent(app, BuddyLinkService::class.java))
-                    service = true
                     repo.mutate { it.copy(stayReachable = true) }
+                    service = true
                     status0.update { it.copy(serviceRunning = true) }
                 } catch (e: Exception) {
-                    repo.mutate { it.copy(stayReachable = false) }
-                    status0.update { it.copy(lastError = "Couldn't keep Penny Circle reachable. Try again while the app is open.", serviceRunning = false) }
+                    rethrowIfCancelled(e)
+                    service = false
+                    runCatching { app.stopService(Intent(app, BuddyLinkService::class.java)) }
+                    status0.update { it.copy(lastError = app.getString(R.string.circle_reachable_error), serviceRunning = false) }
+                    throw CircleActionException(app.getString(R.string.circle_reachable_error), e)
                 }
             } else {
                 repo.mutate { it.copy(stayReachable = false) }
                 service = false
                 app.stopService(Intent(app, BuddyLinkService::class.java))
                 status0.update { it.copy(serviceRunning = false) }
-                releaseEndpointIfIdle()
+                scope.launch { releaseEndpointIfIdle() }
             }
-        }
     }
 
     // ---- Lifecycle hooks ----
@@ -260,7 +322,7 @@ class PeerSyncManager private constructor(private val app: Context) {
         transport?.let { if (!it.endpoint.isClosed()) { refreshStatus(it); return@withLock it } }
         status0.update { it.copy(phase = LinkPhase.Starting) }
         val t = try { IrohTransport.bind(keyBytes(), minimal = false) } catch (e: Exception) {
-            status0.update { it.copy(phase = LinkPhase.Error, lastError = friendlyError(e)) }; throw e
+            status0.update { it.copy(phase = LinkPhase.Error, lastError = friendlyError(e, app)) }; throw e
         }
         transport = t
         refreshStatus(t)
@@ -332,26 +394,29 @@ class PeerSyncManager private constructor(private val app: Context) {
 
     /** Joiner side: the admin pushes `join_ok` right after approving, so waiting phones do not have to poll first. */
     private fun handleJoinOkPush(remoteId: String, message: SyncMessage, now: Long): ByteArray {
-        val payload = pendingPayload() ?: return errorReply("This phone is not waiting to join a circle.")
+        val attempt = joinAttempts.current()
+        return joinAttempts.ifCurrent(attempt) {
+        val payload = pendingPayload(attempt) ?: return@ifCurrent errorReply("This phone is not waiting to join a circle.")
         var reply: JoinReply? = null
         try { repo.mutate { s -> applyJoinReply(s, remoteId, message, payload, now).also { reply = it }.let { r -> if (r is JoinReply.Joined) r.state else s } } } catch (e: Exception) {
-            return errorReply("Couldn't save the circle. Try again.")
+            return@ifCurrent errorReply("Couldn't save the circle. Try again.")
         }
-        return when (val r = reply) {
-            is JoinReply.Joined -> { finishJoin(); encodeMessage(SyncMessage(type = "respond", groupId = payload.groupId)) }
+        when (val r = reply) {
+            is JoinReply.Joined -> { finishJoin(attempt); encodeMessage(SyncMessage(type = "respond", groupId = payload.groupId)) }
             is JoinReply.Refused -> errorReply(r.reason)
             else -> errorReply("This phone is not waiting to join a circle.")
         }
+        } ?: errorReply("This phone is not waiting to join a circle.")
     }
 
     private fun notifyAll(notices: List<MergeNotice>) {
         notices.forEach { n ->
             when (n.kind) {
                 "nudge" -> n.nudge?.let { BuddyNotifications.showNudge(app, it) }
-                "budget_suggestion" -> BuddyNotifications.notifyActivity(app, "${n.name} suggested new limits", "Open Buddy to accept or decline. Your limits only change if you accept.", n.memberId)
-                "suggestion_reply" -> BuddyNotifications.notifyActivity(app, "${n.name} ${if (n.event?.accepted == true) "accepted your suggested limits" else "kept their limits"}", "Open Buddy to see the update.", n.memberId)
-                "leave" -> BuddyNotifications.notifyActivity(app, "${n.name} left the circle", "Their shared data is no longer kept on this phone.", n.memberId)
-                "friend_checkin" -> BuddyNotifications.notifyActivity(app, "${n.name} finished today", "They completed a check-in.", n.memberId)
+                "budget_suggestion" -> BuddyNotifications.notifyActivity(app, app.getString(R.string.circle_event_suggest_title, n.name), app.getString(R.string.circle_event_suggest_body), n.memberId)
+                "suggestion_reply" -> BuddyNotifications.notifyActivity(app, app.getString(if (n.event?.accepted == true) R.string.circle_event_accept_title else R.string.circle_event_keep_title, n.name), app.getString(R.string.circle_event_reply_body), n.memberId)
+                "leave" -> BuddyNotifications.notifyActivity(app, app.getString(R.string.circle_event_leave_title, n.name), app.getString(R.string.circle_event_leave_body), n.memberId)
+                "friend_checkin" -> BuddyNotifications.notifyActivity(app, app.getString(R.string.circle_event_finish_title, n.name), app.getString(R.string.circle_event_finish_body), n.memberId)
             }
         }
     }
@@ -370,7 +435,7 @@ class PeerSyncManager private constructor(private val app: Context) {
 
     private fun markFailed(id: String, e: Throwable) = status0.update {
         val prev = it.members[id] ?: MemberLink()
-        it.copy(members = it.members + (id to prev.copy(reachable = false, error = friendlyError(e))))
+        it.copy(members = it.members + (id to prev.copy(reachable = false, error = friendlyError(e, app))))
     }
 
     private fun ticketFor(m: Member): String =
@@ -419,8 +484,12 @@ class PeerSyncManager private constructor(private val app: Context) {
 
     private suspend fun syncOnce(timeoutMs: Long = 20_000L, only: String? = null): Unit = exchangeLock.withLock {
         val first = repo.state.value
-        if (first.group == null) { if (joinPending()) runCatching { requestJoinOnce(pendingPayload()) }; return@withLock }
-        val t = runCatching { ensureEndpoint() }.getOrElse { setError(friendlyError(it)); return@withLock }
+        if (first.group == null) {
+            val attempt = joinAttempts.current()
+            if (joinPending()) runCatching { requestJoinOnce(pendingPayload(attempt), attempt) }
+            return@withLock
+        }
+        val t = runCatching { ensureEndpoint() }.getOrElse { setError(friendlyError(it, app)); return@withLock }
         val now = System.currentTimeMillis()
         runCatching { repo.mutate { purgeExpiredJoins(ensureSelf(it, t.endpointId, t.relayUrl, t.directAddresses, now), now) } }
         val items = fanOut(repo.state.value, now).filter { only == null || it.member.endpointId == only }
@@ -433,7 +502,7 @@ class PeerSyncManager private constructor(private val app: Context) {
         val failures = results.filterIsInstance<MemberResult.Fail>()
         status0.update { s ->
             s.copy(phase = if (failures.size == results.size && failures.all { it.cause.message?.contains("network", true) == true }) LinkPhase.NoNetwork else LinkPhase.Online,
-                lastError = if (failures.isNotEmpty() && failures.size == results.size) friendlyError(failures.first().cause) else null)
+                lastError = if (failures.isNotEmpty() && failures.size == results.size) friendlyError(failures.first().cause, app) else null)
         }
     }
 
@@ -446,10 +515,10 @@ class PeerSyncManager private constructor(private val app: Context) {
         data class Failed(val cause: Throwable) : JoinStep
     }
 
-    private fun pendingPayload(): JoinCodePayload? {
-        val code = joinPrefs.getString(PREF_CODE, null) ?: return null
-        if (System.currentTimeMillis() > joinPrefs.getLong(PREF_POLL_UNTIL, 0)) { clearPendingJoin(); return null }
-        return runCatching { parseJoinCode(code).payload }.getOrNull()
+    private fun pendingPayload(attempt: Long): JoinCodePayload? = joinAttempts.ifCurrent(attempt) {
+        val code = joinPrefs.getString(PREF_CODE, null) ?: return@ifCurrent null
+        if (System.currentTimeMillis() > joinPrefs.getLong(PREF_POLL_UNTIL, 0)) { clearPendingJoin(); return@ifCurrent null }
+        runCatching { parseJoinCode(code).payload }.getOrNull()
     }
 
     private fun joinPending(): Boolean = repo.state.value.group == null && joinPrefs.getString(PREF_CODE, null) != null &&
@@ -457,23 +526,30 @@ class PeerSyncManager private constructor(private val app: Context) {
 
     private fun clearPendingJoin() { joinPrefs.edit().remove(PREF_CODE).remove(PREF_POLL_UNTIL).apply() }
 
-    private fun refuseJoin(reason: String, clear: Boolean = true) {
+    private fun refuseJoin(reason: String, attempt: Long, clear: Boolean = true) {
+        joinAttempts.ifCurrent(attempt) {
+        val message = userFacingCircleError(IllegalStateException(reason), app)
         if (clear) clearPendingJoin()
-        pollJob?.cancel(); pollJob = null
-        status0.update { it.copy(joinProgress = JoinProgress.Refused(reason), lastError = reason) }
+        pollJob?.cancel(); pollJob = null; pollGeneration = null
+        status0.update { it.copy(joinProgress = JoinProgress.Refused(message), lastError = message) }
         scope.launch { releaseEndpointIfIdle() }
+        }
     }
 
-    private fun finishJoin() {
+    private fun finishJoin(attempt: Long) {
+        joinAttempts.ifCurrent(attempt) {
         clearPendingJoin()
-        pollJob?.cancel(); pollJob = null
+        pollJob?.cancel(); pollJob = null; pollGeneration = null
         status0.update { it.copy(joinProgress = JoinProgress.Joined, lastError = null) }
         scope.launch { syncOnce() }
+        }
     }
 
     /** One `join_request` to the admin named in [payload]. Updates `joinProgress` for Waiting/Joined/Refused; transport failures come back as [JoinStep.Failed] for the caller to decide. */
-    private suspend fun requestJoinOnce(payload: JoinCodePayload?): JoinStep = joinLock.withLock {
+    private suspend fun requestJoinOnce(payload: JoinCodePayload?, attempt: Long): JoinStep = joinLock.withLock {
+        if (joinAttempts.ifCurrent(attempt) { true } != true) throw CancellationException("Join request cancelled")
         if (payload == null) return@withLock JoinStep.Refused("No join request is pending.")
+        if (pendingPayload(attempt) != payload) throw CancellationException("Join request cancelled")
         if (repo.state.value.group != null) return@withLock JoinStep.Joined
         try {
             val t = ensureEndpoint()
@@ -485,39 +561,57 @@ class PeerSyncManager private constructor(private val app: Context) {
                 decodeMessage(conn.exchange(encodeMessage(request), 20_000L))
             } finally { conn.close() }
             var result: JoinReply? = null
+            joinAttempts.ifCurrent(attempt) {
+            if (pendingPayload(attempt) != payload) throw CancellationException("Join request cancelled")
             repo.mutate { s -> if (s.group != null) s else applyJoinReply(s, payload.adminId, reply, payload, now).also { result = it }.let { r -> if (r is JoinReply.Joined) r.state else s } }
             when (val r = result) {
                 is JoinReply.Pending -> { status0.update { it.copy(joinProgress = JoinProgress.Waiting(r.expiresAt), lastError = null) }; JoinStep.Waiting(r.expiresAt) }
-                is JoinReply.Joined -> { finishJoin(); JoinStep.Joined }
-                is JoinReply.Refused -> { refuseJoin(r.reason); JoinStep.Refused(r.reason) }
+                is JoinReply.Joined -> { finishJoin(attempt); JoinStep.Joined }
+                is JoinReply.Refused -> { refuseJoin(r.reason, attempt); JoinStep.Refused(r.reason) }
                 null -> JoinStep.Joined
             }
-        } catch (e: Exception) { rethrowIfCancelled(e); JoinStep.Failed(e) }
+            } ?: throw CancellationException("Join request cancelled")
+        } catch (e: Exception) { rethrowIfCancelled(e); currentCoroutineContext().ensureActive(); JoinStep.Failed(e) }
     }
 
-    private fun startPolling() {
-        if (pollJob?.isActive == true) return
+    private fun startPolling(generation: Long) {
+        joinAttempts.ifCurrent(generation) {
+        if (pollJob?.isActive == true && pollGeneration == generation) return@ifCurrent
+        pollJob?.cancel()
+        pollGeneration = generation
         pollJob = scope.launch {
-            var attempt = 0
+            val operation = currentCoroutineContext()[Job]
+            try {
+            var pollNumber = 0
             while (isActive) {
-                delay(joinPollDelayMs(attempt++))
-                val payload = pendingPayload()
+                delay(joinPollDelayMs(pollNumber++))
+                val payload = pendingPayload(generation)
+                if (joinAttempts.ifCurrent(generation) { true } != true) break
                 if (payload == null || repo.state.value.group != null) {
-                    if (repo.state.value.group == null) refuseJoin("The request expired. Ask the admin for a new code.")
+                    if (repo.state.value.group == null) refuseJoin("The request expired. Ask the admin for a new code.", generation)
                     break
                 }
-                when (requestJoinOnce(payload)) {
+                when (requestJoinOnce(payload, generation)) {
                     is JoinStep.Waiting, is JoinStep.Failed -> Unit   // transient failures keep waiting until the request lapses
                     else -> break
                 }
             }
+            } finally {
+                joinAttempts.ifCurrent(generation) {
+                    if (pollJob === operation) { pollJob = null; pollGeneration = null }
+                }
+            }
+        }
         }
     }
 
     private fun resumeJoinIfPending() {
-        if (joinPending() && pendingPayload() != null) {
+        val attempt = joinAttempts.current()
+        joinAttempts.ifCurrent(attempt) {
+        if (joinPending() && pendingPayload(attempt) != null) {
             if (status0.value.joinProgress !is JoinProgress.Waiting) status0.update { it.copy(joinProgress = JoinProgress.Requesting) }
-            startPolling()
+            startPolling(attempt)
+        }
         }
     }
 
@@ -529,7 +623,7 @@ class PeerSyncManager private constructor(private val app: Context) {
     private fun setError(message: String) { status0.update { it.copy(lastError = message) } }
 
     private suspend fun guarded(block: suspend () -> Unit) = withContext(Dispatchers.IO) {
-        try { block() } catch (e: Exception) { rethrowIfCancelled(e); val msg = friendlyError(e); setError(msg); throw IllegalStateException(msg, e) }
+        try { block() } catch (e: Exception) { rethrowIfCancelled(e); val msg = friendlyError(e, app); setError(msg); throw CircleActionException(msg, e) }
     }
 
     companion object {

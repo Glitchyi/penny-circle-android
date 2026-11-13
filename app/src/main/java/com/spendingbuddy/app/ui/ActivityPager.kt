@@ -1,5 +1,8 @@
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import com.spendingbuddy.app.Expense
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,7 +43,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val dayHeaderFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)
-private val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 private const val CHART_BAR_MAX_DP = 72
 
 /** Swipeable weeks: page 0 is the current week, higher pages are earlier weeks (bounded by the earliest purchase, 1..52 pages). */
@@ -63,6 +65,7 @@ fun ActivityPager(state: BuddyState, now: ZonedDateTime, modifier: Modifier = Mo
 
 @Composable
 private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, pageCount: Int, onEarlier: () -> Unit, onLater: () -> Unit, onPurchase: ((Expense) -> Unit)? = null) {
+    val context = LocalContext.current
     val today = now.toLocalDate()
     val start = weekStartForPage(today, pagesBack)
     val range = weekRange(start)
@@ -99,10 +102,10 @@ private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, page
                 WeekHeader(range, today, pagesBack, pageCount, onEarlier, onLater)
                 Spacer(Modifier.height(8.dp))
                 val over = weekSpent > state.weeklyLimitPaise
-                Text("${rupees(weekSpent)} of ${rupees(state.weeklyLimitPaise)}", style = MaterialTheme.typography.titleMedium)
+                Text(context.getString(R.string.activity_week_amount, rupees(weekSpent), rupees(state.weeklyLimitPaise)), style = MaterialTheme.typography.titleMedium)
                 ProgressBar(weekSpent, state.weeklyLimitPaise, over, Modifier.padding(vertical = 8.dp))
                 Text(
-                    if (over) "${rupees(weekSpent - state.weeklyLimitPaise)} over the weekly limit" else "${rupees(state.weeklyLimitPaise - weekSpent)} left this week",
+                    if (over) context.getString(R.string.activity_week_over, rupees(weekSpent - state.weeklyLimitPaise)) else context.getString(R.string.activity_week_left, rupees(state.weeklyLimitPaise - weekSpent)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -115,15 +118,15 @@ private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, page
         if (groups.isEmpty()) {
             item(key = "empty") {
                 Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Nothing logged this week.", style = MaterialTheme.typography.titleMedium)
-                    Text("Purchases and no-spend days will show up here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(context.getString(R.string.activity_nothing_logged_this_week), style = MaterialTheme.typography.titleMedium)
+                    Text(context.getString(R.string.activity_purchases_and_no_spend_days_will), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else groups.forEach { g ->
             item(key = "day-${g.date}") {
                 val status = when (dayStatus(g.date, state.checkIns, now)) {
-                    DayStatus.Done -> "Done"; DayStatus.Grace -> "Grace"; DayStatus.Late -> "Finished late"
-                    DayStatus.Missed -> "Not finished"; DayStatus.Open -> "Open"
+                    DayStatus.Done -> context.getString(R.string.activity_done); DayStatus.Grace -> context.getString(R.string.activity_grace); DayStatus.Late -> context.getString(R.string.activity_finished_late)
+                    DayStatus.Missed -> context.getString(R.string.activity_not_finished); DayStatus.Open -> context.getString(R.string.activity_open)
                 }
                 Column(Modifier.padding(top = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -141,38 +144,46 @@ private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, page
 
 @Composable
 private fun WeekHeader(range: WeekRange, today: LocalDate, pagesBack: Int, pageCount: Int, onEarlier: () -> Unit, onLater: () -> Unit) {
+    val context = LocalContext.current
     val atOldest = pagesBack >= pageCount - 1
     val atNewest = pagesBack == 0
-    val relative = when (pagesBack) { 0 -> "This week"; 1 -> "Last week"; else -> "$pagesBack weeks ago" }
+    val relative = when (pagesBack) { 0 -> context.getString(R.string.activity_this_week); 1 -> context.getString(R.string.activity_last_week); else -> context.resources.getQuantityString(R.plurals.activity_weeks_ago, pagesBack, pagesBack) }
     val note = when {
-        atOldest && atNewest -> "Your first week"
-        atOldest -> "Earliest week with entries"
+        atOldest && atNewest -> context.getString(R.string.activity_your_first_week)
+        atOldest -> context.getString(R.string.activity_earliest_week_with_entries)
         else -> relative
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onEarlier, enabled = !atOldest, modifier = Modifier.size(48.dp).semantics { stateDescription = if (atOldest) "No earlier weeks" else "Shows the earlier week" }) {
-            Icon(Icons.Rounded.ChevronLeft, "Earlier week")
+        IconButton(onClick = onEarlier, enabled = !atOldest, modifier = Modifier.size(48.dp).semantics { stateDescription = if (atOldest) context.getString(R.string.activity_no_earlier_weeks) else context.getString(R.string.activity_shows_the_earlier_week) }) {
+            Icon(Icons.Rounded.ChevronLeft, context.getString(R.string.activity_earlier_week))
         }
         Column(Modifier.weight(1f).padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(weekRangeLabel(range, today), style = MaterialTheme.typography.titleLarge)
-            Text(if (atOldest && !atNewest) "$relative · $note" else note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (atOldest && !atNewest) context.getString(R.string.activity_relative_note, relative, note) else note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        IconButton(onClick = onLater, enabled = !atNewest, modifier = Modifier.size(48.dp).semantics { stateDescription = if (atNewest) "You are on the current week" else "Shows the later week" }) {
-            Icon(Icons.Rounded.ChevronRight, "Later week")
+        IconButton(onClick = onLater, enabled = !atNewest, modifier = Modifier.size(48.dp).semantics { stateDescription = if (atNewest) context.getString(R.string.activity_you_are_on_the_current_week) else context.getString(R.string.activity_shows_the_later_week) }) {
+            Icon(Icons.Rounded.ChevronRight, context.getString(R.string.activity_later_week))
         }
     }
 }
 
 @Composable
 private fun DayChart(start: LocalDate, totals: List<Long>, today: LocalDate, hasPurchases: Set<LocalDate>, onDay: (LocalDate) -> Unit) {
+    val context = LocalContext.current
+    val dayNames = context.resources.getStringArray(R.array.activity_day_names)
     val max = totals.maxOfOrNull { it }?.coerceAtLeast(1L) ?: 1L
+    val compactLabels = LocalDensity.current.fontScale >= 1.4f
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
         totals.forEachIndexed { i, total ->
             val day = start.plusDays(i.toLong())
             val isToday = day == today
             val tappable = day in hasPurchases
-            val label = "${dayNames[i]} ${day.format(dayHeaderFormatter).substringAfter(' ')}: ${rupees(total)}" +
-                (if (isToday) ", today" else "") + (if (!tappable) ", no purchases" else ", show purchases")
+            val label = context.getString(when {
+                isToday && tappable -> R.string.activity_day_today_purchases
+                isToday -> R.string.activity_day_today_no_purchases
+                tappable -> R.string.activity_day_purchases
+                else -> R.string.activity_day_no_purchases
+            }, day.format(dayHeaderFormatter), rupees(total))
             val base = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp)
             Column(
                 (if (tappable) base.clickable(role = Role.Button) { onDay(day) } else base)
@@ -186,7 +197,7 @@ private fun DayChart(start: LocalDate, totals: List<Long>, today: LocalDate, has
                     Modifier.fillMaxWidth(.6f).height(h.dp).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                         .background(if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = .35f))
                 )
-                Text(dayNames[i], style = MaterialTheme.typography.labelMedium, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+                Text(if (compactLabels) dayNames[i].take(1) else dayNames[i], style = MaterialTheme.typography.labelMedium, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
                 // Today is marked by weight and a dot, not by colour alone.
                 Box(Modifier.padding(top = 2.dp).size(5.dp).clip(CircleShape).background(if (isToday) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent))
             }

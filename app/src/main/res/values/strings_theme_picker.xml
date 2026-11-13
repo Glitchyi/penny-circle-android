@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="theme_picker_light_horizon">Light Horizon</string>
+    <string name="theme_picker_violet_night">Violet Night</string>
+    <string name="theme_picker_mint_night">Mint Night</string>
+    <string name="theme_picker_signal_blue">Signal Blue</string>
+    <string name="theme_picker_light_mood">White, hairlines, violet.</string>
+    <string name="theme_picker_violet_mood">Indigo-black, violet glow.</string>
+    <string name="theme_picker_mint_mood">Black, mint horizon.</string>
+    <string name="theme_picker_blue_mood">Graphite, electric blue.</string>
+    <string name="theme_picker_description">%1$s. %2$s</string>
+</resources>

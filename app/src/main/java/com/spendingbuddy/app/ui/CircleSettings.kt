@@ -1,5 +1,7 @@
 package com.spendingbuddy.app.ui
 
+import com.spendingbuddy.app.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
@@ -40,6 +44,7 @@ fun CircleSettingsScreen(
     onBack: () -> Unit,
     onLeft: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val group = state.group
     val admin = isAdmin(state)
     val others = activeMembers(state).filter { it.endpointId != state.selfId }
@@ -52,12 +57,12 @@ fun CircleSettingsScreen(
 
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        topBar = { ScreenTitle(if (group == null) "Circle" else "${group.name} settings", onBack) },
+        topBar = { ScreenTitle(if (group == null) context.getString(R.string.circle_copy_circle) else context.getString(R.string.circle_copy_settings, group.name), onBack) },
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
         if (group == null) {
             Text(
-                "You are not in a circle.",
+                context.getString(R.string.circle_copy_you_are_not_in_a_circle),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(padding).padding(16.dp)
             )
@@ -71,22 +76,25 @@ fun CircleSettingsScreen(
         ) {
             item {
                 NotebookSurface(Modifier.fillMaxWidth()) {
-                    Text("What you share", style = MaterialTheme.typography.titleMedium)
+                    Text(context.getString(R.string.circle_copy_what_you_share), style = MaterialTheme.typography.titleMedium)
                     val busy = actions.isBusy("visibility")
                     ChoiceRow(
                         selected = state.visibility == Visibility.TOTALS_STATUS,
-                        label = "Totals & status",
-                        supporting = "Your spending totals, limits, check-in status and streak. No purchase details.",
+                        label = context.getString(R.string.circle_copy_totals_status),
+                        supporting = context.getString(R.string.circle_copy_your_spending_totals_limits_check_in_status),
+                        enabled = !busy,
                         onClick = { if (!busy && state.visibility != Visibility.TOTALS_STATUS) actions.setVisibility(Visibility.TOTALS_STATUS) }
                     )
                     ChoiceRow(
                         selected = state.visibility == Visibility.FULL_DETAILS,
-                        label = "Full details",
-                        supporting = "Also the purchases you have reviewed and saved.",
+                        label = context.getString(R.string.circle_copy_full_details),
+                        supporting = context.getString(R.string.circle_copy_also_your_saved_purchase_details_including_auto),
+                        enabled = !busy,
                         onClick = { if (!busy && state.visibility != Visibility.FULL_DETAILS) actions.setVisibility(Visibility.FULL_DETAILS) }
                     )
+                    CircleActionFeedback(actions, "visibility", context.getString(R.string.circle_copy_updating_sharing))
                     Text(
-                        "A change applies from now on. Anything already shared with the circle cannot be recalled.",
+                        context.getString(R.string.circle_copy_a_change_applies_from_now_on_anything),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 6.dp)
@@ -97,15 +105,15 @@ fun CircleSettingsScreen(
             if (admin) {
                 item {
                     NotebookSurface(Modifier.fillMaxWidth()) {
-                        Text("Transfer admin", style = MaterialTheme.typography.titleMedium)
+                        Text(context.getString(R.string.circle_copy_transfer_admin), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "The admin approves join requests. Pick who takes over; you will stay a regular member.",
+                            context.getString(R.string.circle_copy_the_admin_approves_join_requests_pick_who),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (others.isEmpty()) {
                             Text(
-                                "No one else is in the circle yet.",
+                                context.getString(R.string.circle_copy_invite_another_member_from_circle_first_then),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(top = 8.dp)
                             )
@@ -114,7 +122,8 @@ fun CircleSettingsScreen(
                                 others.forEach { m ->
                                     ChoiceRow(
                                         selected = transferTo == m.endpointId,
-                                        label = m.label(),
+                                        label = m.label(context),
+                                        enabled = !actions.isBusy("transfer"),
                                         onClick = { transferTo = m.endpointId }
                                     )
                                 }
@@ -123,7 +132,8 @@ fun CircleSettingsScreen(
                                 onClick = { confirmTransfer = true },
                                 enabled = transferTo != null && !actions.isBusy("transfer"),
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                            ) { Text("Transfer admin") }
+                            ) { Text(if (actions.isBusy("transfer")) context.getString(R.string.circle_copy_transferring) else context.getString(R.string.circle_copy_transfer_admin)) }
+                            CircleActionFeedback(actions, "transfer", context.getString(R.string.circle_copy_transferring))
                         }
                     }
                 }
@@ -131,9 +141,9 @@ fun CircleSettingsScreen(
 
             item {
                 NotebookSurface(Modifier.fillMaxWidth()) {
-                    Text("Leave circle", style = MaterialTheme.typography.titleMedium)
+                    Text(context.getString(R.string.circle_copy_leave_circle), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Your own data stays on this phone. You stop seeing the circle and it stops seeing you. You cannot rejoin with this phone's identity unless the admin approves a new request.",
+                        context.getString(R.string.circle_copy_your_own_data_stays_on_this_phone),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -143,33 +153,38 @@ fun CircleSettingsScreen(
                             containerColor = MaterialTheme.colorScheme.errorContainer,
                             contentColor = MaterialTheme.colorScheme.onErrorContainer
                         ),
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 48.dp)
-                    ) { Text("Leave circle") }
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 48.dp),
+                        enabled = !actions.isBusy("leave"),
+                    ) { Text(if (actions.isBusy("leave")) context.getString(R.string.circle_copy_leaving) else context.getString(R.string.circle_copy_leave_circle)) }
+                    CircleActionFeedback(actions, "leave", context.getString(R.string.circle_copy_leaving))
                 }
             }
         }
     }
 
-    val transferName = others.firstOrNull { it.endpointId == transferTo }?.label()
+    val transferName = others.firstOrNull { it.endpointId == transferTo }?.label(context)
     if (confirmTransfer && transferTo != null && transferName != null) {
         AlertDialog(
             onDismissRequest = { confirmTransfer = false },
-            title = { Text("Make $transferName the admin?") },
+            title = { Text(context.getString(R.string.circle_copy_make_the_admin, transferName)) },
             text = {
-                Text("$transferName will approve join requests and make join codes. You will no longer be the admin, and you cannot take the role back yourself.")
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Text(context.getString(R.string.circle_copy_will_approve_join_requests_and_make_join, transferName))
+                    CircleActionFeedback(actions, "transfer", context.getString(R.string.circle_copy_transferring))
+                }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         val id = transferTo ?: return@Button
-                        confirmTransfer = false
-                        actions.transferAdmin(id) { transferTo = null }
+                        actions.transferAdmin(id) { confirmTransfer = false; transferTo = null }
                     },
+                    enabled = !actions.isBusy("transfer"),
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("Transfer") }
+                ) { Text(if (actions.isBusy("transfer")) context.getString(R.string.circle_copy_transferring) else context.getString(R.string.circle_copy_transfer)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmTransfer = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancel") }
+                TextButton(onClick = { confirmTransfer = false }, enabled = !actions.isBusy("transfer"), modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.circle_copy_cancel)) }
             }
         )
     }
@@ -177,29 +192,29 @@ fun CircleSettingsScreen(
     if (confirmLeave) {
         AlertDialog(
             onDismissRequest = { confirmLeave = false },
-            title = { Text("Leave ${group?.name ?: "this circle"}?") },
+            title = { Text(context.getString(R.string.circle_copy_leave, group?.name ?: context.getString(R.string.circle_copy_this_circle))) },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     if (admin && others.isNotEmpty()) {
-                        Text("You are the admin, so the role goes to someone else when you leave. Choose who, or let the longest-standing member take it.")
+                        Text(context.getString(R.string.circle_copy_you_are_the_admin_so_the_role))
                         Column(Modifier.padding(top = 8.dp)) {
-                            ChoiceRow(selected = successor == null, label = "Longest-standing member", onClick = { successor = null })
+                            ChoiceRow(selected = successor == null, label = context.getString(R.string.circle_copy_longest_standing_member), enabled = !actions.isBusy("leave"), onClick = { successor = null })
                             others.forEach { m ->
-                                ChoiceRow(selected = successor == m.endpointId, label = m.label(), onClick = { successor = m.endpointId })
+                                ChoiceRow(selected = successor == m.endpointId, label = m.label(context), enabled = !actions.isBusy("leave"), onClick = { successor = m.endpointId })
                             }
                         }
                     } else if (admin) {
-                        Text("You are the only member, so nobody needs to take over as admin. Your circle's code stops working.")
+                        Text(context.getString(R.string.circle_copy_you_are_the_only_member_so_nobody))
                     } else {
-                        Text("The circle is told that you left. Your own data stays on this phone.")
+                        Text(context.getString(R.string.circle_copy_the_circle_is_told_that_you_left))
                     }
+                    CircleActionFeedback(actions, "leave", context.getString(R.string.circle_copy_leaving))
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        confirmLeave = false
-                        actions.leave(if (admin) successor else null) { successor = null; onLeft() }
+                        actions.leave(if (admin) successor else null) { confirmLeave = false; successor = null; onLeft() }
                     },
                     enabled = !actions.isBusy("leave"),
                     colors = ButtonDefaults.buttonColors(
@@ -207,10 +222,10 @@ fun CircleSettingsScreen(
                         contentColor = MaterialTheme.colorScheme.onError
                     ),
                     modifier = Modifier.heightIn(min = 48.dp)
-                ) { Text("Leave") }
+                ) { Text(if (actions.isBusy("leave")) context.getString(R.string.circle_copy_leaving) else context.getString(R.string.circle_copy_leave_2)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmLeave = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Stay") }
+                TextButton(onClick = { confirmLeave = false }, enabled = !actions.isBusy("leave"), modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.circle_copy_stay)) }
             }
         )
     }

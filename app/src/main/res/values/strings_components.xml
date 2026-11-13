@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="component_required_fields_hint">All fields are required unless marked optional.</string>
+    <string name="component_back">Back</string>
+    <string name="component_impulse">Impulse</string>
+    <string name="component_needs_category">Needs category</string>
+    <string name="component_auto">Auto</string>
+    <string name="component_watching_for_payments">Watching for payments</string>
+    <string name="component_nothing_logged_yet">Nothing logged yet</string>
+    <string name="component_purchases_show_up_here_when_a">Purchases show up here when a payment alert arrives. No spending today? Finish the day to record it.</string>
+    <string name="component_no_spending_today_finish_the_day">No spending today? Finish the day to record it.</string>
+</resources>

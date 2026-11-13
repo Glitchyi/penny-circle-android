@@ -1,5 +1,8 @@
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -9,6 +12,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -75,7 +80,7 @@ internal fun StatusPill(text: String, danger: Boolean, modifier: Modifier = Modi
             .background(base.copy(alpha = if (t.dark) 0.22f else 0.12f), CircleShape)
             .padding(horizontal = 14.dp, vertical = 6.dp),
         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-        color = if (t.dark) lerp(base, Color.White, 0.45f) else base,
+        color = if (t.dark) lerp(base, t.text, 0.45f) else base,
         maxLines = 1
     )
 }
@@ -95,7 +100,7 @@ internal fun StatTile(
     Column(
         modifier
             .clip(shape)
-            .background(if (t.dark) Color.White.copy(alpha = 0.06f) else t.accent.copy(alpha = 0.06f))
+            .background(if (t.dark) t.surface2 else t.accent.copy(alpha = 0.06f))
             .border(1.dp, t.border.copy(alpha = 0.55f), shape)
             .semantics(mergeDescendants = true) {}
             .padding(horizontal = 14.dp, vertical = 12.dp)
@@ -124,7 +129,7 @@ internal fun StatTile(
                         .fillMaxHeight()
                         .background(
                             if (over) Brush.horizontalGradient(listOf(t.danger, t.danger))
-                            else Brush.horizontalGradient(listOf(t.accent, t.accent2)),
+                            else Brush.horizontalGradient(listOf(t.accent, t.accent)),
                             CircleShape
                         )
                 )
@@ -139,6 +144,7 @@ internal fun StatTile(
  */
 @Composable
 internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boolean, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val reduced = LocalReducedMotion.current
     val view = LocalView.current
@@ -146,6 +152,8 @@ internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boo
     val scope = rememberCoroutineScope()
     val direction = LocalLayoutDirection.current
     val directionSign = if (direction == LayoutDirection.Ltr) 1f else -1f
+    val motionMode = reduced to directionSign
+    val latestMotionMode = rememberUpdatedState(motionMode)
     var offset by remember { mutableFloatStateOf(0f) }
     var settleJob by remember { mutableStateOf<Job?>(null) }
     var completionTriggered by remember { mutableStateOf(false) }
@@ -154,23 +162,36 @@ internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boo
     val handle = 48.dp
     val inset = 6.dp
     val interaction = remember { MutableInteractionSource() }
+    LaunchedEffect(motionMode) {
+        settleJob?.cancel()
+        settleJob = null
+        // A setting/direction change cancels the gesture, never the already committed finish.
+        offset = if (completionTriggered) travel else 0f
+        highestHapticStep = 0
+    }
     fun settleBack() {
         settleJob?.cancel()
+        val target = if (completionTriggered) travel else 0f
+        if (latestMotionMode.value != motionMode || latestMotionMode.value.first) {
+            offset = target
+            settleJob = null
+            return
+        }
         settleJob = scope.launch {
             val animation = Animatable(offset)
-            if (reduced) animation.snapTo(0f)
-            else animation.animateTo(0f, spring(dampingRatio = 0.55f, stiffness = 420f)) { offset = value }
-            offset = 0f
+            animation.animateTo(target, PennyMotion.spatial()) { offset = value }
+            offset = target
         }
     }
     fun completeSwipe() {
+        if (latestMotionMode.value != motionMode) { settleBack(); return }
         if (travel > 0f && offset >= travel * 0.72f && !completionTriggered) {
             completionTriggered = true
             settleJob?.cancel()
             settleJob = scope.launch {
                 val animation = Animatable(offset)
                 if (reduced) animation.snapTo(travel)
-                else animation.animateTo(travel, spring(dampingRatio = 0.8f, stiffness = 500f)) { offset = value }
+                else animation.animateTo(travel, PennyMotion.spatial()) { offset = value }
                 offset = animation.value
             }
             // A distinct confirmation pulse occurs only after an uncancelled release clears the threshold.
@@ -184,9 +205,9 @@ internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boo
             .heightIn(min = 64.dp)
             .glass(CircleShape)
             .onSizeChanged { travel = (it.width - reserved).coerceAtLeast(0f) }
-            .clickable(interactionSource = interaction, indication = LocalIndication.current, role = Role.Button, onClickLabel = "Review and finish today", onClick = onTap)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, role = Role.Button, onClickLabel = context.getString(R.string.today_parts_review_and_finish_today), onClick = onTap)
             .semantics {
-                contentDescription = "Finish today. Swipe ${if (direction == LayoutDirection.Ltr) "right" else "left"} to finish now, or activate to review first."
+                contentDescription = context.getString(if (direction == LayoutDirection.Ltr) R.string.today_parts_swipe_right_description else R.string.today_parts_swipe_left_description)
             }
             .pointerInput(haptics, reduced, directionSign) {
                 detectHorizontalDragGestures(
@@ -237,14 +258,14 @@ internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boo
             Modifier.matchParentSize().drawBehind {
                 val w = offset + (handle + inset * 2).toPx()
                 if (offset > 0.5f) drawRoundRect(
-                    Brush.horizontalGradient(listOf(t.accent.copy(alpha = 0.30f), t.accent2.copy(alpha = 0.22f))),
+                    Brush.horizontalGradient(listOf(t.accent.copy(alpha = 0.30f), t.accent.copy(alpha = 0.22f))),
                     topLeft = androidx.compose.ui.geometry.Offset(if (directionSign < 0f) size.width - w else 0f, 0f),
                     size = Size(w, size.height), cornerRadius = CornerRadius(size.height / 2f)
                 )
             }
         )
         Text(
-            "Swipe to finish today",
+            context.getString(R.string.today_parts_swipe_to_finish_today),
             style = MaterialTheme.typography.titleMedium,
             color = t.text,
             maxLines = if (LocalDensity.current.fontScale > 1.15f) 2 else 1,
@@ -258,7 +279,7 @@ internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boo
                 .align(Alignment.CenterStart)
                 .offset { IntOffset(offset.roundToInt(), 0) }
                 .size(handle)
-                .background(Brush.linearGradient(listOf(t.accent, t.accent2)), CircleShape),
+                .background(Brush.linearGradient(listOf(t.accent, t.accent)), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -274,6 +295,7 @@ internal fun SwipeToFinish(onSwiped: () -> Unit, onTap: () -> Unit, haptics: Boo
 /** Secondary action that closes out the day. Reads as a list cell so it does not compete with Add purchase. */
 @Composable
 internal fun FinishRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val shape = RoundedCornerShape(22.dp)
     val interaction = remember { MutableInteractionSource() }
@@ -291,18 +313,18 @@ internal fun FinishRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Modifier
                 .size(44.dp)
                 .background(
-                    Brush.linearGradient(listOf(t.accent.copy(alpha = 0.30f), t.accent2.copy(alpha = 0.22f))),
+                    Brush.linearGradient(listOf(t.accent.copy(alpha = 0.30f), t.accent.copy(alpha = 0.22f))),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.Check, null, tint = if (t.dark) Color.White else t.accent, modifier = Modifier.size(22.dp))
+            Icon(Icons.Rounded.Check, null, tint = if (t.dark) t.text else t.accent, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Finish today", style = MaterialTheme.typography.titleMedium, color = t.text)
+            Text(context.getString(R.string.today_parts_finish_today), style = MaterialTheme.typography.titleMedium, color = t.text)
             Text(
-                "Close out the day and keep your streak",
+                context.getString(R.string.today_parts_close_out_the_day_and_keep),
                 style = MaterialTheme.typography.bodyMedium,
                 color = t.muted,
                 maxLines = 2,

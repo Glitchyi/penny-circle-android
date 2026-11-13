@@ -48,11 +48,11 @@ object FinishCountdownNotifications {
         ensureChannel(app)
         val reminderMillis = window.reminderAt.toEpochMilli()
         val progress = finishCountdownProgress(window, now)
-        val title = "Your ${window.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault())} check-in"
+        val title = context.getString(R.string.notification_countdown_title, window.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, Locale.getDefault()))
         val review = activityIntent(app, Destinations.FINISH_PREFIX + window.day, requestCode(window.day))
         val unpin = broadcastIntent(app, ACTION_UNPIN, window.day)
         val delete = broadcastIntent(app, ACTION_DISMISSED, window.day)
-        val body = "10 PM reminder. Late logging remains available until the next-day 10 AM IST grace ends."
+        val body = context.getString(R.string.notification_countdown_body)
         val manager = app.getSystemService(NotificationManager::class.java) ?: return
         val appearance = liveProgressAppearance(state.theme)
 
@@ -77,7 +77,7 @@ object FinishCountdownNotifications {
                 .setContentIntent(review)
                 .setDeleteIntent(delete)
                 .addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED, true) })
-                .addAction(Notification.Action.Builder(null as Icon?, "Unpin", unpin).build())
+                .addAction(Notification.Action.Builder(null as Icon?, context.getString(R.string.notification_unpin), unpin).build())
                 .build()
         } else {
             NotificationCompat.Builder(app, CHANNEL)
@@ -95,7 +95,7 @@ object FinishCountdownNotifications {
                 .setTimeoutAfter((reminderMillis - now.toEpochMilli()).coerceAtLeast(0L))
                 .setContentIntent(review)
                 .setDeleteIntent(delete)
-                .addAction(0, "Unpin", unpin)
+                .addAction(0, context.getString(R.string.notification_unpin), unpin)
                 .build()
         }
         manager.notify(NOTIFICATION_ID, notification)
@@ -108,8 +108,8 @@ object FinishCountdownNotifications {
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Finish-day countdown", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "A countdown to the 10 PM check-in reminder. Late logging remains available through the next-day 10 AM IST grace."
+            NotificationChannel(CHANNEL, context.getString(R.string.notification_channel_countdown), NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = context.getString(R.string.notification_channel_countdown_description)
             }
         )
     }

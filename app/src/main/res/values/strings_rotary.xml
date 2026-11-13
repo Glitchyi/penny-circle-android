@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rotary_undo">Undo</string>
+    <string name="rotary_clear">Clear</string>
+    <string name="rotary_instructions">Touch a number hole, turn clockwise to the stop, then release</string>
+    <string name="rotary_description">Rotary dial for entering the amount. Optional touch gesture: place a finger in a numbered hole and turn clockwise to the stop.</string>
+    <string name="rotary_amount">Current amount %1$s rupees</string>
+    <string name="rotary_use_keypad">Use keypad instead</string>
+    <string name="rotary_enter_zero">Enter digit zero</string>
+    <string name="rotary_accessible_keypad">Accessible digit keypad</string>
+    <string name="rotary_enter_digit">Enter digit %1$s</string>
+    <string name="rotary_add_decimal">Add decimal point</string>
+    <string name="rotary_delete_character">Delete last amount character</string>
+</resources>

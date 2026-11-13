@@ -7,7 +7,10 @@ import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import android.util.Base64
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,28 +45,50 @@ class BuddyRepository private constructor(context: Context) {
     private val sharedListeners = CopyOnWriteArrayList<() -> Unit>()
     private val state0: MutableStateFlow<BuddyState>
     @Volatile private var writeBlocked = false
+    private var recoveryBackupAvailable = false
+    private val recoveryGate = RecoveryOperationGate()
+    internal val recoveryOperation: StateFlow<RecoveryOperation?> get() = recoveryGate.operation
     private val loadProblem0 = MutableStateFlow<String?>(null)
 
     init {
+        var originalBytes: ByteArray? = null
         val text = try {
-            file.openRead().bufferedReader().use { it.readText() }
-        } catch (_: java.io.FileNotFoundException) { null } catch (_: Exception) { "" }
+            file.openRead().use { it.readBytes().also { bytes -> originalBytes = bytes }.toString(Charsets.UTF_8) }
+        } catch (_: java.io.FileNotFoundException) {
+            if (stateStorageIsMissing(file.baseFile)) null else ""
+        } catch (_: Exception) { "" }
         val result = StateCodec.load(text)
         var initial = BuddyState()
         if (result is StateCodec.LoadResult.Loaded) initial = result.state
         if (result is StateCodec.LoadResult.Unreadable) {
             // Keep the original bytes recoverable and never overwrite them until the user acts.
-            runCatching { File(app.filesDir, "buddy-state-${System.currentTimeMillis()}.corrupt").writeText(text.orEmpty()) }
+            recoveryBackupAvailable = originalBytes?.let { bytes ->
+                runCatching { File(app.filesDir, "buddy-state-${System.currentTimeMillis()}.corrupt").writeBytes(bytes) }.isSuccess
+            } == true
             writeBlocked = true
-            loadProblem0.value = result.reason
+            loadProblem0.value = app.getString(
+                if (result.reason.startsWith("This data was saved by a newer version of Penny Circle")) R.string.backup_local_newer_version
+                else R.string.backup_local_unreadable
+            )
         }
         state0 = MutableStateFlow(initial.copy(importImages = recoverInterruptedImports(initial.importImages)))
     }
 
-    /** Set when the saved file could not be loaded; a `.corrupt` backup of it was kept. */
+    /** Set when the saved file could not be loaded. Its bytes stay protected until explicit recovery succeeds. */
     val loadProblem: StateFlow<String?> get() = loadProblem0
-    /** The user chose to continue with fresh data; saving to the state file resumes (the backup stays). */
-    fun acknowledgeLoadProblem() { writeBlocked = false; loadProblem0.value = null }
+    /** Explicitly confirmed fresh start. A protected copy is required before replacing the unreadable file. */
+    internal fun beginBackupRestore(): RecoveryOperation? = recoveryGate.begin(RecoveryKind.Restore)
+    internal fun beginFreshStart(): RecoveryOperation? = recoveryGate.begin(RecoveryKind.FreshStart)
+    internal fun finishRecovery(operation: RecoveryOperation) = recoveryGate.finish(operation)
+
+    internal suspend fun startFreshAfterLoadProblem(operation: RecoveryOperation) = try { withContext(Dispatchers.IO) {
+            val operationContext = currentCoroutineContext()
+            recoveryGate.requireCurrent(operation)
+            check(operation.kind == RecoveryKind.FreshStart)
+            mutateState(allowRecoveryWrite = true, beforeWrite = { operationContext.ensureActive() }) { current ->
+                if (writeBlocked) BuddyState(theme = current.theme) else current
+            }
+    } } finally { finishRecovery(operation) }
 
     val state: StateFlow<BuddyState> get() = state0
 
@@ -74,7 +99,20 @@ class BuddyRepository private constructor(context: Context) {
      * Atomically transforms and persists state. Used by this class and by the peer sync manager.
      * Bumps [BuddyState.revision] when shared fields change so members can detect fresh data.
      */
-    fun mutate(transform: (BuddyState) -> BuddyState) {
+    fun mutate(transform: (BuddyState) -> BuddyState) = mutateState(allowRecoveryWrite = false, transform = transform)
+
+    private fun ensureRecoveryCopy() {
+        if (!writeBlocked || recoveryBackupAvailable) return
+        // Preserve sidecars too when AtomicFile could not open an authoritative base file.
+        stateStorageArtifacts(file.baseFile).filterNot { java.nio.file.Files.notExists(it.toPath()) }
+            .forEachIndexed { index, artifact ->
+                val original = artifact.readBytes()
+                File(app.filesDir, "buddy-state-${System.currentTimeMillis()}-$index.corrupt").writeBytes(original)
+            }
+        recoveryBackupAvailable = true
+    }
+
+    private fun mutateState(allowRecoveryWrite: Boolean, beforeWrite: () -> Unit = {}, transform: (BuddyState) -> BuddyState) {
         var sharedChanged = false
         var finishCountdownRefreshNeeded = false
         var detectedBudgetRefreshNeeded = false
@@ -83,17 +121,20 @@ class BuddyRepository private constructor(context: Context) {
             var next = transform(before)
             sharedChanged = sharedFields(before) != sharedFields(next)
             if (sharedChanged) next = next.copy(revision = maxOf(before.revision, next.revision) + 1)
-            if (next == before) return@synchronized
-            if (writeBlocked) { state0.value = next; return@synchronized }
+            if (next == before && !allowRecoveryWrite) return@synchronized
+            if (writeBlocked && !allowRecoveryWrite) { state0.value = next; return@synchronized }
             finishCountdownRefreshNeeded = before.reminders != next.reminders ||
                 before.finishCountdown != next.finishCountdown || before.checkIns != next.checkIns ||
                 before.onboardingDone != next.onboardingDone || before.finishCountdownLeadMinutes != next.finishCountdownLeadMinutes || before.theme != next.theme
             detectedBudgetRefreshNeeded = before.expenses != next.expenses || before.dailyLimitPaise != next.dailyLimitPaise || before.theme != next.theme
+            if (allowRecoveryWrite) ensureRecoveryCopy()
+            beforeWrite()
             val out = file.startWrite()
             try {
                 out.write(StateCodec.encode(next).toByteArray(Charsets.UTF_8))
                 file.finishWrite(out)
                 state0.value = next
+                if (allowRecoveryWrite) { writeBlocked = false; loadProblem0.value = null }
             } catch (e: Exception) { file.failWrite(out); throw e }
         }
         if (finishCountdownRefreshNeeded) runCatching { FinishCountdownNotifications.refresh(app, state0.value) }
@@ -291,8 +332,10 @@ class BuddyRepository private constructor(context: Context) {
                     if (state0.value.importImages.none { it.id == placeholder.id }) { importer.delete(image); continue }
                     mutate { s -> s.copy(importImages = s.importImages.map { if (it.id == placeholder.id) image else it }, importCandidates = markDuplicates(s.importCandidates + candidates, s.expenses)) }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
-                mutate { it.copy(importImages = it.importImages.map { image -> if (image.id == placeholder.id) image.copy(status = "failed", error = e.message ?: "Couldn't read this screenshot") else image }) }
+                mutate { it.copy(importImages = it.importImages.map { image -> if (image.id == placeholder.id) image.copy(status = "failed", error = e.message ?: app.getString(R.string.import_read_error)) else image }) }
             }
         }
     }
@@ -300,8 +343,9 @@ class BuddyRepository private constructor(context: Context) {
         it.copy(importCandidates = markDuplicates(it.importCandidates.map { c -> if (c.id == candidate.id) candidate else c }, it.expenses))
     }
     fun deleteImportImage(id: String) {
-        state0.value.importImages.find { it.id == id }?.let { ScreenshotImporter(app).delete(it) }
+        val removedImage = state0.value.importImages.find { it.id == id }
         mutate { it.copy(importImages = it.importImages.filterNot { image -> image.id == id }, importCandidates = markDuplicates(it.importCandidates.filterNot { c -> c.imageId == id }, it.expenses)) }
+        removedImage?.let { ScreenshotImporter(app).delete(it) }
     }
     fun retryImportImage(id: String) {
         scope.launch {
@@ -315,7 +359,8 @@ class BuddyRepository private constructor(context: Context) {
                         val existing = s.importCandidates.filter { it.imageId == id }
                         s.copy(importImages = s.importImages.map { if (it.id == id) image else it }, importCandidates = markDuplicates(s.importCandidates.filterNot { it.imageId == id } + if (existing.isNotEmpty()) existing else candidates, s.expenses))
                     }
-                } catch (e: Exception) { mutate { it.copy(importImages = it.importImages.map { i -> if (i.id == id) i.copy(status = "failed", error = e.message ?: "Retry failed") else i }) } }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) { mutate { it.copy(importImages = it.importImages.map { i -> if (i.id == id) i.copy(status = "failed", error = e.message ?: app.getString(R.string.import_retry_error)) else i }) } }
             }
         }
     }
@@ -327,18 +372,10 @@ class BuddyRepository private constructor(context: Context) {
     /** Returns an error message, or null after saving every selected candidate. */
     fun saveImport(): String? {
         val s = state0.value
-        if (s.importImages.any { it.status == "processing" }) return "Wait until every screenshot has been read"
-        val selected = s.importCandidates.filter { it.selected }
-        if (selected.isEmpty()) return "Select at least one purchase, or add it by hand"
-        val expenses = mutableListOf<Expense>()
-        for (c in selected) {
-            val amount = amountToPaise(c.amountText) ?: return "Fix the amount for ${c.merchant.ifBlank { "a purchase" }}"
-            if (amount <= 0) return "Amounts must be above ₹0"
-            val date = try { LocalDate.parse(c.date) } catch (_: Exception) { return "Confirm the date for ${c.merchant.ifBlank { "each purchase" }}" }
-            if (date > todayIndia()) return "Purchase dates can't be in the future"
-            if (c.merchant.isBlank() || c.category.isBlank() || c.reason.isBlank()) return "Add a merchant, category and reason for each purchase"
-            expenses += Expense(date = date.toString(), amountPaise = amount, merchant = c.merchant.trim(), category = c.category, reason = c.reason, kind = kindFor(c))
-        }
+        if (s.importImages.any { it.status == "processing" }) return app.getString(R.string.import_wait_reading)
+        val today = todayIndia()
+        app.importReviewMessage(s.importCandidates, today)?.let { return it }
+        val expenses = requireNotNull(reviewedImportExpenses(s.importCandidates, today))
         val changed = expenses.map { it.date }.toSet()
         mutate { it.copy(expenses = it.expenses + expenses, checkIns = it.checkIns.filterNot { c -> c.date in changed }, importImages = emptyList(), importCandidates = emptyList()) }
         s.importImages.forEach { ScreenshotImporter(app).delete(it) }
@@ -358,15 +395,46 @@ class BuddyRepository private constructor(context: Context) {
         out.use { it.write(StateCodec.encodeBackup(state0.value).toByteArray(Charsets.UTF_8)) }
     }
     /** Replaces purchases, check-ins, limits and presets with the backup. Keeps the current circle membership. Returns an error or null. */
-    suspend fun importBackup(input: InputStream): String? = withContext(Dispatchers.IO) {
-        val restored = try { input.use { StateCodec.decode(it.readBytes().toString(Charsets.UTF_8)) } } catch (_: Exception) { return@withContext "That file isn't a Penny Circle backup" }
-        StateCodec.validateRestore(state0.value, restored)?.let { return@withContext it }
-        mutate { s -> s.copy(name = restored.name.ifBlank { s.name }, expenses = restored.expenses, checkIns = restored.checkIns,
+    internal suspend fun importBackup(operation: RecoveryOperation, openInput: () -> InputStream?): String? = try { withContext(Dispatchers.IO) {
+        recoveryGate.requireCurrent(operation)
+        check(operation.kind == RecoveryKind.Restore)
+        val restored = try {
+            // Providers may block on both open and read. Neither runs on the activity thread.
+            val input = openInput() ?: return@withContext app.getString(R.string.backup_open_error)
+            input.use {
+                currentCoroutineContext().ensureActive()
+                val contents = it.readBytes()
+                currentCoroutineContext().ensureActive()
+                StateCodec.decode(contents.toString(Charsets.UTF_8))
+            }
+        }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: UnsupportedSchemaException) { return@withContext app.getString(R.string.backup_newer_version) }
+        catch (_: java.io.IOException) { return@withContext app.getString(R.string.backup_open_error) }
+        catch (_: Exception) { return@withContext app.getString(R.string.backup_invalid_file) }
+        fun validationMessage(issue: BackupRestoreIssue): String = app.getString(when (issue) {
+                BackupRestoreIssue.UnsupportedVersion -> R.string.backup_unsupported_version
+                BackupRestoreIssue.UnsupportedTimers -> R.string.backup_unsupported_timers
+                BackupRestoreIssue.InvalidLimits -> R.string.backup_invalid_limits
+                BackupRestoreIssue.InvalidPurchases -> R.string.backup_invalid_purchases
+                BackupRestoreIssue.TooManyMembers -> R.string.backup_too_many_members
+                BackupRestoreIssue.EmptyBackup -> R.string.backup_empty
+                BackupRestoreIssue.NoPurchases -> R.string.backup_no_purchases
+            })
+        currentCoroutineContext().ensureActive()
+        recoveryGate.requireCurrent(operation)
+        val operationContext = currentCoroutineContext()
+        try { mutateState(allowRecoveryWrite = true, beforeWrite = { operationContext.ensureActive() }) { s ->
+            StateCodec.validateRestore(s, restored)?.let { throw BackupRestoreRejected(it) }
+            s.copy(name = restored.name.ifBlank { s.name }, expenses = restored.expenses, checkIns = restored.checkIns,
             dailyLimitPaise = restored.dailyLimitPaise, weeklyLimitPaise = restored.weeklyLimitPaise,
             categories = restored.categories, reasons = restored.reasons, presets = restored.presets.take(MAX_PRESETS),
             merchantRules = restored.merchantRules.take(MAX_MERCHANT_RULES), heldCheckIns = emptyMap(), onboardingDone = true) }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (rejected: BackupRestoreRejected) { return@withContext validationMessage(rejected.issue) }
+        catch (_: Exception) { return@withContext app.getString(R.string.backup_restore_error) }
         null
-    }
+    } } finally { finishRecovery(operation) }
 
     companion object {
         private val lock = Any()
@@ -375,6 +443,8 @@ class BuddyRepository private constructor(context: Context) {
         fun get(context: Context): BuddyRepository = instance ?: synchronized(lock) { instance ?: BuddyRepository(context).also { instance = it } }
     }
 }
+
+private class BackupRestoreRejected(val issue: BackupRestoreIssue) : Exception()
 
 /** Android Keystore–protected small secrets (the iroh endpoint secret key lives here). */
 class SecretVault(context: Context) {

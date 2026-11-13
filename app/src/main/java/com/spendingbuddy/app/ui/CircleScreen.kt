@@ -2,6 +2,8 @@
 
 package com.spendingbuddy.app.ui
 
+import com.spendingbuddy.app.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.CircleShape
@@ -32,6 +34,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -62,9 +69,13 @@ import com.spendingbuddy.app.ImpulseStats
 import com.spendingbuddy.app.impulseStats
 import com.spendingbuddy.app.Member
 import com.spendingbuddy.app.Visibility
-import com.spendingbuddy.app.amountToPaise
+import com.spendingbuddy.app.dailyLimitInputError
+import com.spendingbuddy.app.formatLimitInput
+import com.spendingbuddy.app.parseOnboardingLimits
+import com.spendingbuddy.app.weeklyLimitInputError
 import com.spendingbuddy.app.MAX_MEMBERS
 import com.spendingbuddy.app.p2p.JoinProgress
+import com.spendingbuddy.app.p2p.MemberLink
 import com.spendingbuddy.app.p2p.activeMembers
 import com.spendingbuddy.app.p2p.canNudge
 import com.spendingbuddy.app.p2p.currentAdminId
@@ -86,15 +97,17 @@ fun CircleScreen(
     onCreate: () -> Unit,
     onJoin: () -> Unit,
     onInvite: () -> Unit,
-    onCircleSettings: () -> Unit
+    onCircleSettings: () -> Unit,
+    memberLinks: Map<String, MemberLink> = emptyMap()
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val group = state.group
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            ScreenTitle(group?.name ?: "Circle") {
+            ScreenTitle(context.getString(R.string.circle_copy_circle)) {
                 if (group != null) {
-                    IconButton(onClick = onCircleSettings) { Icon(Icons.Rounded.Settings, "Circle settings") }
+                    IconButton(onClick = onCircleSettings) { Icon(Icons.Rounded.Settings, context.getString(R.string.circle_copy_circle_settings)) }
                 }
             }
         },
@@ -104,7 +117,7 @@ fun CircleScreen(
         if (group == null) {
             NoCircleContent(joinProgress, onCreate, onJoin, Modifier.padding(padding))
         } else {
-            CircleContent(state, reachableIds, actions, onInvite, Modifier.padding(padding))
+            CircleContent(state, reachableIds, actions, onInvite, Modifier.padding(padding), memberLinks)
         }
     }
 }
@@ -116,6 +129,7 @@ private fun NoCircleContent(
     onJoin: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     Column(
         modifier
             .fillMaxSize()
@@ -133,33 +147,33 @@ private fun NoCircleContent(
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Rounded.Groups, null, Modifier.size(28.dp), tint = if (tokens.dark) Color.White else tokens.accent) }
             Spacer(Modifier.height(14.dp))
-            Text("Spend side by side", style = MaterialTheme.typography.headlineSmall)
+            Text(context.getString(R.string.circle_copy_spend_side_by_side), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(6.dp))
             Text(
-                "A circle is a small group of friends who see each other's day, send nudges and suggest limits. The admin approves everyone who joins.",
+                context.getString(R.string.circle_copy_a_circle_is_a_small_group_of),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         if (joinProgress is JoinProgress.Waiting || joinProgress is JoinProgress.Requesting) {
             NotebookSurface(Modifier.fillMaxWidth()) {
-                Text("Join request in progress", style = MaterialTheme.typography.titleMedium)
+                Text(context.getString(R.string.circle_copy_join_request_in_progress), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Your request was sent. The admin has not answered yet.",
+                    context.getString(if (joinProgress is JoinProgress.Requesting) R.string.circle_copy_sending_your_request else R.string.circle_copy_your_request_was_sent_the_admin_has),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                TextButton(onClick = onJoin, modifier = Modifier.heightIn(min = 48.dp)) { Text("See request") }
+                TextButton(onClick = onJoin, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.circle_copy_see_request)) }
             }
         }
         AccentButton(onClick = onCreate, modifier = Modifier.fillMaxWidth().enterRise(1)) {
-            Text("Create a circle", fontWeight = FontWeight.Bold)
+            Text(context.getString(R.string.circle_copy_create_a_circle))
         }
         SecondaryButton(onClick = onJoin, modifier = Modifier.fillMaxWidth().enterRise(2)) {
-            Text("Join with a code", fontWeight = FontWeight.SemiBold)
+            Text(context.getString(R.string.circle_copy_join_with_a_code))
         }
         Text(
-            "Your data goes straight between phones, encrypted. No account, and no server keeps a copy.",
+            context.getString(R.string.circle_copy_your_data_goes_straight_between_phones_encrypted),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -172,8 +186,10 @@ private fun CircleContent(
     reachableIds: Set<String>,
     actions: CircleActions,
     onInvite: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    memberLinks: Map<String, MemberLink> = emptyMap()
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val nowMs = System.currentTimeMillis()
     val admin = isAdmin(state)
     val adminId = currentAdminId(state)
@@ -191,28 +207,29 @@ private fun CircleContent(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        state.group?.let { group -> item { Text(group.name, style = MaterialTheme.typography.titleLarge) } }
         if (pendingSuggestions.isNotEmpty()) {
-            item { SectionTitle("Limit suggestions for you") }
+            item { SectionTitle(context.getString(R.string.circle_copy_limit_suggestions_for_you)) }
             items(pendingSuggestions, key = { it.id }) { suggestion ->
                 IncomingSuggestionCard(suggestion, actions)
             }
         }
         if (admin) {
-            item { SectionTitle("Admin") }
+            item { SectionTitle(context.getString(R.string.circle_copy_admin)) }
             item { AdminPanel(requests, members.size >= MAX_MEMBERS, nowMs, actions, onInvite) }
         }
         item {
-            SectionTitle("Members (${members.size} of $MAX_MEMBERS)")
+            SectionTitle(context.getString(R.string.circle_copy_members_of, members.size, MAX_MEMBERS))
             val left = MAX_MEMBERS - members.size
             Text(
-                if (left <= 0) "Your circle is full ($MAX_MEMBERS members)." else "${members.size} of $MAX_MEMBERS members. $left ${if (left == 1) "spot" else "spots"} left.",
+                if (left <= 0) context.getString(R.string.circle_copy_your_circle_is_full_members, MAX_MEMBERS) else context.resources.getQuantityString(R.plurals.circle_members_spots, left, members.size, MAX_MEMBERS, left),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         item {
             MemberCard(
-                name = "You",
+                name = context.getString(R.string.circle_copy_you),
                 isSelf = true,
                 isAdmin = me != null && me.endpointId == adminId,
                 snapshot = null,
@@ -226,7 +243,7 @@ private fun CircleContent(
         }
         items(others, key = { it.endpointId }) { member ->
             MemberCard(
-                name = member.label(),
+                name = member.label(context),
                 isSelf = false,
                 isAdmin = member.endpointId == adminId,
                 snapshot = state.friends[member.endpointId],
@@ -235,13 +252,14 @@ private fun CircleContent(
                 nowMs = nowMs,
                 memberId = member.endpointId,
                 actions = actions,
-                onSuggest = { suggestTarget = member.endpointId }
+                onSuggest = { suggestTarget = member.endpointId },
+                link = memberLinks[member.endpointId]
             )
         }
         if (others.isEmpty()) {
             item {
                 Text(
-                    "Nobody else is here yet. Share a code from the admin section so friends can ask to join.",
+                    context.getString(R.string.circle_copy_nobody_else_is_here_yet_share_a),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -249,7 +267,7 @@ private fun CircleContent(
         }
         item {
             Text(
-                "Updates travel directly between phones, so they arrive when both phones can reach each other. Nudges and suggestions wait for the other phone; delivery is not instant.",
+                context.getString(R.string.circle_copy_updates_travel_directly_between_phones_so_they),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -276,46 +294,49 @@ private fun AdminPanel(
     actions: CircleActions,
     onInvite: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var declineId by rememberSaveable { mutableStateOf<String?>(null) }
+    val declining = requests.firstOrNull { it.id == declineId }
     NotebookSurface(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Join requests", style = MaterialTheme.typography.titleMedium)
+            Text(context.getString(R.string.circle_copy_join_requests), style = MaterialTheme.typography.titleMedium)
             if (requests.isNotEmpty()) {
                 Spacer(Modifier.width(8.dp))
-                Pill("${requests.size} waiting")
+                Pill(context.getString(R.string.circle_copy_waiting, requests.size))
             }
         }
         if (full) {
             Text(
-                "Your circle is full ($MAX_MEMBERS members), so new requests cannot be approved right now.",
+                context.getString(R.string.circle_copy_your_circle_is_full_members_so_new, MAX_MEMBERS),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
         Text(
-            "Requests reach you while Penny Circle is open or Stay reachable is on. They wait up to 24 hours.",
+            context.getString(R.string.circle_copy_requests_reach_you_while_penny_circle_is),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp)
         )
         if (requests.isEmpty()) {
             Text(
-                "No one is waiting. Anyone with your code can ask to join, and you approve each request.",
+                context.getString(R.string.circle_copy_no_one_is_waiting_anyone_with_your),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
         requests.forEach { request ->
-            val name = request.displayName.ifBlank { "Someone" }
+            val name = request.displayName.ifBlank { context.getString(R.string.circle_copy_someone) }
             Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
                 Text(
-                    "$name asked to join",
+                    context.getString(R.string.circle_copy_asked_to_join, name),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    "Requested ${clockTime(request.requestedAt)}, ${agoText(request.requestedAt, nowMs)}",
+                    context.getString(R.string.circle_copy_requested, clockTime(request.requestedAt), agoText(context, request.requestedAt, nowMs)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -324,34 +345,57 @@ private fun AdminPanel(
                     Button(
                         onClick = { actions.approve(request.id) },
                         enabled = !busy && !full,
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Approve $name" }
-                    ) { Text("Approve") }
-                    OutlinedButton(
-                        onClick = { actions.decline(request.id) },
-                        enabled = !busy,
-                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Decline $name" }
-                    ) { Text("Decline") }
+                        modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = context.getString(R.string.circle_copy_approve, name) }
+                    ) { Text(if (actions.isBusy("approve:${request.id}")) context.getString(R.string.circle_copy_approving) else context.getString(R.string.circle_copy_approve_2)) }
                 }
+                TextButton(
+                    onClick = { actions.clearFailure("decline:${request.id}"); declineId = request.id },
+                    enabled = !busy,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = context.getString(R.string.circle_copy_decline, name) }
+                ) { Text(context.getString(R.string.circle_copy_decline_2)) }
+                CircleActionFeedback(actions, "approve:${request.id}", context.getString(R.string.circle_copy_approving))
+                CircleActionFeedback(actions, "decline:${request.id}", context.getString(R.string.circle_copy_declining))
             }
         }
         Spacer(Modifier.height(12.dp))
         OutlinedButton(onClick = onInvite, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text(if (full) "Join code (circle full)" else "Show join code")
+            Text(if (full) context.getString(R.string.circle_copy_join_code_circle_full) else context.getString(R.string.circle_copy_show_join_code))
         }
+    }
+    if (declining != null) {
+        val name = declining.displayName.ifBlank { context.getString(R.string.circle_copy_someone) }
+        val key = "decline:${declining.id}"
+        AlertDialog(
+            onDismissRequest = { declineId = null },
+            title = { Text(context.getString(R.string.circle_copy_decline_s_request, name)) },
+            text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(context.getString(R.string.circle_copy_this_circle_will_reject_further_requests_from))
+                CircleActionFeedback(actions, key, context.getString(R.string.circle_copy_declining))
+            } },
+            confirmButton = { Button(
+                onClick = { actions.decline(declining.id) },
+                enabled = !actions.isBusy(key),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
+            ) { Text(if (actions.isBusy(key)) context.getString(R.string.circle_copy_declining) else context.getString(R.string.circle_copy_decline_2)) } },
+            dismissButton = { TextButton(onClick = { declineId = null }, enabled = !actions.isBusy(key)) { Text(context.getString(R.string.circle_copy_cancel)) } }
+        )
     }
 }
 
 @Composable
 private fun IncomingSuggestionCard(suggestion: BudgetSuggestion, actions: CircleActions) {
-    val sender = suggestion.sender.ifBlank { "A friend" }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sender = suggestion.sender.ifBlank { context.getString(R.string.circle_copy_a_friend) }
     val busy = actions.isBusy("respond:${suggestion.id}")
     NotebookSurface(Modifier.fillMaxWidth()) {
         Text(
-            "$sender suggests ${rupees(suggestion.dailyPaise)} a day and ${rupees(suggestion.weeklyPaise)} a week",
+            context.getString(R.string.circle_copy_suggests_a_day_and_a_week, sender, rupees(suggestion.dailyPaise), rupees(suggestion.weeklyPaise)),
             style = MaterialTheme.typography.bodyLarge
         )
+        CircleActionFeedback(actions, "respond:${suggestion.id}", context.getString(R.string.circle_copy_sending_your_answer))
         Text(
-            "Your limits only change if you accept.",
+            context.getString(R.string.circle_copy_your_limits_only_change_if_you_accept),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -360,13 +404,13 @@ private fun IncomingSuggestionCard(suggestion: BudgetSuggestion, actions: Circle
                 onClick = { actions.respond(suggestion.id, false) },
                 enabled = !busy,
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("Keep mine") }
+            ) { Text(context.getString(R.string.circle_copy_keep_mine)) }
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = { actions.respond(suggestion.id, true) },
                 enabled = !busy,
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("Accept") }
+            ) { Text(context.getString(R.string.circle_copy_accept)) }
         }
     }
 }
@@ -382,8 +426,10 @@ private fun MemberCard(
     nowMs: Long,
     memberId: String,
     actions: CircleActions,
-    onSuggest: () -> Unit
+    onSuggest: () -> Unit,
+    link: MemberLink? = null
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val today = todayIndia()
     val todayText = today.toString()
 
@@ -396,17 +442,17 @@ private fun MemberCard(
     val visibility = if (isSelf) state.visibility else snapshot?.visibility ?: Visibility.TOTALS_STATUS
 
     val statusText = when {
-        !hasData -> "No update received yet"
-        checkedIn -> "Checked in"
-        else -> "Not checked in yet"
+        !hasData -> context.getString(R.string.circle_copy_no_update_received_yet)
+        checkedIn -> context.getString(R.string.circle_copy_checked_in)
+        else -> context.getString(R.string.circle_copy_not_checked_in_yet)
     }
     val connectionText = when {
         isSelf -> null
-        reachable -> "Reachable now"
-        snapshot != null && snapshot.receivedAt > 0L -> "Last seen ${agoText(snapshot.receivedAt, nowMs)}"
-        else -> "Waiting to connect"
+        reachable -> context.getString(R.string.circle_copy_reachable_now)
+        snapshot != null && snapshot.receivedAt > 0L -> context.getString(R.string.circle_copy_last_seen, agoText(context, snapshot.receivedAt, nowMs))
+        else -> context.getString(R.string.circle_copy_waiting_to_connect)
     }
-    val amountText = if (hasData && limit > 0L) "${rupees(spent)} of ${rupees(limit)} today" else if (hasData) "${rupees(spent)} today" else null
+    val amountText = if (hasData && limit > 0L) context.getString(R.string.circle_copy_of_today, rupees(spent), rupees(limit)) else if (hasData) context.getString(R.string.circle_copy_today, rupees(spent)) else null
     val over = hasData && limit > 0L && spent > limit
     // Impulse habit: shared as totals only. Older apps do not send it (impulseFreeDays = -1), so nothing is shown.
     val impulse = when {
@@ -415,38 +461,33 @@ private fun MemberCard(
         else -> null
     }
     val impulseText = impulse?.let {
-        (if (it.freeDays == 1) "1 day impulse-free" else "${it.freeDays} days impulse-free") +
-            if (it.weekCount > 0) " · ${rupees(it.weekPaise)} on impulse this week" else ""
-    }
-
-    val summary = buildString {
-        append(name)
-        if (isAdmin) append(", admin")
-        append(", ").append(statusText.lowercase())
-        if (hasData) append(", streak $streakCount")
-        if (amountText != null) append(", ").append(amountText)
-        if (impulseText != null) append(", ").append(impulseText)
-        if (connectionText != null) append(", ").append(connectionText.lowercase())
+        if (it.weekCount > 0) context.resources.getQuantityString(R.plurals.circle_impulse_week, it.freeDays, it.freeDays, rupees(it.weekPaise))
+        else context.resources.getQuantityString(R.plurals.circle_impulse_free, it.freeDays, it.freeDays)
     }
 
     NotebookSurface(Modifier.fillMaxWidth()) {
-        Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { contentDescription = summary }) {
+        Column(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f, fill = false))
                 if (isAdmin) {
                     Spacer(Modifier.width(8.dp))
-                    Pill("Admin")
+                    Pill(context.getString(R.string.circle_copy_admin))
                 }
             }
             Text(
-                statusText + if (hasData) " · ${streakCount}-day streak" else "",
+                if (hasData) context.getString(R.string.circle_status_streak, statusText, streakCount) else statusText,
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (checkedIn) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.semantics {
+                    liveRegion = LiveRegionMode.Polite
+                    contentDescription = if (hasData) context.getString(R.string.circle_status_named_streak, name, statusText, streakCount)
+                        else context.getString(R.string.circle_copy_template, name, statusText)
+                },
                 fontWeight = if (checkedIn) FontWeight.SemiBold else null
             )
             if (amountText != null) {
                 Text(
-                    amountText + if (over) ", over the limit by ${rupees(spent - limit)}" else "",
+                    if (over) context.getString(R.string.circle_amount_over, amountText, rupees(spent - limit)) else amountText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp)
@@ -463,19 +504,39 @@ private fun MemberCard(
                 )
             }
             if (connectionText != null) {
+                val conciseConnection = when {
+                    link?.error != null -> context.getString(R.string.circle_copy_connection_issue)
+                    reachable -> context.getString(R.string.circle_copy_reachable_now)
+                    else -> context.getString(R.string.circle_copy_waiting_to_connect)
+                }
+                Text(conciseConnection, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite; contentDescription = context.getString(R.string.circle_copy_template, name, conciseConnection) })
+                if (connectionText != conciseConnection) {
                 Text(
                     connectionText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp)
                 )
+                }
             }
             Text(
-                if (visibility == Visibility.FULL_DETAILS) "Shares full details" else "Shares totals and status only",
+                if (visibility == Visibility.FULL_DETAILS) context.getString(R.string.circle_copy_shares_full_details) else context.getString(R.string.circle_copy_shares_totals_and_status_only),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 2.dp)
             )
+        }
+
+        if (!isSelf && link?.error != null) {
+            Text(context.getString(R.string.circle_copy_connection_issue_2, link.error), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+            Text(if (link.lastExchangeAt > 0L) context.getString(R.string.circle_copy_last_successful_exchange, agoText(context, link.lastExchangeAt, nowMs)) else context.getString(R.string.circle_copy_no_successful_exchange_yet),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = { actions.retryMember(memberId) }, enabled = !actions.isBusy("retry:$memberId")) {
+                Text(if (actions.isBusy("retry:$memberId")) context.getString(R.string.circle_copy_checking) else context.getString(R.string.circle_copy_try_again))
+            }
+            CircleActionFeedback(actions, "retry:$memberId", context.getString(R.string.circle_copy_checking))
         }
 
         if (!isSelf && snapshot != null && visibility == Visibility.FULL_DETAILS) {
@@ -488,8 +549,8 @@ private fun MemberCard(
             val allowed = canNudge(state, memberId)
             val nudgeNote = when {
                 !hasData -> null
-                checkedIn -> "$name has already checked in today."
-                !allowed -> "You already nudged $name today. One nudge per day."
+                checkedIn -> context.getString(R.string.circle_copy_has_already_checked_in_today, name)
+                !allowed -> context.getString(R.string.circle_copy_you_already_nudged_today_one_nudge_per, name)
                 else -> null
             }
             Row(
@@ -500,13 +561,14 @@ private fun MemberCard(
                 Button(
                     onClick = { actions.nudge(memberId, name) },
                     enabled = allowed && !checkedIn && !actions.isBusy("nudge:$memberId"),
-                    modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Nudge $name" }
-                ) { Text("Nudge") }
+                    modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = context.getString(R.string.circle_copy_nudge, name) }
+                ) { Text(if (actions.isBusy("nudge:$memberId")) context.getString(R.string.circle_copy_sending_nudge) else context.getString(R.string.circle_copy_nudge_2)) }
                 OutlinedButton(
                     onClick = onSuggest,
-                    modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "Suggest new limits to $name" }
-                ) { Text("Suggest new limits") }
+                    modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = context.getString(R.string.circle_copy_suggest_new_limits_to, name) }
+                ) { Text(context.getString(R.string.circle_copy_suggest_new_limits)) }
             }
+            CircleActionFeedback(actions, "nudge:$memberId", context.getString(R.string.circle_copy_sending_nudge))
             if (nudgeNote != null) {
                 Text(
                     nudgeNote,
@@ -517,10 +579,10 @@ private fun MemberCard(
             }
             if (pendingNudge != null) {
                 Text(
-                    "Nudge sent, waiting for $name's phone to receive it.",
+                    context.getString(R.string.circle_copy_nudge_sent_waiting_for_s_phone_to, name),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 4.dp).semantics { liveRegion = LiveRegionMode.Polite }
                 )
             }
         }
@@ -535,66 +597,71 @@ private fun SuggestLimitsSheet(
     actions: CircleActions,
     onDismiss: () -> Unit
 ) {
-    val name = target.label()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val name = target.label(context)
     val id = target.endpointId
-    var daily by rememberSaveable(id) { mutableStateOf(snapshot?.dailyLimitPaise?.takeIf { it > 0L }?.let { (it / 100L).toString() } ?: "") }
-    var weekly by rememberSaveable(id) { mutableStateOf(snapshot?.weeklyLimitPaise?.takeIf { it > 0L }?.let { (it / 100L).toString() } ?: "") }
-    var error by rememberSaveable(id) { mutableStateOf<String?>(null) }
+    var daily by rememberSaveable(id) { mutableStateOf(snapshot?.dailyLimitPaise?.let(::formatLimitInput) ?: "") }
+    var weekly by rememberSaveable(id) { mutableStateOf(snapshot?.weeklyLimitPaise?.let(::formatLimitInput) ?: "") }
+    var dailyError by rememberSaveable(id) { mutableStateOf<String?>(null) }
+    var weeklyError by rememberSaveable(id) { mutableStateOf<String?>(null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         DialogSystemBars()
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding(),
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding()
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Suggest limits to $name", style = MaterialTheme.typography.headlineSmall)
+            Text(context.getString(R.string.circle_copy_suggest_limits_to, name), style = MaterialTheme.typography.headlineSmall)
+            Text(context.getString(R.string.circle_copy_all_fields_are_required_unless_marked_optional), style = MaterialTheme.typography.bodyMedium)
             Text(
-                "$name decides whether to accept. Their limits do not change unless they say yes.",
+                context.getString(R.string.circle_copy_decides_whether_to_accept_their_limits_do, name),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             OutlinedTextField(
                 value = daily,
-                onValueChange = { daily = it; error = null },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Daily limit (₹)") },
+                onValueChange = { daily = it; if (dailyError != null) dailyError = dailyLimitInputError(it) },
+                modifier = Modifier.fillMaxWidth().semantics { dailyError?.let { error(it) } },
+                label = { Text(context.getString(R.string.circle_copy_daily_limit)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = dailyError != null,
+                supportingText = dailyError?.let { message -> { Text(context.budgetValidationMessage(message).orEmpty(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } }
             )
             OutlinedTextField(
                 value = weekly,
-                onValueChange = { weekly = it; error = null },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Weekly limit (₹)") },
+                onValueChange = { weekly = it; if (weeklyError != null) weeklyError = weeklyLimitInputError(it) },
+                modifier = Modifier.fillMaxWidth().semantics { weeklyError?.let { error(it) } },
+                label = { Text(context.getString(R.string.circle_copy_weekly_limit)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = weeklyError != null,
+                supportingText = weeklyError?.let { message -> { Text(context.budgetValidationMessage(message).orEmpty(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } }
             )
-            ErrorText(error)
             Button(
                 onClick = {
-                    val d = amountToPaise(daily)
-                    val w = amountToPaise(weekly)
-                    when {
-                        d == null || d <= 0L -> error = "Enter a daily amount above ₹0."
-                        w == null || w <= 0L -> error = "Enter a weekly amount above ₹0."
-                        w < d -> error = "The weekly limit should be at least the daily limit."
-                        else -> actions.suggest(id, d, w, name) { onDismiss() }
+                    dailyError = dailyLimitInputError(daily)
+                    weeklyError = weeklyLimitInputError(weekly)
+                    parseOnboardingLimits(daily, weekly)?.let {
+                        actions.suggest(id, it.dailyPaise, it.weeklyPaise, name) { onDismiss() }
                     }
                 },
                 enabled = !actions.isBusy("suggest"),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) { Text("Send suggestion") }
+            ) { Text(if (actions.isBusy("suggest")) context.getString(R.string.circle_copy_sending_suggestion) else context.getString(R.string.circle_copy_send_suggestion)) }
+            CircleActionFeedback(actions, "suggest", context.getString(R.string.circle_copy_sending_suggestion))
 
             if (sent.isNotEmpty()) {
-                SectionTitle("Your earlier suggestions", Modifier.padding(top = 6.dp))
+                SectionTitle(context.getString(R.string.circle_copy_your_earlier_suggestions), Modifier.padding(top = 6.dp))
                 sent.take(5).forEach { s ->
                     val state = when (s.status) {
-                        "accepted" -> "Accepted"
-                        "declined" -> "Declined"
-                        else -> if (s.delivered) "Pending, $name has it" else "Pending, waiting for $name's phone"
+                        "accepted" -> context.getString(R.string.circle_copy_accepted)
+                        "declined" -> context.getString(R.string.circle_copy_declined)
+                        else -> if (s.delivered) context.getString(R.string.circle_copy_pending_has_it, name) else context.getString(R.string.circle_copy_pending_waiting_for_s_phone, name)
                     }
                     Text(
-                        "${rupees(s.dailyPaise)} a day, ${rupees(s.weeklyPaise)} a week: $state",
+                        context.getString(R.string.circle_copy_a_day_a_week, rupees(s.dailyPaise), rupees(s.weeklyPaise), state),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.heightIn(min = 32.dp)
                     )

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tracking_turn_on_automatic_tracking_then_connect">Turn on automatic tracking, then connect one source: payment-app alerts or bank SMS.</string>
+    <string name="tracking_tracking_is_on_but_no_payment">Tracking is on, but no payment source is connected yet. Connect payment-app alerts or bank SMS. Manual entry remains available in Today.</string>
+    <string name="tracking_a_payment_source_is_connected_allow">A payment source is connected. Allow notifications so you can see new Auto entries and use Undo or Keep.</string>
+    <string name="tracking_a_payment_source_is_connected_and">A payment source is connected and notifications are allowed. Automatic tracking is ready.</string>
+    <string name="tracking_turn_on_automatic_tracking">Turn on automatic tracking</string>
+    <string name="tracking_connect_payment_alerts">Connect payment alerts</string>
+    <string name="tracking_allow_notifications">Allow notifications</string>
+    <string name="tracking_ready">Ready</string>
+    <string name="tracking_automatic_tracking">Automatic tracking</string>
+    <string name="tracking_setup">Setup</string>
+    <string name="tracking_connect_one_source_first_notifications_let">Connect one source first. Notifications let you see and undo an Auto entry. A Live Update on the lock screen or status bar is optional.</string>
+    <string name="tracking_tracking">Tracking</string>
+    <string name="tracking_the_original_message_text_is_never">The original message text is never stored or sent. Only the amount, shop name, time and a local payment reference used to catch duplicates are kept.</string>
+    <string name="tracking_log_purchases_from_payment_alerts">Log purchases from payment alerts</string>
+    <string name="tracking_where_to_look">Where to look</string>
+    <string name="tracking_connect_at_least_one_source_android">Connect at least one source. Android may restrict access to payment-app alerts or bank SMS on some phones. You can still add purchases by hand from Today.</string>
+    <string name="tracking_payment_and_bank_app_alerts">Payment and bank app alerts</string>
+    <string name="tracking_allowed">Allowed</string>
+    <string name="tracking_needs_notification_access">Needs notification access</string>
+    <string name="tracking_bank_sms">Bank SMS</string>
+    <string name="tracking_needs_sms_permission">Needs SMS permission</string>
+    <string name="tracking_show_what_was_added">Purchase notifications</string>
+    <string name="tracking_needs_notification_permission">Needs notification permission</string>
+    <string name="tracking_live_update_on_lock_screen_and">Live Update on lock screen and status bar</string>
+    <string name="tracking_optional_allowed">Optional · Allowed</string>
+    <string name="tracking_optional_not_allowed_or_not_supported">Optional · Not allowed or not supported</string>
+    <string name="tracking_your_shops">Your shops</string>
+    <string name="tracking_a_shop_with_a_rule_always">A shop with a rule always gets that category. Without a rule the app uses what you chose last time for that shop, then its built-in list, and otherwise saves it as Other and asks you.</string>
+    <string name="tracking_add_a_shop">Add a shop</string>
+    <string name="tracking_how_it_decides">How it decides</string>
+    <string name="tracking_decision_explanation">Added on its own: card payments, and payments to a shop you have a rule for, have logged before, or that is on the built-in list.\n\nAsked first: payments to a new name or to a person, cash withdrawals, alerts with no shop name, and anything of ₹20,000 or more.\n\nNever added: money received, refunds, failed payments, one-time passwords, bills that are due and offers.\n\nA purchase added on its own can be undone for 10 minutes. Your circle sees it only after that, or sooner if you tap Keep.</string>
+    <string name="tracking_rule_summary">%1$s · %2$s</string>
+    <string name="tracking_edit_shop">Edit shop</string>
+    <string name="tracking_shop_name_as_it_appears_in">Shop name as it appears in the alert</string>
+    <string name="tracking_category">Category</string>
+    <string name="tracking_reason">Reason</string>
+    <string name="tracking_enter_the_shop_name">Enter the shop name</string>
+    <string name="tracking_save">Save shop rule</string>
+    <string name="tracking_remove_this_rule">Remove this rule</string>
+</resources>

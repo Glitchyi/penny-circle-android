@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="notification_channel_nudges">Circle nudges</string>
+    <string name="notification_channel_nudges_description">Countdowns sent by members of your circle</string>
+    <string name="notification_channel_activity">Circle activity</string>
+    <string name="notification_channel_link">Staying reachable</string>
+    <string name="notification_channel_check_ins">Check-in reminders</string>
+    <string name="notification_channel_check_ins_description">Gentle local spending check-in reminders</string>
+    <string name="notification_nudge_title">%1$s nudged you</string>
+    <plurals name="notification_nudge_body">
+        <item quantity="one">Finish today\'s check-in within %1$d minute</item>
+        <item quantity="other">Finish today\'s check-in within %1$d minutes</item>
+    </plurals>
+    <string name="notification_add_purchase">Add purchase</string>
+    <string name="notification_finish_today">Finish today</string>
+    <string name="notification_join_title">%1$s asked to join your circle</string>
+    <string name="notification_join_body">Open Penny Circle to approve or decline. Nothing is shared with them until you approve.</string>
+    <string name="notification_quick_title">Quick check-in</string>
+    <string name="notification_quick_body">Review and log today\'s spending before the evening ends.</string>
+    <string name="notification_friend_prompt_title">%1$s may like a nudge</string>
+    <plurals name="notification_friends_prompt_title">
+        <item quantity="one">%1$d member may like a nudge</item>
+        <item quantity="other">%1$d members may like a nudge</item>
+    </plurals>
+    <string name="notification_friend_prompt_body">Their check-in is still pending. Open Penny Circle to decide whether to send a nudge.</string>
+    <string name="notification_deadline_title">10 AM check-in deadline</string>
+    <string name="notification_deadline_body">Yesterday\'s grace window has ended; late logs still allowed. Open check-in.</string>
+    <string name="notification_countdown_title">Your %1$s check-in</string>
+    <string name="notification_countdown_body">10 PM reminder. Grace ends at 10 AM IST the next day; late logging remains available.</string>
+    <string name="notification_unpin">Unpin</string>
+    <string name="notification_channel_countdown">Finish-day countdown</string>
+    <string name="notification_channel_countdown_description">A countdown to the 10 PM check-in reminder. Grace ends at 10 AM IST the next day; late logging remains available.</string>
+    <string name="notification_channel_detected">Detected purchases</string>
+    <string name="notification_channel_detected_description">Purchases found in payment messages, with your budget for the day</string>
+    <string name="notification_budget_over">%1$s over today\'s limit</string>
+    <string name="notification_budget_left">%1$s left today</string>
+    <string name="notification_budget_detail">%1$s of %2$s spent</string>
+    <string name="notification_budget_added">Added %1$s. %2$s.</string>
+    <string name="notification_amount_merchant">%1$s · %2$s</string>
+    <string name="notification_budget_critical_over">Over</string>
+    <string name="notification_undo">Undo</string>
+    <string name="notification_edit">Edit</string>
+    <string name="notification_keep">Keep</string>
+    <string name="notification_unknown_payment">a payment</string>
+    <string name="notification_ask_title">%1$s · %2$s. Add it?</string>
+    <string name="notification_ask_body">%1$s. Nothing is saved until you choose.</string>
+    <string name="notification_add">Add</string>
+    <string name="notification_skip">Skip</string>
+    <string name="notification_link_circle_fallback">your circle</string>
+    <string name="notification_link_title">Staying reachable for %1$s</string>
+    <string name="notification_link_body">Keeps Penny Circle listening for updates and join requests. Delivery is approximate and depends on your network and battery settings.</string>
+    <string name="notification_turn_off">Turn off</string>
+</resources>

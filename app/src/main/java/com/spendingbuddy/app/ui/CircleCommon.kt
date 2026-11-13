@@ -1,5 +1,7 @@
 package com.spendingbuddy.app.ui
 
+import com.spendingbuddy.app.R
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.spendingbuddy.app.INDIA_ZONE
 import com.spendingbuddy.app.Member
@@ -32,10 +38,15 @@ import kotlin.math.ceil
 interface CircleActions {
     /** True while the action with this key is running. Keys: create, code, join, approve:ID, decline:ID, leave, transfer, visibility, nudge:ID, suggest, respond:ID. */
     fun isBusy(key: String): Boolean
+    fun failure(key: String): String? = null
+    fun clearFailure(key: String) {}
 
     fun createCircle(name: String, onDone: () -> Unit)
     fun issueCode(rotate: Boolean, onCode: (String) -> Unit)
     fun join(code: String)
+    fun cancelJoin(onDone: () -> Unit)
+    fun checkJoin()
+    fun retryMember(memberId: String)
     fun approve(requestId: String)
     fun decline(requestId: String)
     fun leave(successorId: String?, onDone: () -> Unit)
@@ -54,20 +65,20 @@ private val clockFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLIS
 
 internal fun clockTime(ms: Long): String = Instant.ofEpochMilli(ms).atZone(INDIA_ZONE).format(clockFormatter)
 
-internal fun agoText(ms: Long, nowMs: Long): String {
+internal fun agoText(context: android.content.Context, ms: Long, nowMs: Long): String {
     val minutes = ((nowMs - ms) / 60_000L).coerceAtLeast(0L)
     return when {
-        minutes < 1L -> "just now"
-        minutes < 60L -> "$minutes min ago"
-        minutes < 24L * 60L -> "${minutes / 60L} h ago"
-        else -> "${minutes / (24L * 60L)} d ago"
+        minutes < 1L -> context.getString(R.string.circle_copy_just_now)
+        minutes < 60L -> context.getString(R.string.circle_copy_min_ago, minutes)
+        minutes < 24L * 60L -> context.getString(R.string.circle_copy_h_ago, minutes / 60L)
+        else -> context.getString(R.string.circle_copy_d_ago, minutes / (24L * 60L))
     }
 }
 
 internal fun hoursLeft(expiresAt: Long, nowMs: Long): Long =
     ceil((expiresAt - nowMs) / 3_600_000.0).toLong().coerceAtLeast(0L)
 
-internal fun Member.label(): String = displayName.ifBlank { "Friend" }
+internal fun Member.label(context: android.content.Context): String = displayName.ifBlank { context.getString(R.string.circle_copy_friend) }
 
 @Composable
 internal fun SectionTitle(text: String, modifier: Modifier = Modifier) {
@@ -86,18 +97,19 @@ internal fun ChoiceRow(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    supporting: String? = null
+    supporting: String? = null,
+    enabled: Boolean = true
 ) {
     Row(
         modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
     ) {
-        RadioButton(selected = selected, onClick = null)
+        RadioButton(selected = selected, onClick = null, enabled = enabled)
         Spacer(Modifier.width(12.dp))
         Column {
             Text(label, style = MaterialTheme.typography.bodyLarge)
@@ -110,4 +122,20 @@ internal fun ChoiceRow(
             }
         }
     }
+}
+
+/** The running command or its retained failure belongs beside the active control, including in sheets. */
+@Composable
+internal fun CircleActionFeedback(actions: CircleActions, key: String, progress: String) {
+    val failure = actions.failure(key)
+    val message = if (actions.isBusy(key)) progress else failure ?: return
+    Text(
+        message,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (failure != null && !actions.isBusy(key)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.semantics {
+            liveRegion = LiveRegionMode.Polite
+            if (failure != null && !actions.isBusy(key)) error(failure)
+        }
+    )
 }

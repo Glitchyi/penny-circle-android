@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="startup_penny_circle">PENNY CIRCLE</string>
+    <string name="startup_the_app_couldn_t_finish_starting">The app couldn\'t finish starting.</string>
+    <string name="startup_your_data_was_not_reset_try">Your data was not reset. Try again when you\'re ready.</string>
+    <string name="startup_try_again">Try again</string>
+    <string name="startup_getting_things_ready">Getting things ready</string>
+    <string name="startup_opening_your_local_notebook">Opening your local notebook.</string>
+    <string name="startup_penny_circle_emblem">Penny Circle emblem</string>
+</resources>

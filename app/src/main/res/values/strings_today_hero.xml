@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today_hero_percent_of_limit">%1$d%% OF LIMIT</string>
+    <string name="today_hero_amount_spent_today">%1$s spent today</string>
+    <string name="today_hero_amount_over_limit">%1$s over the limit</string>
+    <string name="today_hero_amount_only_left">Only %1$s left</string>
+    <string name="today_hero_amount_left">%1$s left</string>
+    <string name="today_hero_of_limit">of %1$s</string>
+    <string name="today_hero_streak_display">%1$d-DAY STREAK</string>
+    <string name="today_hero_streak_description">%1$d day streak</string>
+    <string name="today_hero_amount_merchant">%1$s · %2$s</string>
+    <string name="today_hero_no_shop_name">No shop name</string>
+    <string name="today_hero_reason_sentence">%1$s.</string>
+    <string name="today_hero_hold_circle_category">%1$s. Ready to share in about %2$d min, or sooner if you tap Keep. Your circle receives it when the phones connect.</string>
+    <string name="today_hero_hold_circle_needs_category">Needs a category. Ready to share in about %1$d min, or sooner if you tap Keep. Your circle receives it when the phones connect.</string>
+    <string name="today_hero_hold_solo_category">%1$s. You can undo it for about %2$d min.</string>
+    <string name="today_hero_hold_solo_needs_category">Needs a category. You can undo it for about %1$d min.</string>
+    <string name="today_hero_day_future">%1$s, not yet</string>
+    <string name="today_hero_day_amount">%1$s, %2$s</string>
+    <string name="today_hero_day_amount_over">%1$s, %2$s, over the limit</string>
+    <string name="today_hero_day_amount_finished">%1$s, %2$s, finished</string>
+    <string name="today_hero_day_amount_over_finished">%1$s, %2$s, over the limit, finished</string>
+    <string name="today_hero_day_today_amount">%1$s, today, %2$s</string>
+    <string name="today_hero_day_today_amount_over">%1$s, today, %2$s, over the limit</string>
+    <string name="today_hero_day_today_amount_finished">%1$s, today, %2$s, finished</string>
+    <string name="today_hero_day_today_amount_over_finished">%1$s, today, %2$s, over the limit, finished</string>
+    <string name="today_hero_spent_today">SPENT TODAY</string>
+    <string name="today_hero_spent_today_baddc">Spent today</string>
+    <string name="today_hero_this_week">THIS WEEK</string>
+    <string name="today_hero_this_week_8c4ee">This week</string>
+    <string name="today_hero_no_streak_yet">NO STREAK YET</string>
+    <string name="today_hero_no_streak_yet_9a45d">No streak yet</string>
+    <string name="today_hero_track_purchases_automatically">Track purchases automatically</string>
+    <string name="today_hero_penny_circle_can_read_payment_alerts">Penny Circle can read payment alerts on this phone and log purchases for you. Messages are read on the phone only and are never stored or sent.</string>
+    <string name="today_hero_not_now">Not now</string>
+    <string name="today_hero_set_up_automatic_tracking">Set up automatic tracking</string>
+    <string name="today_hero_add_this_payment">Add this payment?</string>
+    <string name="today_hero_skip">Skip</string>
+    <string name="today_hero_add">Add</string>
+    <string name="today_hero_added_automatically">Added automatically</string>
+    <string name="today_hero_undo">Undo</string>
+    <string name="today_hero_keep">Keep</string>
+</resources>

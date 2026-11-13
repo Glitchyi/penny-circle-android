@@ -1,5 +1,8 @@
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.foundation.rememberScrollState
@@ -24,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,6 +47,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,8 +62,16 @@ import com.spendingbuddy.app.FINISH_COUNTDOWN_LEAD_MINUTES
 import com.spendingbuddy.app.DEFAULT_PAYMENT_UPDATE_MINUTES
 import com.spendingbuddy.app.DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES
 import com.spendingbuddy.app.finishCountdownStartTime
+import com.spendingbuddy.app.amountToPaise
+import com.spendingbuddy.app.dailyLimitInputError
+import com.spendingbuddy.app.formatLimitInput
+import com.spendingbuddy.app.parseOnboardingLimits
+import com.spendingbuddy.app.rupees
+import com.spendingbuddy.app.weeklyLimitFromDailyInput
+import com.spendingbuddy.app.weeklyLimitInputError
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -82,13 +96,14 @@ fun SettingsScreen(
     onBattery: () -> Unit,
     snackbar: SnackbarHostState? = null
 ) {
+    val context = LocalContext.current
     var name by rememberSaveable { mutableStateOf(state.name) }
     var privacyOpen by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
-        topBar = { ScreenTitle("Settings", onBack) }
+        topBar = { ScreenTitle(context.getString(R.string.settings_settings), onBack) }
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).scrollFadingEdges(listState, bottom = 40.dp),
@@ -97,26 +112,33 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(22.dp)
         ) {
             item {
-                SettingsGroup("Profile", Modifier.enterRise(0)) {
+                SettingsGroup(context.getString(R.string.settings_profile), Modifier.enterRise(0)) {
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it; onName(it) },
                         modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
-                        label = { Text("Name shown to your circle") },
+                        label = { Text(context.getString(R.string.settings_name_shown_to_your_circle)) },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp)
                     )
+                }
+            }
+            item {
+                SettingsGroup(context.getString(R.string.settings_spending_and_logging)) {
+                    SettingsButton(context.getString(R.string.settings_spending_limits), onLimits, context.getString(R.string.settings_limits_summary, rupees(state.dailyLimitPaise), rupees(state.weeklyLimitPaise)))
                     GroupDivider()
-                    SettingsButton("Spending limits", onLimits)
-                    GroupDivider()
-                    SettingsButton(if (state.autoDetect) "Automatic tracking: on" else "Automatic tracking: off", onAutoDetect)
-                    if (onCircle != null) { GroupDivider(); SettingsButton("Circle settings", onCircle) }
-                    if (onPresets != null) { GroupDivider(); SettingsButton("Presets", onPresets) }
+                    SettingsButton(if (state.autoDetect) context.getString(R.string.settings_automatic_tracking_on) else context.getString(R.string.settings_automatic_tracking_off), onAutoDetect, context.getString(R.string.settings_choose_payment_sources_and_shop_rules))
+                    if (onPresets != null) { GroupDivider(); SettingsButton(context.getString(R.string.settings_presets), onPresets, context.getString(R.string.settings_personal_shortcuts_for_logging_purchases)) }
+                }
+            }
+            if (onCircle != null) item {
+                SettingsGroup(context.getString(R.string.settings_circle)) {
+                    SettingsButton(context.getString(R.string.settings_circle_settings), onCircle, context.getString(R.string.settings_sharing_invitations_and_membership))
                 }
             }
             item {
                 Column(Modifier.enterRise(1)) {
-                    GroupLabel("Appearance")
+                    GroupLabel(context.getString(R.string.settings_appearance))
                     ThemePicker(
                         selectedId = state.theme,
                         onSelect = onTheme,
@@ -125,62 +147,62 @@ fun SettingsScreen(
                 }
             }
             item {
-                SettingsGroup("Input", Modifier.enterRise(2)) {
+                SettingsGroup(context.getString(R.string.settings_input), Modifier.enterRise(2)) {
                     Row(
                         Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Amount entry", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                        Text(context.getString(R.string.settings_amount_entry), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                         SegmentedToggle(
-                            listOf("Keypad", "Dial"),
+                            listOf(context.getString(R.string.settings_keypad), context.getString(R.string.settings_dial)),
                             if (state.amountInput == "dial") 1 else 0,
                             { onAmountInput(if (it == 1) "dial" else "keypad") },
                             Modifier.width(168.dp)
                         )
                     }
                     GroupDivider()
-                    SettingSwitch("Haptics", state.haptics, onHaptics)
+                    SettingSwitch(context.getString(R.string.settings_haptics), state.haptics, onHaptics)
                 }
             }
             item {
-                SettingsGroup("Reminders") {
-                    SettingSwitch("10 PM check-in, 10 AM IST grace deadline", state.reminders, onReminders)
+                SettingsGroup(context.getString(R.string.settings_reminders)) {
+                    SettingSwitch(context.getString(R.string.settings_10_pm_check_in_10_am), state.reminders, onReminders)
                     GroupDivider()
-                    Text("Payment update duration", Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp), style = MaterialTheme.typography.titleSmall)
-                    Text("How long the latest budget card stays after a new payment. The 10-minute Undo hold is unchanged.", Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TimerOptions(PAYMENT_UPDATE_MINUTES, state.paymentUpdateMinutes, DEFAULT_PAYMENT_UPDATE_MINUTES, "min", onPaymentUpdateMinutes)
+                    Text(context.getString(R.string.settings_payment_update_duration), Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp), style = MaterialTheme.typography.titleSmall)
+                    Text(context.getString(R.string.settings_how_long_the_latest_budget_card), Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TimerOptions(PAYMENT_UPDATE_MINUTES, state.paymentUpdateMinutes, DEFAULT_PAYMENT_UPDATE_MINUTES, onPaymentUpdateMinutes)
                     GroupDivider()
-                    SettingSwitch("Countdown before the 10 PM reminder", state.finishCountdown, onFinishCountdown, enabled = state.reminders)
-                    Text("Starts before the fixed 10 PM IST reminder. Late logging remains available through the next-day 10 AM IST grace.", Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 3.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TimerOptions(FINISH_COUNTDOWN_LEAD_MINUTES, state.finishCountdownLeadMinutes, DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES, "min", onFinishCountdownLeadMinutes, enabled = state.reminders)
+                    SettingSwitch(context.getString(R.string.settings_countdown_before_the_10_pm_reminder), state.finishCountdown, onFinishCountdown, enabled = state.reminders)
+                    Text(context.getString(R.string.settings_starts_before_the_fixed_10_pm), Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 3.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TimerOptions(FINISH_COUNTDOWN_LEAD_MINUTES, state.finishCountdownLeadMinutes, DEFAULT_FINISH_COUNTDOWN_LEAD_MINUTES, onFinishCountdownLeadMinutes, enabled = state.reminders)
                     Text(
-                        if (state.reminders) "Selected start: ${finishCountdownStartTime(state.finishCountdownLeadMinutes).format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH))} IST. WorkManager timing is approximate; Android may not promote it as a Live Update."
-                        else "Turn on reminders to use the finish-day countdown.",
+                        if (state.reminders) context.getString(R.string.settings_countdown_start, finishCountdownStartTime(state.finishCountdownLeadMinutes).format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)))
+                        else context.getString(R.string.settings_turn_on_reminders_to_use_the),
                         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     GroupDivider()
-                    SettingSwitch("Circle activity alerts", state.friendAlerts, onAlerts)
+                    SettingSwitch(context.getString(R.string.settings_circle_activity_alerts), state.friendAlerts, onAlerts)
                 }
             }
             item {
                 SettingsGroup(
-                    "Connection",
-                    footer = "Staying reachable keeps a background connection so friends' updates can arrive sooner. Android may still delay it to save battery."
+                    context.getString(R.string.settings_connection),
+                    footer = context.getString(R.string.settings_staying_reachable_keeps_a_background_connection)
                 ) {
-                    SettingSwitch("Stay reachable", state.stayReachable, onReachable)
+                    SettingSwitch(context.getString(R.string.settings_stay_reachable), state.stayReachable, onReachable)
                     GroupDivider()
-                    SettingsButton("Battery settings", onBattery)
+                    SettingsButton(context.getString(R.string.settings_battery_settings), onBattery)
                 }
             }
             item {
-                SettingsGroup("Your data", footer = "Version ${BuildConfig.VERSION_NAME} · Circle sync is direct between phones.") {
-                    SettingsButton("Export backup", onExport)
+                SettingsGroup(context.getString(R.string.settings_your_data), footer = context.getString(R.string.settings_version, BuildConfig.VERSION_NAME)) {
+                    SettingsButton(context.getString(R.string.settings_export_backup), onExport)
                     GroupDivider()
-                    SettingsButton("Restore backup", onRestore)
+                    SettingsButton(context.getString(R.string.settings_restore_backup), onRestore)
                     GroupDivider()
-                    SettingsButton("Privacy and licenses", { privacyOpen = true })
+                    SettingsButton(context.getString(R.string.settings_privacy_and_licenses), { privacyOpen = true })
                 }
             }
         }
@@ -190,7 +212,8 @@ fun SettingsScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TimerOptions(options: List<Int>, selected: Int, default: Int, unit: String, onSelect: (Int) -> Unit, enabled: Boolean = true) {
+private fun TimerOptions(options: List<Int>, selected: Int, default: Int, onSelect: (Int) -> Unit, enabled: Boolean = true) {
+    val context = LocalContext.current
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -198,11 +221,12 @@ private fun TimerOptions(options: List<Int>, selected: Int, default: Int, unit: 
     ) {
         options.forEach { value ->
             val isSelected = selected == value
+            val label = context.getString(if (value == default) R.string.settings_timer_default else R.string.settings_timer_minutes, value)
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelect(value) },
                 enabled = enabled,
-                label = { Text(buildString { if (isSelected) append("✓ "); append(value); append(' '); append(unit); if (value == default) append(" · default") }) }
+                label = { Text(if (isSelected) context.getString(R.string.settings_timer_selected, label) else label) }
             )
         }
     }
@@ -212,7 +236,7 @@ private fun TimerOptions(options: List<Int>, selected: Int, default: Int, unit: 
 internal fun GroupLabel(title: String) {
     Text(
         title.uppercase(),
-        style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp),
+        style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 6.dp, bottom = 8.dp).semantics { heading(); contentDescription = title }
     )
@@ -239,12 +263,15 @@ internal fun SettingsGroup(title: String, modifier: Modifier = Modifier, footer:
 }
 
 @Composable
-internal fun SettingsButton(text: String, onClick: () -> Unit) {
+internal fun SettingsButton(text: String, onClick: () -> Unit, summary: String? = null) {
     Row(
-        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 16.dp),
+        Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Column(Modifier.weight(1f)) {
+            Text(text, style = MaterialTheme.typography.bodyLarge)
+            if (summary != null) Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -263,46 +290,96 @@ internal fun SettingSwitch(text: String, checked: Boolean, onChange: (Boolean) -
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun LimitsScreen(state: BuddyState, onBack: () -> Unit, onSave: (Long, Long) -> Unit) {
-    var daily by rememberSaveable { mutableStateOf((state.dailyLimitPaise / 100).toString()) }
-    var weekly by rememberSaveable { mutableStateOf((state.weeklyLimitPaise / 100).toString()) }
+fun LimitsScreen(
+    state: BuddyState,
+    onBack: () -> Unit,
+    dailyDraft: String? = null,
+    weeklyDraft: String? = null,
+    onDraftChange: (String, String) -> Unit = { _, _ -> },
+    onSave: suspend (Long, Long) -> String?
+) {
+    val context = LocalContext.current
+    var daily by rememberSaveable { mutableStateOf(dailyDraft ?: formatLimitInput(state.dailyLimitPaise)) }
+    var weekly by rememberSaveable { mutableStateOf(weeklyDraft ?: formatLimitInput(state.weeklyLimitPaise)) }
+    var dailyError by rememberSaveable { mutableStateOf<String?>(null) }
+    var weeklyError by rememberSaveable { mutableStateOf<String?>(null) }
+    var saveError by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val calculatedWeekly = weeklyLimitFromDailyInput(daily)
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
-        topBar = { ScreenTitle("Spending limits", onBack) }
+        topBar = { ScreenTitle(context.getString(R.string.settings_spending_limits), onBack) }
     ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).padding(20.dp),
+            Modifier.fillMaxSize().padding(padding).imePadding()
+                .verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text("Set the limits you want to see each day and week.", style = MaterialTheme.typography.bodyLarge)
+            Text(context.getString(R.string.settings_set_the_limits_you_want_to), style = MaterialTheme.typography.bodyLarge)
+            RequiredFieldsHint()
             OutlinedTextField(
                 value = daily,
-                onValueChange = { daily = it },
+                onValueChange = { daily = it; onDraftChange(it, weekly); if (dailyError != null) dailyError = dailyLimitInputError(it) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Daily limit (₹)") },
+                label = { Text(context.getString(R.string.settings_daily_limit)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = dailyError != null,
+                supportingText = dailyError?.let { message -> { ErrorText(context.budgetValidationMessage(message)) } }
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("300", "500", "800", "1000").forEach { Pill("₹$it", daily == it, onClick = { daily = it }) }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(300L, 500L, 800L, 1_000L).forEach { preset ->
+                    Pill(rupees(preset * 100L), amountToPaise(daily) == preset * 100L, onClick = {
+                        daily = preset.toString()
+                        onDraftChange(daily, weekly)
+                        dailyError = null
+                    })
+                }
             }
             OutlinedTextField(
                 value = weekly,
-                onValueChange = { weekly = it },
+                onValueChange = { weekly = it; onDraftChange(daily, it); if (weeklyError != null) weeklyError = weeklyLimitInputError(it) },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Weekly limit (₹)") },
+                label = { Text(context.getString(R.string.settings_weekly_limit)) },
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                isError = weeklyError != null,
+                supportingText = weeklyError?.let { message -> { ErrorText(context.budgetValidationMessage(message)) } }
             )
             TextButton(
-                onClick = { weekly = ((daily.toLongOrNull() ?: 0) * 7).toString() },
+                onClick = {
+                    if (calculatedWeekly != null) {
+                        weekly = calculatedWeekly
+                        onDraftChange(daily, weekly)
+                        weeklyError = null
+                    }
+                },
+                enabled = calculatedWeekly != null,
                 modifier = Modifier.heightIn(min = 48.dp)
-            ) { Text("Use 7 × daily") }
+            ) { Text(context.getString(R.string.settings_use_7_daily)) }
+            ErrorText(saveError)
             Button(
-                onClick = { onSave((daily.toLongOrNull() ?: 0) * 100, (weekly.toLongOrNull() ?: 0) * 100) },
+                onClick = {
+                    dailyError = dailyLimitInputError(daily)
+                    weeklyError = weeklyLimitInputError(weekly)
+                    parseOnboardingLimits(daily, weekly)?.let { valid ->
+                        if (!saving) scope.launch {
+                            saving = true
+                            saveError = null
+                            try { saveError = onSave(valid.dailyPaise, valid.weeklyPaise) }
+                            finally { saving = false }
+                        }
+                    }
+                },
+                enabled = !saving,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-            ) { Text("Save limits") }
+            ) { Text(if (saving) context.getString(R.string.settings_saving) else context.getString(R.string.settings_save_limits)) }
         }
     }
 }
@@ -322,15 +399,16 @@ fun OnboardingScreen(
     onSkip: () -> Unit,
     onReminders: () -> Unit
 ) {
+    val context = LocalContext.current
     Scaffold(containerColor = androidx.compose.ui.graphics.Color.Transparent) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                Text("Penny Circle", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+                Text(context.getString(R.string.settings_penny_circle), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
                 Text(
-                    "Step ${step + 1} of 4",
+                    context.getString(R.string.settings_legacy_onboarding_step, step + 1),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp)
@@ -338,7 +416,7 @@ fun OnboardingScreen(
                 when (step) {
                     0 -> {
                         Text(
-                            "What should your circle call you?",
+                            context.getString(R.string.settings_what_should_your_circle_call_you),
                             style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(top = 38.dp)
                         )
@@ -346,19 +424,19 @@ fun OnboardingScreen(
                             value = name,
                             onValueChange = onName,
                             modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-                            label = { Text("Your name") },
+                            label = { Text(context.getString(R.string.settings_your_name)) },
                             singleLine = true
                         )
                     }
 
                     1 -> {
                         Text(
-                            "Pick a look",
+                            context.getString(R.string.settings_pick_a_look),
                             style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(top = 38.dp)
                         )
                         Text(
-                            "You can change it any time in Settings.",
+                            context.getString(R.string.settings_you_can_change_it_any_time),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp)
@@ -368,20 +446,20 @@ fun OnboardingScreen(
 
                     2 -> {
                         Text(
-                            "Pick a daily limit",
+                            context.getString(R.string.settings_pick_a_daily_limit),
                             style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(top = 38.dp)
                         )
                         Row(Modifier.padding(vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             listOf("300", "500", "800", "1000").forEach {
-                                Pill("₹$it", daily == it, onClick = { onDaily(it); onWeekly((it.toLong() * 7).toString()) })
+                                Pill(rupees(it.toLong() * 100L), daily == it, onClick = { onDaily(it); onWeekly((it.toLong() * 7).toString()) })
                             }
                         }
                         OutlinedTextField(
                             value = daily,
                             onValueChange = onDaily,
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Daily limit (₹)") },
+                            label = { Text(context.getString(R.string.settings_daily_limit)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -389,7 +467,7 @@ fun OnboardingScreen(
                             value = weekly,
                             onValueChange = onWeekly,
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                            label = { Text("Weekly limit (₹)") },
+                            label = { Text(context.getString(R.string.settings_weekly_limit)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
@@ -397,12 +475,12 @@ fun OnboardingScreen(
 
                     else -> {
                         Text(
-                            "Stay on track",
+                            context.getString(R.string.settings_stay_on_track),
                             style = MaterialTheme.typography.headlineSmall,
                             modifier = Modifier.padding(top = 38.dp)
                         )
                         Text(
-                            "A 10 PM reminder helps you finish the day. If you miss it, finish before 10 AM to keep your streak. Friends in your circle can send a nudge when you need one.",
+                            context.getString(R.string.settings_a_10_pm_reminder_helps_you),
                             style = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(top = 16.dp)
                         )
@@ -413,9 +491,9 @@ fun OnboardingScreen(
                 Button(
                     onClick = if (step == 3) onReminders else onNext,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                ) { Text(if (step == 3) "Turn on reminders" else "Continue") }
+                ) { Text(if (step == 3) context.getString(R.string.settings_turn_on_reminders) else context.getString(R.string.settings_continue)) }
                 TextButton(onClick = onSkip, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(if (step == 3) "Not now" else "Skip")
+                    Text(if (step == 3) context.getString(R.string.settings_not_now) else context.getString(R.string.settings_skip))
                 }
             }
         }

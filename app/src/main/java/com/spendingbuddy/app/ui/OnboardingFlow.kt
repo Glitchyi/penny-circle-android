@@ -2,6 +2,9 @@
 
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
@@ -49,6 +52,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -80,9 +85,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.LayoutDirection
 import com.spendingbuddy.app.BuddyState
+import com.spendingbuddy.app.formatLimitInput
+import com.spendingbuddy.app.rupees
 import com.spendingbuddy.app.rupeeTrackerBitmap
 import com.spendingbuddy.app.OnboardingLimits
 import com.spendingbuddy.app.onboardingLimitsError
+import com.spendingbuddy.app.dailyLimitInputError
+import com.spendingbuddy.app.weeklyLimitInputError
 import com.spendingbuddy.app.parseOnboardingLimits
 
 private const val ONBOARDING_STEPS = 5
@@ -96,8 +105,10 @@ fun OnboardingFlow(
     onNotificationAccess: () -> Unit,
     onSms: () -> Unit,
     onNotifications: () -> Unit,
-    onComplete: (String, Long, Long, Boolean, Boolean) -> Unit
+    onComplete: (String, Long, Long, Boolean, Boolean) -> Unit,
+    snackbar: SnackbarHostState? = null
 ) {
+    val context = LocalContext.current
     var step by rememberSaveable { mutableIntStateOf(0) }
     var name by rememberSaveable { mutableStateOf(state.name.take(40)) }
     var themeId by rememberSaveable { mutableStateOf(state.theme) }
@@ -123,7 +134,7 @@ fun OnboardingFlow(
 
     fun advance() {
         when (step) {
-            1 -> if (name.trim().isBlank()) error = "Add a name for your notebook."
+            1 -> if (name.trim().isBlank()) error = context.getString(R.string.onboarding_add_a_name_for_your_notebook)
                 else { error = null; focusManager.clearFocus(); step++ }
             2 -> if (limitsOrShowError() != null) { focusManager.clearFocus(); step++ }
             else -> { error = null; focusManager.clearFocus(); if (step < ONBOARDING_STEPS - 1) step++ }
@@ -142,19 +153,20 @@ fun OnboardingFlow(
 
     Scaffold(
         containerColor = Color.Transparent,
+        snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         bottomBar = {
             Column(
                 Modifier.fillMaxWidth().background(tokens.bg.copy(alpha = 0.96f)).imePadding().navigationBarsPadding()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                if (error != null) Text(
+                if (error != null && step != 1 && step != 2) Text(
                     error.orEmpty(), color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }
                 )
                 if (largeText) {
-                    if (step > 0) TextButton(onClick = ::goBack, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Back") }
+                    if (step > 0) TextButton(onClick = ::goBack, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(context.getString(R.string.onboarding_back)) }
                     AccentButton(
                         onClick = {
                             if (step == ONBOARDING_STEPS - 1) {
@@ -165,13 +177,13 @@ fun OnboardingFlow(
                         modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                         haptics = state.haptics
                     ) {
-                        Text(if (step == ONBOARDING_STEPS - 1) "Finish setup" else if (step == 0) "Get started" else if (step == 3 && needsSource) "Connect payment alerts" else "Continue", fontWeight = FontWeight.Bold)
+                        Text(if (step == ONBOARDING_STEPS - 1) context.getString(R.string.onboarding_finish_setup) else if (step == 0) context.getString(R.string.onboarding_get_started) else if (step == 3 && needsSource) context.getString(R.string.onboarding_connect_payment_alerts) else context.getString(R.string.onboarding_continue))
                     }
                 } else Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    if (step > 0) TextButton(onClick = ::goBack, modifier = Modifier.heightIn(min = 52.dp)) { Text("Back") }
+                    if (step > 0) TextButton(onClick = ::goBack, modifier = Modifier.heightIn(min = 52.dp)) { Text(context.getString(R.string.onboarding_back)) }
                     AccentButton(
                         onClick = {
                             if (step == ONBOARDING_STEPS - 1) {
@@ -182,13 +194,13 @@ fun OnboardingFlow(
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp),
                         haptics = state.haptics
                     ) {
-                        Text(if (step == ONBOARDING_STEPS - 1) "Finish setup" else if (step == 0) "Get started" else if (step == 3 && needsSource) "Connect payment alerts" else "Continue", fontWeight = FontWeight.Bold)
+                        Text(if (step == ONBOARDING_STEPS - 1) context.getString(R.string.onboarding_finish_setup) else if (step == 0) context.getString(R.string.onboarding_get_started) else if (step == 3 && needsSource) context.getString(R.string.onboarding_connect_payment_alerts) else context.getString(R.string.onboarding_continue))
                     }
                 }
             if (step == 3 && needsSource) TextButton(
                 onClick = { automaticTracking = false; advance() },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            ) { Text("Use manual entry for now") }
+            ) { Text(context.getString(R.string.onboarding_use_manual_entry_for_now)) }
             }
         }
     ) { insets ->
@@ -204,10 +216,10 @@ fun OnboardingFlow(
                 ) { Text("P", style = MaterialTheme.typography.titleLarge.copy(fontSize = if (largeText) 16.sp else 22.sp), color = tokens.onAccent, fontWeight = FontWeight.Bold) }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("PENNY CIRCLE", style = (if (largeText) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge).copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp), color = tokens.text, maxLines = if (largeText) 2 else 1)
-                    if (!largeText) Text("YOUR SHARED NOTEBOOK", style = MaterialTheme.typography.labelSmall.copy(fontFamily = PennyType.Mono, letterSpacing = 0.8.sp), color = tokens.muted, maxLines = 1)
+                    Text(context.getString(R.string.onboarding_penny_circle), style = (if (largeText) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelLarge).copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp), color = tokens.text, maxLines = if (largeText) 2 else 1)
+                    if (!largeText) Text(context.getString(R.string.onboarding_your_shared_notebook), style = MaterialTheme.typography.labelSmall.copy(fontFamily = PennyType.Mono, letterSpacing = 0.8.sp), color = tokens.muted, maxLines = 1)
                 }
-                Text("${step + 1} / $ONBOARDING_STEPS", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono), color = tokens.muted)
+                Text(context.getString(R.string.onboarding_step_counter, step + 1, ONBOARDING_STEPS), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono), color = tokens.muted)
             }
             Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(tokens.text.copy(alpha = 0.10f))) {
                 Box(Modifier.fillMaxWidth((step + 1f) / ONBOARDING_STEPS).fillMaxHeight().background(tokens.accent, CircleShape))
@@ -259,7 +271,7 @@ fun OnboardingFlow(
                             onNotifications = onNotifications
                         )
                         else -> ReadyStep(
-                            name = name.trim().ifBlank { "You" },
+                            name = name.trim().ifBlank { context.getString(R.string.onboarding_you) },
                             themeId = themeId,
                             daily = parseOnboardingLimits(daily, weekly)?.dailyPaise ?: 0L,
                             weekly = parseOnboardingLimits(daily, weekly)?.weeklyPaise ?: 0L,
@@ -278,29 +290,30 @@ fun OnboardingFlow(
 
 @Composable
 private fun WelcomeStep() {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
-    Eyebrow("A FRIENDLY DAILY CHECK-IN")
-    Text("A clearer day,\nshared with your circle.", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+    Eyebrow(context.getString(R.string.onboarding_a_friendly_daily_check_in))
+    Text(context.getString(R.string.onboarding_a_clearer_day_shared_with_your), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
     Text(
-        "Penny Circle is a small shared notebook for purchases, no-spend days and encouragement from people you trust.",
+        context.getString(R.string.onboarding_penny_circle_is_a_small_shared),
         style = MaterialTheme.typography.bodyLarge,
         color = t.muted
     )
     NotebookSurface(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(54.dp).clip(CircleShape).background(Brush.linearGradient(listOf(t.accent.copy(alpha = 0.28f), t.accent2.copy(alpha = 0.18f)))),
+                Modifier.size(54.dp).clip(CircleShape).background(Brush.linearGradient(listOf(t.accent.copy(alpha = 0.28f), t.accent.copy(alpha = 0.18f)))),
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Rounded.AutoAwesome, null, tint = t.accent, modifier = Modifier.size(27.dp)) }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("TODAY", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp), color = t.muted)
-                Text("One honest day at a time", style = MaterialTheme.typography.titleMedium, color = t.text)
+                Text(context.getString(R.string.onboarding_today), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.2.sp), color = t.muted)
+                Text(context.getString(R.string.onboarding_one_honest_day_at_a_time), style = MaterialTheme.typography.titleMedium, color = t.text)
             }
         }
         Spacer(Modifier.height(18.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            listOf("M", "T", "W", "T", "F", "S", "S").forEachIndexed { index, day ->
+            listOf(context.getString(R.string.onboarding_m), context.getString(R.string.onboarding_t), context.getString(R.string.onboarding_w), context.getString(R.string.onboarding_t), context.getString(R.string.onboarding_f), context.getString(R.string.onboarding_s), context.getString(R.string.onboarding_s)).forEachIndexed { index, day ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(Modifier.size(if (index == 4) 30.dp else 24.dp).border(if (index == 4) 3.dp else 2.dp, if (index == 4) t.accent else t.border, CircleShape))
                     Text(day, style = MaterialTheme.typography.labelSmall.copy(fontFamily = PennyType.Mono), color = if (index == 4) t.text else t.muted)
@@ -308,27 +321,29 @@ private fun WelcomeStep() {
             }
         }
     }
-    Text("Your expenses stay on this phone until you choose to share them with a circle.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
-    Text("No account to create. No finance dashboard to manage. Just a notebook that helps you stay honest and supported.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    Text(context.getString(R.string.onboarding_your_expenses_stay_on_this_phone), style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    Text(context.getString(R.string.onboarding_no_account_to_create_no_finance), style = MaterialTheme.typography.bodyMedium, color = t.muted)
 }
 
 @Composable
 private fun ProfileStep(name: String, error: String?, themeId: String, onName: (String) -> Unit, onTheme: (String) -> Unit, onNameDone: () -> Unit) {
-    Eyebrow("01 / MAKE IT YOURS")
-    Text("What should your circle call you?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-    Text("Choose a name and a look. You can change both later.", style = MaterialTheme.typography.bodyMedium, color = LocalPennyTokens.current.muted)
+    val context = LocalContext.current
+    Eyebrow(context.getString(R.string.onboarding_01_make_it_yours))
+    Text(context.getString(R.string.onboarding_what_should_your_circle_call_you), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+    Text(context.getString(R.string.onboarding_choose_a_name_and_a_look), style = MaterialTheme.typography.bodyMedium, color = LocalPennyTokens.current.muted)
+    RequiredFieldsHint()
     OutlinedTextField(
         value = name,
         onValueChange = onName,
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Your name") },
+        label = { Text(context.getString(R.string.onboarding_your_name)) },
         isError = error != null,
-        supportingText = { Text("Up to 40 characters") },
+        supportingText = { Text(error ?: context.getString(R.string.onboarding_up_to_40_characters), modifier = Modifier.semantics { if (error != null) liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onNameDone() })
     )
-    Text("PICK A THEME", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = LocalPennyTokens.current.muted)
+    Text(context.getString(R.string.onboarding_pick_a_theme), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = LocalPennyTokens.current.muted)
     ThemePicker(selectedId = themeId, onSelect = onTheme, modifier = Modifier.fillMaxWidth(), haptics = false)
 }
 
@@ -344,11 +359,15 @@ private fun LimitsStep(
     onNextField: () -> Unit,
     onDone: () -> Unit
 ) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val presets = listOf(300L, 500L, 800L, 1_000L)
-    Eyebrow("02 / SET YOUR LIMITS")
-    Text("Keep the daily and weekly targets yours.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-    Text("Start with a suggestion or enter any amount. Weekly limits run Monday through Sunday.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    val dailyFieldError = error?.takeIf { it == dailyLimitInputError(daily) }
+    val weeklyFieldError = error?.takeIf { it == weeklyLimitInputError(weekly) }
+    Eyebrow(context.getString(R.string.onboarding_02_set_your_limits))
+    Text(context.getString(R.string.onboarding_keep_the_daily_and_weekly_targets), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+    Text(context.getString(R.string.onboarding_start_with_a_suggestion_or_enter), style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    RequiredFieldsHint()
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         presets.forEach { rupee ->
             val presetWeekly = rupee * 7L
@@ -356,7 +375,7 @@ private fun LimitsStep(
             FilterChip(
                 selected = selected,
                 onClick = { onDaily(rupee.toString()); onWeekly(presetWeekly.toString()) },
-                label = { Text("₹${rupee} / ₹${presetWeekly}") }
+                label = { Text(context.getString(R.string.onboarding_limit_preset, rupees(rupee * 100L), rupees(presetWeekly * 100L))) }
             )
         }
     }
@@ -364,24 +383,26 @@ private fun LimitsStep(
         value = daily,
         onValueChange = onDaily,
         modifier = Modifier.fillMaxWidth().focusRequester(dailyFocus),
-        label = { Text("Daily limit (₹)") },
+        label = { Text(context.getString(R.string.onboarding_daily_limit)) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(onNext = { onNextField() }),
-        isError = error != null
+        isError = dailyFieldError != null,
+        supportingText = dailyFieldError?.let { message -> { ErrorText(context.budgetValidationMessage(message)) } }
     )
     OutlinedTextField(
         value = weekly,
         onValueChange = onWeekly,
         modifier = Modifier.fillMaxWidth().focusRequester(weeklyFocus),
-        label = { Text("Weekly limit (₹)") },
-        supportingText = { Text("Set the limit for the full Monday–Sunday week.") },
+        label = { Text(context.getString(R.string.onboarding_weekly_limit)) },
+        supportingText = {
+            if (weeklyFieldError != null) ErrorText(context.budgetValidationMessage(weeklyFieldError)) else Text(context.getString(R.string.onboarding_set_the_limit_for_the_full))
+        },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
-        isError = error != null
+        isError = weeklyFieldError != null
     )
-    if (error != null) Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
 }
 
 @Composable
@@ -393,77 +414,78 @@ private fun TrackingStep(
     onSms: () -> Unit,
     onNotifications: () -> Unit
 ) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
-    Eyebrow("03 / CHOOSE HOW TO LOG")
-    Text("Let the phone help, or keep it manual.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-    Text("You can change this any time in Settings.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    Eyebrow(context.getString(R.string.onboarding_03_choose_how_to_log))
+    Text(context.getString(R.string.onboarding_let_the_phone_help_or_keep), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+    Text(context.getString(R.string.onboarding_you_can_change_this_any_time), style = MaterialTheme.typography.bodyMedium, color = t.muted)
     Column(Modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ChoiceCard(
-            title = "Automatic tracking",
-            subtitle = "Read supported payment alerts on this phone and add clear shop payments with a 10-minute undo window.",
+            title = context.getString(R.string.onboarding_automatic_tracking),
+            subtitle = context.getString(R.string.onboarding_read_supported_payment_alerts_on_this),
             selected = automatic,
             onClick = { onAutomatic(true) }
         )
         ChoiceCard(
-            title = "Manual entry",
-            subtitle = "Add purchases yourself from Today. You can set up automatic tracking later.",
+            title = context.getString(R.string.onboarding_manual_entry),
+            subtitle = context.getString(R.string.onboarding_add_purchases_yourself_from_today_you),
             selected = !automatic,
             onClick = { onAutomatic(false) }
         )
     }
     if (automatic) {
-        Text("SET UP ACCESS", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.muted)
-        Text("Each button opens only after you tap it. New messages are parsed on-device; their text is discarded, never stored or sent.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+        Text(context.getString(R.string.onboarding_set_up_access), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.muted)
+        Text(context.getString(R.string.onboarding_each_button_opens_only_after_you), style = MaterialTheme.typography.bodyMedium, color = t.muted)
         val allowedCount = listOf(access.notificationAccess, access.sms, access.canNotify).count { it }
         NotebookSurface(Modifier.fillMaxWidth()) {
-            Text("ACCESS STATUS", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.muted)
-            Text("$allowedCount of 3 permissions allowed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(context.getString(R.string.onboarding_access_status), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.muted)
+            Text(context.getString(R.string.onboarding_permission_count, allowedCount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
-                when {
-                    access.notificationAccess || access.sms -> "At least one payment source is ready."
-                    else -> "Allow a payment source to enable automatic detection."
-                } + if (access.canNotify) " Purchase notices are allowed." else " Purchase notices are off.",
+                context.getString(when {
+                    access.notificationAccess || access.sms -> if (access.canNotify) R.string.onboarding_source_ready_notices_allowed else R.string.onboarding_source_ready_notices_off
+                    else -> if (access.canNotify) R.string.onboarding_source_missing_notices_allowed else R.string.onboarding_source_missing_notices_off
+                }),
                 style = MaterialTheme.typography.bodyMedium,
                 color = t.muted
             )
         }
         AccessSetupCard(
-            title = "Payment and bank app alerts",
-            detail = "Needed to notice payments from supported apps.",
+            title = context.getString(R.string.onboarding_payment_and_bank_app_alerts),
+            detail = context.getString(R.string.onboarding_needed_to_notice_payments_from_supported),
             enabled = access.notificationAccess,
-            action = if (access.notificationAccess) "Review access" else "Allow access",
+            action = if (access.notificationAccess) context.getString(R.string.onboarding_review_access) else context.getString(R.string.onboarding_allow_access),
             onClick = onNotificationAccess
         )
         AccessSetupCard(
-            title = "Bank SMS",
-            detail = "Reads new SMS alerts only; there is no scan of old messages.",
+            title = context.getString(R.string.onboarding_bank_sms),
+            detail = context.getString(R.string.onboarding_reads_new_sms_alerts_only_there),
             enabled = access.sms,
-            action = if (access.sms) "Review permission" else "Allow SMS",
+            action = if (access.sms) context.getString(R.string.onboarding_review_permission) else context.getString(R.string.onboarding_allow_sms),
             onClick = onSms
         )
         AccessSetupCard(
-            title = "Purchase notifications",
-            detail = "Shows an undo or review notice when a payment is detected.",
+            title = context.getString(R.string.onboarding_purchase_notifications),
+            detail = context.getString(R.string.onboarding_shows_an_undo_or_review_notice),
             enabled = access.canNotify,
-            action = if (access.canNotify) "Review permission" else "Allow notifications",
+            action = if (access.canNotify) context.getString(R.string.onboarding_review_permission) else context.getString(R.string.onboarding_allow_notifications),
             onClick = onNotifications
         )
         NotebookSurface(Modifier.fillMaxWidth()) {
-            Text("Optional Android Live Updates", style = MaterialTheme.typography.titleMedium)
+            Text(context.getString(R.string.onboarding_optional_android_live_updates), style = MaterialTheme.typography.titleMedium)
             Text(
-                if (access.liveUpdates) "Allowed on this phone. Android and device support can still affect whether an update is promoted."
-                else "Not enabled or not supported on this phone. Payment tracking and ordinary notifications can still work.",
+                if (access.liveUpdates) context.getString(R.string.onboarding_allowed_on_this_phone_android_and)
+                else context.getString(R.string.onboarding_not_enabled_or_not_supported_on),
                 style = MaterialTheme.typography.bodyMedium,
                 color = t.muted
             )
         }
         BudgetProgressNotificationPreview()
         ReminderProgressNotificationPreview()
-        Text("If you join a circle, auto-added purchases stay on this phone during the undo window, then can sync. Android may delay background work.", style = MaterialTheme.typography.bodySmall, color = t.muted)
+        Text(context.getString(R.string.onboarding_if_you_join_a_circle_auto), style = MaterialTheme.typography.bodySmall, color = t.muted)
     } else {
         NotebookSurface(Modifier.fillMaxWidth()) {
-            Text("Manual entry is ready", style = MaterialTheme.typography.titleMedium)
-            Text("Add a purchase or finish a no-spend day from Today. Automatic tracking remains off until you turn it on.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+            Text(context.getString(R.string.onboarding_manual_entry_is_ready), style = MaterialTheme.typography.titleMedium)
+            Text(context.getString(R.string.onboarding_add_a_purchase_or_finish_a), style = MaterialTheme.typography.bodyMedium, color = t.muted)
         }
     }
 }
@@ -480,40 +502,42 @@ private fun ReadyStep(
     onReminders: (Boolean) -> Unit,
     onNotifications: () -> Unit
 ) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
-    Eyebrow("04 / READY")
-    Text("Your notebook is ready, $name.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-    Text("Here’s what you chose. You can edit these in Settings later.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    Eyebrow(context.getString(R.string.onboarding_04_ready))
+    Text(context.getString(R.string.onboarding_ready_title, name), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+    Text(context.getString(R.string.onboarding_here_s_what_you_chose_you), style = MaterialTheme.typography.bodyMedium, color = t.muted)
     NotebookSurface(Modifier.fillMaxWidth()) {
-        SummaryLine("THEME", AppTheme.fromId(themeId).label)
-        SummaryLine("DAILY LIMIT", com.spendingbuddy.app.rupees(daily))
-        SummaryLine("WEEKLY LIMIT", com.spendingbuddy.app.rupees(weekly))
-        SummaryLine("LOGGING", if (automatic) "Automatic tracking" else "Manual entry")
+        SummaryLine(context.getString(R.string.onboarding_theme), context.themeLabel(AppTheme.fromId(themeId)))
+        SummaryLine(context.getString(R.string.onboarding_daily_limit_ed373), com.spendingbuddy.app.rupees(daily))
+        SummaryLine(context.getString(R.string.onboarding_weekly_limit_41fab), com.spendingbuddy.app.rupees(weekly))
+        SummaryLine(context.getString(R.string.onboarding_logging), if (automatic) context.getString(R.string.onboarding_automatic_tracking) else context.getString(R.string.onboarding_manual_entry))
         if (automatic) {
-            SummaryLine("ACCESS", "${listOf(access.notificationAccess, access.sms).count { it }} of 2 sources allowed")
+            SummaryLine(context.getString(R.string.onboarding_access), context.getString(R.string.onboarding_source_count, listOf(access.notificationAccess, access.sms).count { it }))
             if (!access.notificationAccess && !access.sms) {
-                Text("Automatic tracking is selected, but no message source is allowed yet. You can finish setup and allow one later; manual entry remains available.", style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(top = 8.dp))
+                Text(context.getString(R.string.onboarding_automatic_tracking_is_selected_but_no), style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(top = 8.dp))
             }
         }
         if (reminders && !access.canNotify) {
-            Text("Allow notifications to receive reminders.", style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(top = 8.dp))
-            TextButton(onClick = onNotifications, modifier = Modifier.heightIn(min = 48.dp)) { Text("Allow notifications") }
+            Text(context.getString(R.string.onboarding_allow_notifications_to_receive_reminders), style = MaterialTheme.typography.bodyMedium, color = t.muted, modifier = Modifier.padding(top = 8.dp))
+            TextButton(onClick = onNotifications, modifier = Modifier.heightIn(min = 48.dp)) { Text(context.getString(R.string.onboarding_allow_notifications)) }
         }
     }
     NotebookSurface(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("10 PM finish-day reminder", style = MaterialTheme.typography.titleMedium)
-                Text("A gentle reminder; the next-day grace window ends at 10 AM IST. Android delivery timing is approximate.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+                Text(context.getString(R.string.onboarding_10_pm_finish_day_reminder), style = MaterialTheme.typography.titleMedium)
+                Text(context.getString(R.string.onboarding_a_gentle_reminder_the_next_day), style = MaterialTheme.typography.bodyMedium, color = t.muted)
             }
-            Switch(checked = reminders, onCheckedChange = onReminders, modifier = Modifier.semantics { contentDescription = "Enable 10 PM finish-day reminder" })
+            Switch(checked = reminders, onCheckedChange = onReminders, modifier = Modifier.semantics { contentDescription = context.getString(R.string.onboarding_enable_10_pm_finish_day_reminder) })
         }
     }
-    Text("Nothing is shared with a circle until you join one.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
+    Text(context.getString(R.string.onboarding_nothing_is_shared_with_a_circle), style = MaterialTheme.typography.bodyMedium, color = t.muted)
 }
 
 @Composable
 private fun ChoiceCard(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val shape = RoundedCornerShape(18.dp)
     Row(
@@ -526,10 +550,10 @@ private fun ChoiceCard(title: String, subtitle: String, selected: Boolean, onCli
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = t.muted)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = if (selected) t.text else t.muted)
         }
         Spacer(Modifier.width(10.dp))
-        if (selected) Icon(Icons.Rounded.Check, "Selected", tint = t.accent, modifier = Modifier.size(22.dp))
+        if (selected) Icon(Icons.Rounded.Check, context.getString(R.string.onboarding_selected), tint = t.accent, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -567,16 +591,18 @@ private fun AccessSetupCard(title: String, detail: String, enabled: Boolean, act
 
 @Composable
 private fun AccessStatus(enabled: Boolean, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         if (enabled) Icon(Icons.Rounded.Check, null, tint = t.accent, modifier = Modifier.size(18.dp))
-        Text(if (enabled) "Allowed" else "Not set up", style = MaterialTheme.typography.labelLarge, color = if (enabled) t.accent else t.muted)
+        Text(if (enabled) context.getString(R.string.onboarding_allowed) else context.getString(R.string.onboarding_not_set_up), style = MaterialTheme.typography.labelLarge, color = if (enabled) t.accent else t.muted)
     }
 }
 
 /** Static UI-only sample: it never creates a notification, purchase, or budget change. */
 @Composable
 private fun BudgetProgressNotificationPreview() {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     val shape = RoundedCornerShape(18.dp)
     Column(
@@ -584,25 +610,26 @@ private fun BudgetProgressNotificationPreview() {
             .border(1.dp, t.border, shape).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        Text("PREVIEW / DEMO", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.accent)
-        Text("New payment · 2-minute update by default", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Today · ₹420 of ₹800 used", style = MaterialTheme.typography.bodyMedium, color = t.text)
+        Text(context.getString(R.string.onboarding_preview_demo), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.accent)
+        Text(context.getString(R.string.onboarding_new_payment_2_minute_update_by), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(context.getString(R.string.onboarding_today_420_of_800_used), style = MaterialTheme.typography.bodyMedium, color = t.text)
         RupeeProgressPreview(0.525f)
-        Text("₹380 left today. Undo stays available in Today for 10 minutes; the purchase stays private during that window.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
-        Text("Example only. No notification is sent from this preview.", style = MaterialTheme.typography.bodySmall, color = t.muted)
+        Text(context.getString(R.string.onboarding_380_left_today_undo_stays_available), style = MaterialTheme.typography.bodyMedium, color = t.muted)
+        Text(context.getString(R.string.onboarding_example_only_no_notification_is_sent), style = MaterialTheme.typography.bodySmall, color = t.muted)
     }
 }
 
 @Composable
 private fun ReminderProgressNotificationPreview() {
+    val context = LocalContext.current
     val t = LocalPennyTokens.current
     NotebookSurface(Modifier.fillMaxWidth()) {
-        Text("PREVIEW / DEMO", style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.accent)
-        Text("Your finish-day reminder", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("30:00 until the 10 PM reminder", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        Text(context.getString(R.string.onboarding_preview_demo), style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = t.accent)
+        Text(context.getString(R.string.onboarding_your_finish_day_reminder), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(context.getString(R.string.onboarding_30_00_until_the_10_pm), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
         RupeeProgressPreview(0f)
-        Text("Optional in Settings → Reminders. Its default 30-minute lead can be changed to 15 or 60 minutes. It stops when you finish; late logging is still available until 10 AM the next day.", style = MaterialTheme.typography.bodyMedium, color = t.muted)
-        Text("Example only. Android controls promotion and background timing.", style = MaterialTheme.typography.bodySmall, color = t.muted)
+        Text(context.getString(R.string.onboarding_optional_in_settings_reminders_its_default), style = MaterialTheme.typography.bodyMedium, color = t.muted)
+        Text(context.getString(R.string.onboarding_example_only_android_controls_promotion_and), style = MaterialTheme.typography.bodySmall, color = t.muted)
     }
 }
 
@@ -646,11 +673,4 @@ private fun SummaryLine(label: String, value: String) {
 @Composable
 private fun Eyebrow(text: String) {
     Text(text, style = MaterialTheme.typography.labelMedium.copy(fontFamily = PennyType.Mono, letterSpacing = 1.sp), color = LocalPennyTokens.current.accent)
-}
-
-private fun formatLimitInput(paise: Long): String {
-    val value = paise.coerceAtLeast(0L)
-    val whole = value / 100L
-    val fraction = (value % 100L).toString().padStart(2, '0').trimEnd('0')
-    return if (fraction.isEmpty()) whole.toString() else "$whole.$fraction"
 }

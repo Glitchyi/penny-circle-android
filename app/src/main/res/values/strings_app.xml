@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="penny_circle_app_name">Penny Circle</string>
+    <string name="penny_circle_purchase_detection">Penny Circle purchase detection</string>
+</resources>

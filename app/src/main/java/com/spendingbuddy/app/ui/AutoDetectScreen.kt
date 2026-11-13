@@ -2,6 +2,9 @@
 
 package com.spendingbuddy.app.ui
 
+import androidx.compose.ui.platform.LocalContext
+import com.spendingbuddy.app.R
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,6 +53,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.spendingbuddy.app.BuddyState
 import com.spendingbuddy.app.MerchantRule
+import kotlinx.coroutines.launch
 
 /** What the system currently allows. Read again each time the screen comes back to the front. */
 class AutoDetectAccess(val notificationAccess: Boolean, val sms: Boolean, val canNotify: Boolean, val liveUpdates: Boolean)
@@ -62,38 +67,49 @@ fun AutoDetectScreen(
     state: BuddyState,
     access: AutoDetectAccess,
     onBack: () -> Unit,
-    onEnabled: (Boolean) -> Unit,
+    onEnabled: suspend (Boolean) -> String?,
     onNotificationAccess: () -> Unit,
     onSms: () -> Unit,
     onNotifications: () -> Unit,
     onLiveUpdates: () -> Unit,
-    onSaveRule: (merchant: String, category: String, reason: String) -> Unit,
-    onDeleteRule: (key: String) -> Unit,
+    onSaveRule: suspend (merchant: String, category: String, reason: String) -> String?,
+    onDeleteRule: suspend (key: String) -> String?,
     snackbar: SnackbarHostState? = null
 ) {
+    val context = LocalContext.current
     val listState = rememberLazyListState()
-    var editing by remember { mutableStateOf<MerchantRule?>(null) }
+    var editingKey by rememberSaveable { mutableStateOf<String?>(null) }
     var adding by rememberSaveable { mutableStateOf(false) }
+    val editing = state.merchantRules.firstOrNull { it.key == editingKey }
+    var operationError by rememberSaveable { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val changeEnabled: (Boolean) -> Unit = { enabled ->
+        if (!busy) scope.launch {
+            busy = true
+            try { operationError = onEnabled(enabled) } finally { busy = false }
+        }
+    }
     val hasSource = access.notificationAccess || access.sms
     val ready = state.autoDetect && hasSource && access.canNotify
     val setupSummary = when {
-        !state.autoDetect -> "Turn on automatic tracking, then connect one source: payment-app alerts or bank SMS."
-        !hasSource -> "Tracking is on, but no payment source is connected yet. Connect payment-app alerts or bank SMS. Manual entry remains available in Today."
-        !access.canNotify -> "A payment source is connected. Allow notifications so you can see new Auto entries and use Undo or Keep."
-        else -> "A payment source is connected and notifications are allowed. Automatic tracking is ready."
+        !state.autoDetect -> context.getString(R.string.tracking_turn_on_automatic_tracking_then_connect)
+        !hasSource -> context.getString(R.string.tracking_tracking_is_on_but_no_payment)
+        !access.canNotify -> context.getString(R.string.tracking_a_payment_source_is_connected_allow)
+        else -> context.getString(R.string.tracking_a_payment_source_is_connected_and)
     }
     val setupAction: (() -> Unit)? = when {
-        !state.autoDetect -> ({ onEnabled(true) })
+        !state.autoDetect -> ({ changeEnabled(true) })
         !hasSource && !access.notificationAccess -> onNotificationAccess
         !hasSource -> onSms
         !access.canNotify -> onNotifications
         else -> null
     }
     val setupActionLabel = when {
-        !state.autoDetect -> "Turn on automatic tracking"
-        !hasSource -> "Connect payment alerts"
-        !access.canNotify -> "Allow notifications"
-        else -> "Ready"
+        !state.autoDetect -> context.getString(R.string.tracking_turn_on_automatic_tracking)
+        !hasSource -> context.getString(R.string.tracking_connect_payment_alerts)
+        !access.canNotify -> context.getString(R.string.tracking_allow_notifications)
+        else -> context.getString(R.string.tracking_ready)
     }
     val readyOutline = if (ready) {
         Modifier.border(1.dp, LocalPennyTokens.current.accent.copy(alpha = 0.30f), RoundedCornerShape(24.dp))
@@ -101,7 +117,7 @@ fun AutoDetectScreen(
     Scaffold(
         containerColor = androidx.compose.ui.graphics.Color.Transparent,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
-        topBar = { ScreenTitle("Automatic tracking", onBack) }
+        topBar = { ScreenTitle(context.getString(R.string.tracking_automatic_tracking), { if (!busy) onBack() }) }
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding).scrollFadingEdges(listState, bottom = 40.dp),
@@ -111,9 +127,9 @@ fun AutoDetectScreen(
         ) {
             item {
                 SettingsGroup(
-                    "Setup",
+                    context.getString(R.string.tracking_setup),
                     Modifier.enterRise(0).then(readyOutline),
-                    footer = "Connect one source first. Notifications let you see and undo an Auto entry. A Live Update on the lock screen or status bar is optional."
+                    footer = context.getString(R.string.tracking_connect_one_source_first_notifications_let)
                 ) {
                     Text(
                         setupSummary,
@@ -121,12 +137,14 @@ fun AutoDetectScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
                     )
+                    ErrorText(operationError)
                     if (setupAction != null) {
                         AccentButton(
                             onClick = setupAction,
+                            enabled = !busy,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                             haptics = state.haptics
-                        ) { Text(setupActionLabel, fontWeight = FontWeight.Bold) }
+                        ) { Text(setupActionLabel) }
                     } else {
                         Text(
                             setupActionLabel,
@@ -139,26 +157,27 @@ fun AutoDetectScreen(
             }
             item {
                 SettingsGroup(
-                    "Tracking", Modifier.enterRise(0),
-                    footer = "The original message text is never stored or sent. Only the amount, shop name, time and a local payment reference used to catch duplicates are kept."
+                    context.getString(R.string.tracking_tracking), Modifier.enterRise(0),
+                    footer = context.getString(R.string.tracking_the_original_message_text_is_never)
                 ) {
-                    SettingSwitch("Log purchases from payment alerts", state.autoDetect, onEnabled)
+                    SettingSwitch(context.getString(R.string.tracking_log_purchases_from_payment_alerts), state.autoDetect, changeEnabled, enabled = !busy)
+                    ErrorText(operationError)
                 }
             }
             item {
                 SettingsGroup(
-                    "Where to look", Modifier.enterRise(1),
-                    footer = "Connect at least one source. Android may restrict access to payment-app alerts or bank SMS on some phones. You can still add purchases by hand from Today."
+                    context.getString(R.string.tracking_where_to_look), Modifier.enterRise(1),
+                    footer = context.getString(R.string.tracking_connect_at_least_one_source_android)
                 ) {
-                    AccessRow("Payment and bank app alerts", if (access.notificationAccess) "Allowed" else "Needs notification access", onNotificationAccess, allowed = access.notificationAccess)
+                    AccessRow(context.getString(R.string.tracking_payment_and_bank_app_alerts), if (access.notificationAccess) context.getString(R.string.tracking_allowed) else context.getString(R.string.tracking_needs_notification_access), onNotificationAccess, allowed = access.notificationAccess)
                     GroupDivider()
-                    AccessRow("Bank SMS", if (access.sms) "Allowed" else "Needs SMS permission", onSms, allowed = access.sms)
+                    AccessRow(context.getString(R.string.tracking_bank_sms), if (access.sms) context.getString(R.string.tracking_allowed) else context.getString(R.string.tracking_needs_sms_permission), onSms, allowed = access.sms)
                     GroupDivider()
-                    AccessRow("Show what was added", if (access.canNotify) "Allowed" else "Needs notification permission", onNotifications, allowed = access.canNotify)
+                    AccessRow(context.getString(R.string.tracking_show_what_was_added), if (access.canNotify) context.getString(R.string.tracking_allowed) else context.getString(R.string.tracking_needs_notification_permission), onNotifications, allowed = access.canNotify)
                     GroupDivider()
                     AccessRow(
-                        "Live Update on lock screen and status bar",
-                        if (access.liveUpdates) "Optional · Allowed" else "Optional · Not allowed or not supported",
+                        context.getString(R.string.tracking_live_update_on_lock_screen_and),
+                        if (access.liveUpdates) context.getString(R.string.tracking_optional_allowed) else context.getString(R.string.tracking_optional_not_allowed_or_not_supported),
                         onLiveUpdates,
                         allowed = access.liveUpdates
                     )
@@ -166,23 +185,20 @@ fun AutoDetectScreen(
             }
             item {
                 SettingsGroup(
-                    "Your shops", Modifier.enterRise(2),
-                    footer = "A shop with a rule always gets that category. Without a rule the app uses what you chose last time for that shop, then its built-in list, and otherwise saves it as Other and asks you."
+                    context.getString(R.string.tracking_your_shops), Modifier.enterRise(2),
+                    footer = context.getString(R.string.tracking_a_shop_with_a_rule_always)
                 ) {
                     state.merchantRules.sortedBy { it.merchant.lowercase() }.forEach { rule ->
-                        AccessRow(rule.merchant, "${rule.category} · ${rule.reason}", { editing = rule })
+                        AccessRow(rule.merchant, context.getString(R.string.tracking_rule_summary, rule.category, rule.reason), { if (!busy) editingKey = rule.key })
                         GroupDivider()
                     }
-                    SettingsButton("Add a shop", { adding = true })
+                    SettingsButton(context.getString(R.string.tracking_add_a_shop), { if (!busy) adding = true })
                 }
             }
             item {
-                SettingsGroup("How it decides") {
+                SettingsGroup(context.getString(R.string.tracking_how_it_decides)) {
                     Text(
-                        "Added on its own: card payments, and payments to a shop you have a rule for, have logged before, or that is on the built-in list.\n\n" +
-                            "Asked first: payments to a new name or to a person, cash withdrawals, alerts with no shop name, and anything of ₹20,000 or more.\n\n" +
-                            "Never added: money received, refunds, failed payments, one-time passwords, bills that are due and offers.\n\n" +
-                            "A purchase added on its own can be undone for 10 minutes. Your circle sees it only after that, or sooner if you tap Keep.",
+                        context.getString(R.string.tracking_decision_explanation),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp)
@@ -195,9 +211,9 @@ fun AutoDetectScreen(
         RuleSheet(
             state = state,
             existing = editing,
-            onDismiss = { adding = false; editing = null },
-            onSave = { merchant, category, reason -> onSaveRule(merchant, category, reason); adding = false; editing = null },
-            onDelete = editing?.let { rule -> { onDeleteRule(rule.key); editing = null } }
+            onDismiss = { adding = false; editingKey = null },
+            onSave = onSaveRule,
+            onDelete = if (editing != null) ({ onDeleteRule(editing.key) }) else null
         )
     }
 }
@@ -205,6 +221,7 @@ fun AutoDetectScreen(
 /** A settings row with its current state underneath and a chevron: tapping it opens the place to change it. */
 @Composable
 private fun AccessRow(title: String, status: String, onClick: () -> Unit, allowed: Boolean = false) {
+    val context = LocalContext.current
     Row(
         Modifier.fillMaxWidth()
             .then(if (allowed) Modifier.border(1.dp, LocalPennyTokens.current.accent.copy(alpha = 0.32f), RoundedCornerShape(16.dp)) else Modifier)
@@ -217,7 +234,7 @@ private fun AccessRow(title: String, status: String, onClick: () -> Unit, allowe
             Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (allowed) Icon(Icons.Rounded.CheckCircle, "Allowed", tint = LocalPennyTokens.current.accent)
+        if (allowed) Icon(Icons.Rounded.CheckCircle, context.getString(R.string.tracking_allowed), tint = LocalPennyTokens.current.accent)
         else Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -227,46 +244,69 @@ private fun RuleSheet(
     state: BuddyState,
     existing: MerchantRule?,
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit,
-    onDelete: (() -> Unit)?
+    onSave: suspend (String, String, String) -> String?,
+    onDelete: (suspend () -> String?)?
 ) {
+    val context = LocalContext.current
     var merchant by rememberSaveable { mutableStateOf(existing?.merchant.orEmpty()) }
-    var category by rememberSaveable { mutableStateOf(existing?.category ?: state.categories.first()) }
-    var reason by rememberSaveable { mutableStateOf(existing?.reason ?: state.reasons.first()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    var category by rememberSaveable { mutableStateOf(existing?.category ?: state.categories.firstOrNull().orEmpty()) }
+    var reason by rememberSaveable { mutableStateOf(existing?.reason ?: state.reasons.firstOrNull().orEmpty()) }
+    var nameError by rememberSaveable { mutableStateOf<String?>(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    ModalBottomSheet(onDismissRequest = { if (!busy) onDismiss() }, containerColor = MaterialTheme.colorScheme.surface,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { !busy || it != androidx.compose.material3.SheetValue.Hidden })) {
         DialogSystemBars()
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())) {
-            Text(if (existing == null) "Add a shop" else "Edit shop", style = MaterialTheme.typography.headlineSmall)
+            Text(if (existing == null) context.getString(R.string.tracking_add_a_shop) else context.getString(R.string.tracking_edit_shop), style = MaterialTheme.typography.headlineSmall)
+            RequiredFieldsHint()
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = merchant,
-                onValueChange = { merchant = it; error = null },
+                onValueChange = { merchant = it; nameError = null; error = null },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Shop name as it appears in the alert") },
+                label = { Text(context.getString(R.string.tracking_shop_name_as_it_appears_in)) },
+                isError = nameError != null,
+                supportingText = nameError?.let { message -> { ErrorText(message) } },
                 singleLine = true,
-                enabled = existing == null,
+                enabled = existing == null && !busy,
                 shape = RoundedCornerShape(16.dp)
             )
             Spacer(Modifier.height(12.dp))
-            Text("Category", style = MaterialTheme.typography.titleMedium)
+            Text(context.getString(R.string.tracking_category), style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.categories.forEach { Pill(it, it == category, onClick = { category = it }) }
+                state.categories.forEach { Pill(it, it == category, onClick = if (!busy) ({ category = it; error = null }) else null) }
             }
             Spacer(Modifier.height(8.dp))
-            Text("Reason", style = MaterialTheme.typography.titleMedium)
+            Text(context.getString(R.string.tracking_reason), style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                state.reasons.forEach { Pill(it, it == reason, onClick = { reason = it }) }
+                state.reasons.forEach { Pill(it, it == reason, onClick = if (!busy) ({ reason = it; error = null }) else null) }
             }
             ErrorText(error)
             Spacer(Modifier.height(16.dp))
             AccentButton(
-                onClick = { if (merchant.none { it.isLetterOrDigit() }) error = "Enter the shop name" else onSave(merchant.trim(), category, reason) },
+                onClick = {
+                    nameError = context.getString(R.string.tracking_enter_the_shop_name).takeIf { merchant.none { it.isLetterOrDigit() } }
+                    error = when {
+                        category.isBlank() -> context.getString(R.string.validation_category_required)
+                        reason.isBlank() -> context.getString(R.string.validation_reason_required)
+                        else -> null
+                    }
+                    if (nameError == null && error == null) scope.launch {
+                        busy = true
+                        try { error = onSave(merchant.trim(), category, reason); if (error == null) onDismiss() } finally { busy = false }
+                    }
+                },
+                enabled = !busy,
                 modifier = Modifier.fillMaxWidth(),
                 haptics = state.haptics
-            ) { Text("Save", fontWeight = FontWeight.Bold) }
-            if (onDelete != null) TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text("Remove this rule", color = MaterialTheme.colorScheme.error)
+            ) { Text(context.getString(R.string.tracking_save)) }
+            if (onDelete != null) TextButton(enabled = !busy, onClick = { scope.launch {
+                busy = true
+                try { error = onDelete(); if (error == null) onDismiss() } finally { busy = false }
+            } }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text(context.getString(R.string.tracking_remove_this_rule), color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(18.dp))
         }

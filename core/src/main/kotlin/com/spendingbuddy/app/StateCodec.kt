@@ -24,6 +24,9 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 class UnsupportedSchemaException(val version: Int) : Exception("Unsupported schema version $version")
 
+/** Stable validation outcomes; Android owns the displayed recovery copy. */
+enum class BackupRestoreIssue { UnsupportedVersion, UnsupportedTimers, InvalidLimits, InvalidPurchases, TooManyMembers, EmptyBackup, NoPurchases }
+
 object StateCodec {
     val json = Json {
         ignoreUnknownKeys = true
@@ -143,19 +146,19 @@ object StateCodec {
         s.name.isNotBlank() || s.expenses.isNotEmpty() || s.checkIns.isNotEmpty() || s.onboardingDone
 
     /**
-     * Validates a decoded backup before it replaces [current]. Returns an error message or null.
+     * Validates a decoded backup before it replaces [current]. Returns an issue or null.
      * Rejects an empty backup that would wipe existing data.
      */
-    fun validateRestore(current: BuddyState, restored: BuddyState): String? {
-        if (restored.schemaVersion != STATE_SCHEMA_VERSION) return "That backup has an unsupported version"
+    fun validateRestore(current: BuddyState, restored: BuddyState): BackupRestoreIssue? {
+        if (restored.schemaVersion != STATE_SCHEMA_VERSION) return BackupRestoreIssue.UnsupportedVersion
         if (restored.paymentUpdateMinutes !in PAYMENT_UPDATE_MINUTES || restored.finishCountdownLeadMinutes !in FINISH_COUNTDOWN_LEAD_MINUTES)
-            return "That backup has unsupported timer preferences"
-        if (restored.dailyLimitPaise < 0 || restored.weeklyLimitPaise < 0) return "That backup has invalid limits"
-        if (restored.expenses.any { it.amountPaise <= 0 }) return "That backup has invalid purchases"
-        if (restored.members.size > MAX_MEMBERS + MAX_TOMBSTONES) return "That backup has too many circle members"
-        if (hasUserData(current) && !hasUserData(restored)) return "That backup is empty, so it wasn't restored"
+            return BackupRestoreIssue.UnsupportedTimers
+        if (restored.dailyLimitPaise < 0 || restored.weeklyLimitPaise < 0) return BackupRestoreIssue.InvalidLimits
+        if (restored.expenses.any { it.amountPaise <= 0 }) return BackupRestoreIssue.InvalidPurchases
+        if (restored.members.size > MAX_MEMBERS + MAX_TOMBSTONES) return BackupRestoreIssue.TooManyMembers
+        if (hasUserData(current) && !hasUserData(restored)) return BackupRestoreIssue.EmptyBackup
         if (current.expenses.isNotEmpty() && restored.expenses.isEmpty() && restored.checkIns.isEmpty())
-            return "That backup has no purchases, so it wasn't restored"
+            return BackupRestoreIssue.NoPurchases
         return null
     }
 

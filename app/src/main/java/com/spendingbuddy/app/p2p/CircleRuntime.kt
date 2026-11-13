@@ -78,12 +78,4 @@ fun nudgeCandidates(state: BuddyState, today: String, now: Long, maxAgeMs: Long 
     }
 }
 
-fun friendlyError(e: Throwable): String {
-    val text = e.message.orEmpty()
-    return when {
-        e is kotlinx.coroutines.TimeoutCancellationException || text.contains("timeout", true) || text.contains("timed out", true) ||
-            text.contains("network", true) || text.contains("connect", true) || text.contains("unreachable", true) ->
-            "Couldn't reach that phone. Delivery is approximate and needs their app to be open or online; it will retry."
-        else -> text.ifBlank { "Couldn't complete the sync. It will retry." }
-    }
-}
+fun friendlyError(e: Throwable, context: android.content.Context? = null): String = userFacingCircleError(e, context)
