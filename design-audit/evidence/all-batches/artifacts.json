@@ -1,0 +1,609 @@
+{
+  "verified_utc": "2026-11-13T19:49:55.752300+00:00",
+  "method": "Independent read-only inspection of already-built APKs using Android build-tools36.0.0 aapt2/zipalign/apksigner verify, ZIP/ELF/DEX parsing and source comparison. No assembly, signing, unit/lint rerun or emulator control.",
+  "expected_debug_sha256_supplied_by_build_owner": "4dd85b7004e7d745a2039017b802b9add7493ccfb2af6923e2c3abe97204ed7c",
+  "source_commit_context": "a528e1e0b7fd0b96bb3ebac5c05c044add2542a5",
+  "provenance_limit": "No source-revision asset was found. The requested MainActivity patch is independently located in both APK DEX files and corresponding compiled classes postdate its current source; this is not full-working-tree source attestation. A separately supplied source commit is verification context.",
+  "variants": {
+    "debug": {
+      "path": "C:\\Users\\User\\spending-buddy-android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+      "bytes": 123261452,
+      "sha256": "4dd85b7004e7d745a2039017b802b9add7493ccfb2af6923e2c3abe97204ed7c",
+      "modified_utc": "2026-11-13T19:44:41.938312+00:00",
+      "badging": {
+        "exit_code": 0,
+        "output": "package: name='com.spendingbuddy.app' versionCode='3' versionName='0.3.0' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'\nminSdkVersion:'33'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='android.permission.ACCESS_NETWORK_STATE'\nuses-permission: name='android.permission.POST_NOTIFICATIONS'\nuses-permission: name='android.permission.VIBRATE'\nuses-permission: name='android.permission.RECEIVE_BOOT_COMPLETED'\nuses-permission: name='android.permission.FOREGROUND_SERVICE'\nuses-permission: name='android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING'\nuses-permission: name='android.permission.RECEIVE_SMS'\nuses-permission: name='android.permission.POST_PROMOTED_NOTIFICATIONS'\nuses-permission: name='android.permission.WAKE_LOCK'\nuses-permission: name='com.spendingbuddy.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'\napplication-label:'Penny Circle'\napplication-label-af:'Penny Circle'\napplication-label-am:'Penny Circle'\napplication-label-ar:'Penny Circle'\napplication-label-as:'Penny Circle'\napplication-label-az:'Penny Circle'\napplication-label-be:'Penny Circle'\napplication-label-bg:'Penny Circle'\napplication-label-bn:'Penny Circle'\napplication-label-bs:'Penny Circle'\napplication-label-ca:'Penny Circle'\napplication-label-cs:'Penny Circle'\napplication-label-da:'Penny Circle'\napplication-label-de:'Penny Circle'\napplication-label-el:'Penny Circle'\napplication-label-en-AU:'Penny Circle'\napplication-label-en-CA:'Penny Circle'\napplication-label-en-GB:'Penny Circle'\napplication-label-en-IN:'Penny Circle'\napplication-label-en-XC:'Penny Circle'\napplication-label-es:'Penny Circle'\napplication-label-es-US:'Penny Circle'\napplication-label-et:'Penny Circle'\napplication-label-eu:'Penny Circle'\napplication-label-fa:'Penny Circle'\napplication-label-fi:'Penny Circle'\napplication-label-fr:'Penny Circle'\napplication-label-fr-CA:'Penny Circle'\napplication-label-gl:'Penny Circle'\napplication-label-gu:'Penny Circle'\napplication-label-hi:'Penny Circle'\napplication-label-hr:'Penny Circle'\napplication-label-hu:'Penny Circle'\napplication-label-hy:'Penny Circle'\napplication-label-in:'Penny Circle'\napplication-label-is:'Penny Circle'\napplication-label-it:'Penny Circle'\napplication-label-iw:'Penny Circle'\napplication-label-ja:'Penny Circle'\napplication-label-ka:'Penny Circle'\napplication-label-kk:'Penny Circle'\napplication-label-km:'Penny Circle'\napplication-label-kn:'Penny Circle'\napplication-label-ko:'Penny Circle'\napplication-label-ky:'Penny Circle'\napplication-label-lo:'Penny Circle'\napplication-label-lt:'Penny Circle'\napplication-label-lv:'Penny Circle'\napplication-label-mk:'Penny Circle'\napplication-label-ml:'Penny Circle'\napplication-label-mn:'Penny Circle'\napplication-label-mr:'Penny Circle'\napplication-label-ms:'Penny Circle'\napplication-label-my:'Penny Circle'\napplication-label-nb:'Penny Circle'\napplication-label-ne:'Penny Circle'\napplication-label-nl:'Penny Circle'\napplication-label-or:'Penny Circle'\napplication-label-pa:'Penny Circle'\napplication-label-pl:'Penny Circle'\napplication-label-pt:'Penny Circle'\napplication-label-pt-BR:'Penny Circle'\napplication-label-pt-PT:'Penny Circle'\napplication-label-ro:'Penny Circle'\napplication-label-ru:'Penny Circle'\napplication-label-si:'Penny Circle'\napplication-label-sk:'Penny Circle'\napplication-label-sl:'Penny Circle'\napplication-label-sq:'Penny Circle'\napplication-label-sr:'Penny Circle'\napplication-label-sr-Latn:'Penny Circle'\napplication-label-sv:'Penny Circle'\napplication-label-sw:'Penny Circle'\napplication-label-ta:'Penny Circle'\napplication-label-te:'Penny Circle'\napplication-label-th:'Penny Circle'\napplication-label-tl:'Penny Circle'\napplication-label-tr:'Penny Circle'\napplication-label-uk:'Penny Circle'\napplication-label-ur:'Penny Circle'\napplication-label-uz:'Penny Circle'\napplication-label-vi:'Penny Circle'\napplication-label-zh-CN:'Penny Circle'\napplication-label-zh-HK:'Penny Circle'\napplication-label-zh-TW:'Penny Circle'\napplication-label-zu:'Penny Circle'\napplication-icon-160:'res/mipmap-anydpi-v26/ic_launcher.xml'\napplication-icon-240:'res/mipmap-anydpi-v26/ic_launcher.xml'\napplication-icon-320:'res/mipmap-anydpi-v26/ic_launcher.xml'\napplication-icon-480:'res/mipmap-anydpi-v26/ic_launcher.xml'\napplication-icon-640:'res/mipmap-anydpi-v26/ic_launcher.xml'\napplication-icon-65534:'res/mipmap-anydpi-v26/ic_launcher.xml'\napplication: label='Penny Circle' icon='res/mipmap-anydpi-v26/ic_launcher.xml'\napplication-debuggable\nlaunchable-activity: name='com.spendingbuddy.app.MainActivity'  label='' icon=''\nfeature-group: label=''\n  uses-feature-not-required: name='android.hardware.telephony'\n  uses-feature: name='android.hardware.faketouch'\n  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'\n  uses-feature: name='android.hardware.screen.portrait'\n  uses-implied-feature: name='android.hardware.screen.portrait' reason='one or more activities have specified a portrait orientation'\nprovides-component:'notification-listener'\nmain\nother-activities\nother-receivers\nother-services\nsupports-screens: 'small' 'normal' 'large' 'xlarge'\nsupports-any-density: 'true'\nlocales: '--_--' 'af' 'am' 'ar' 'as' 'az' 'be' 'bg' 'bn' 'bs' 'ca' 'cs' 'da' 'de' 'el' 'en-AU' 'en-CA' 'en-GB' 'en-IN' 'en-XC' 'es' 'es-US' 'et' 'eu' 'fa' 'fi' 'fr' 'fr-CA' 'gl' 'gu' 'hi' 'hr' 'hu' 'hy' 'in' 'is' 'it' 'iw' 'ja' 'ka' 'kk' 'km' 'kn' 'ko' 'ky' 'lo' 'lt' 'lv' 'mk' 'ml' 'mn' 'mr' 'ms' 'my' 'nb' 'ne' 'nl' 'or' 'pa' 'pl' 'pt' 'pt-BR' 'pt-PT' 'ro' 'ru' 'si' 'sk' 'sl' 'sq' 'sr' 'sr-Latn' 'sv' 'sw' 'ta' 'te' 'th' 'tl' 'tr' 'uk' 'ur' 'uz' 'vi' 'zh-CN' 'zh-HK' 'zh-TW' 'zu'\ndensities: '160' '240' '320' '480' '640' '65534'\nnative-code: 'arm64-v8a' 'x86_64'"
+      },
+      "manifest": {
+        "package": "com.spendingbuddy.app",
+        "version_name": "0.3.0",
+        "version_code": 3,
+        "min_sdk": 33,
+        "target_sdk": 36,
+        "label": "Penny Circle",
+        "debuggable": true,
+        "native_abis": [
+          "arm64-v8a",
+          "x86_64"
+        ]
+      },
+      "zipalign_16kb": {
+        "exit_code": 0,
+        "output": ""
+      },
+      "signature": {
+        "exit_code": 0,
+        "output": "Verifies\nVerified using v1 scheme (JAR signing): false\nVerified using v2 scheme (APK Signature Scheme v2): true\nVerified using v3 scheme (APK Signature Scheme v3): false\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\nNumber of signers: 1\nSigner #1 certificate DN: C=US, O=Android, CN=Android Debug\nSigner #1 certificate SHA-256 digest: af4e02db21f63cf20569eae7e253c6866ba77a59d5230460a6ea89eba99f864f\nSigner #1 certificate SHA-1 digest: c73c4cc6057ec476871a59ddabbe74cf6a5c85f6\nSigner #1 certificate MD5 digest: 18e0abd8e36f01b54efef40a0e14e35e\nSigner #1 key algorithm: RSA\nSigner #1 key size (bits): 2048\nSigner #1 public key SHA-256 digest: aa70c610b2b4de2d963eafccffe4acb4def03d51fabd46fb9167f782bfdeca27\nSigner #1 public key SHA-1 digest: 802f2219647887f1c056d36fce980bdec09b871f\nSigner #1 public key MD5 digest: 7a1c34904fea2923bde97626149536f6"
+      },
+      "arm64_native_libraries": [
+        {
+          "path": "lib/arm64-v8a/libandroidx.graphics.path.so",
+          "bytes": 10096,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        },
+        {
+          "path": "lib/arm64-v8a/libiroh_ffi.so",
+          "bytes": 12831624,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        },
+        {
+          "path": "lib/arm64-v8a/libjnidispatch.so",
+          "bytes": 168280,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 65536,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 65536,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        },
+        {
+          "path": "lib/arm64-v8a/libmlkit_google_ocr_pipeline.so",
+          "bytes": 11064544,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        }
+      ],
+      "notices": [
+        {
+          "path": "assets/licenses/APACHE-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Android-SDK-terms.txt",
+          "sha256": "ab3abc7ae7588cbc7bb04d3e71347258836b476934113b66be0ef431b538e806",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Geist-OFL-1.1.txt",
+          "sha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Google-APIs-terms.txt",
+          "sha256": "dc5c2dc9e40c7eafca6bf2fc24f5c5377dd4ee72774fe015a269ff95f8e5d33c",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Google-ML-Kit-terms.txt",
+          "sha256": "3725633042595c4c032aab110a032072708a183959fe8a891028525824705f56",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/JNA-APACHE-2.0.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/JNA-LICENSE.txt",
+          "sha256": "521bb271ac56e0e29a1b1b688b94af17d00d378fc8e63478d8c8b2a7c4a229d0",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/JNA-libffi-LICENSE.txt",
+          "sha256": "2c9c2acb9743e6b007b91350475308aee44691d96aa20eacef8e199988c8c388",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/ZXing-LICENSE.txt",
+          "sha256": "3f62881f0566227a24b12e5a754cc79f39aaa94883038e95c94812e1f50af42f",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/ZXing-NOTICE.txt",
+          "sha256": "4db4b60aace29ec6c5c4f13ca9cac1930d3c0c54bcc67dceead0c10771120e66",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/bundled-dependency-notices.txt",
+          "sha256": "8f5482863e90b35259fa4217ab77efcfad08316de727c84209b8a753463c4235",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/dependency-metadata.csv",
+          "sha256": "5bc4e4cb9f7772de078ce5ffadd081b72936540c5a52ba3da838267e88ee8f56",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/index.txt",
+          "sha256": "a6f7e1c91ea7c1cf5352a57a2a14ee2a433669c8b7a3955c590f2a2578eb9681",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/iroh-APACHE-2.0.txt",
+          "sha256": "903131e2786f073a942fbf8fae122d9e576e4dad758c6da7f9f2ba58fd8611ab",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/iroh-MIT.txt",
+          "sha256": "f169adb8124d3b005416d8485d00777c9a7bdd9099982c52a4493f9732e6d050",
+          "matches_source": true
+        }
+      ],
+      "privacy_entry_scan": {
+        "entries_scanned": 569,
+        "sensitive_name_matches": [],
+        "private_key_pem_payload_matches": [],
+        "scope": "All APK entry names plus plaintext private-key PEM markers in assets; no private signing file or password was read. This does not claim exhaustive detection of arbitrary opaque data."
+      },
+      "revision_assets": {},
+      "main_activity_compiled_patch": {
+        "dex": "classes5.dex",
+        "checks": {
+          "onCreate_restores_handled_share_key": true,
+          "onSaveInstanceState_saves_handled_share_key": true,
+          "clearDestination_consumes_intent_extra": true
+        },
+        "methods": {
+          "clearDestination": {
+            "invocations": [
+              "Landroid/content/Intent;->removeExtra",
+              "Lcom/spendingbuddy/app/MainActivity;->getIntent",
+              "Lkotlinx/coroutines/flow/MutableStateFlow;->setValue"
+            ],
+            "string_literals": [
+              "com.spendingbuddy.app.DESTINATION"
+            ]
+          },
+          "onCreate": {
+            "invocations": [
+              "Landroid/graphics/drawable/ColorDrawable;-><init>",
+              "Landroid/os/Bundle;->getString",
+              "Landroid/view/Window;->setBackgroundDrawable",
+              "Landroidx/activity/ComponentActivity;->onCreate",
+              "Landroidx/activity/EdgeToEdge;->enable",
+              "Landroidx/activity/SystemBarStyle$Companion;->dark",
+              "Landroidx/activity/SystemBarStyle$Companion;->light",
+              "Landroidx/activity/compose/ComponentActivityKt;->setContent$default",
+              "Landroidx/compose/runtime/internal/ComposableLambdaKt;->composableLambdaInstance",
+              "Landroidx/compose/ui/graphics/ColorKt;->toArgb-8_81llA",
+              "Lcom/spendingbuddy/app/MainActivity$$ExternalSyntheticLambda11;-><init>",
+              "Lcom/spendingbuddy/app/MainActivity;->getIntent",
+              "Lcom/spendingbuddy/app/MainActivity;->getWindow",
+              "Lcom/spendingbuddy/app/MainActivity;->handleIntent",
+              "Lcom/spendingbuddy/app/ThemeStore;->load",
+              "Lcom/spendingbuddy/app/ui/AppTheme$Companion;->fromId",
+              "Lcom/spendingbuddy/app/ui/AppTheme;->isDark",
+              "Lcom/spendingbuddy/app/ui/PennyTokens;->getBg-0d7_KjU",
+              "Lcom/spendingbuddy/app/ui/ThemeKt;->tokens"
+            ],
+            "string_literals": [
+              "handled_share_key"
+            ]
+          },
+          "onSaveInstanceState": {
+            "invocations": [
+              "Landroid/os/Bundle;->putString",
+              "Landroidx/activity/ComponentActivity;->onSaveInstanceState",
+              "Lkotlin/jvm/internal/Intrinsics;->checkNotNullParameter"
+            ],
+            "string_literals": [
+              "outState",
+              "handled_share_key"
+            ]
+          }
+        }
+      },
+      "main_activity_source": {
+        "path": "C:\\Users\\User\\spending-buddy-android\\app\\src\\main\\java\\com\\spendingbuddy\\app\\MainActivity.kt",
+        "sha256": "46de2c8f91649276130a9a2762dd25f3ec4b79365aed3846622cce20c4d5ec3a",
+        "compiled_class_modified_not_before_source": true,
+        "apk_modified_not_before_compiled_class": true,
+        "apk_modified_not_before_current_source": true
+      },
+      "artifact_metadata": {
+        "version": 3,
+        "artifactType": {
+          "type": "APK",
+          "kind": "Directory"
+        },
+        "applicationId": "com.spendingbuddy.app",
+        "variantName": "debug",
+        "elements": [
+          {
+            "type": "SINGLE",
+            "filters": [],
+            "attributes": [],
+            "versionCode": 3,
+            "versionName": "0.3.0",
+            "outputFile": "app-debug.apk"
+          }
+        ],
+        "elementType": "File",
+        "minSdkVersionForDexing": 33
+      }
+    },
+    "release": {
+      "path": "C:\\Users\\User\\spending-buddy-android\\release\\Penny-Circle-0.3.1-arm64.apk",
+      "bytes": 77203821,
+      "sha256": "7e02fabd51a36084ca9997658ec4feb2f5ab9d5b22ebc4bf0ab4364f11d25c19",
+      "modified_utc": "2026-11-13T19:49:07.893923+00:00",
+      "badging": {
+        "exit_code": 0,
+        "output": "package: name='com.spendingbuddy.app' versionCode='4' versionName='0.3.1' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'\nminSdkVersion:'33'\ntargetSdkVersion:'36'\nuses-permission: name='android.permission.INTERNET'\nuses-permission: name='android.permission.ACCESS_NETWORK_STATE'\nuses-permission: name='android.permission.POST_NOTIFICATIONS'\nuses-permission: name='android.permission.VIBRATE'\nuses-permission: name='android.permission.RECEIVE_BOOT_COMPLETED'\nuses-permission: name='android.permission.FOREGROUND_SERVICE'\nuses-permission: name='android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING'\nuses-permission: name='android.permission.RECEIVE_SMS'\nuses-permission: name='android.permission.POST_PROMOTED_NOTIFICATIONS'\nuses-permission: name='android.permission.WAKE_LOCK'\nuses-permission: name='com.spendingbuddy.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'\napplication-label:'Penny Circle'\napplication-label-af:'Penny Circle'\napplication-label-am:'Penny Circle'\napplication-label-ar:'Penny Circle'\napplication-label-as:'Penny Circle'\napplication-label-az:'Penny Circle'\napplication-label-be:'Penny Circle'\napplication-label-bg:'Penny Circle'\napplication-label-bn:'Penny Circle'\napplication-label-bs:'Penny Circle'\napplication-label-ca:'Penny Circle'\napplication-label-cs:'Penny Circle'\napplication-label-da:'Penny Circle'\napplication-label-de:'Penny Circle'\napplication-label-el:'Penny Circle'\napplication-label-en-AU:'Penny Circle'\napplication-label-en-CA:'Penny Circle'\napplication-label-en-GB:'Penny Circle'\napplication-label-en-IN:'Penny Circle'\napplication-label-en-XC:'Penny Circle'\napplication-label-es:'Penny Circle'\napplication-label-es-US:'Penny Circle'\napplication-label-et:'Penny Circle'\napplication-label-eu:'Penny Circle'\napplication-label-fa:'Penny Circle'\napplication-label-fi:'Penny Circle'\napplication-label-fr:'Penny Circle'\napplication-label-fr-CA:'Penny Circle'\napplication-label-gl:'Penny Circle'\napplication-label-gu:'Penny Circle'\napplication-label-hi:'Penny Circle'\napplication-label-hr:'Penny Circle'\napplication-label-hu:'Penny Circle'\napplication-label-hy:'Penny Circle'\napplication-label-in:'Penny Circle'\napplication-label-is:'Penny Circle'\napplication-label-it:'Penny Circle'\napplication-label-iw:'Penny Circle'\napplication-label-ja:'Penny Circle'\napplication-label-ka:'Penny Circle'\napplication-label-kk:'Penny Circle'\napplication-label-km:'Penny Circle'\napplication-label-kn:'Penny Circle'\napplication-label-ko:'Penny Circle'\napplication-label-ky:'Penny Circle'\napplication-label-lo:'Penny Circle'\napplication-label-lt:'Penny Circle'\napplication-label-lv:'Penny Circle'\napplication-label-mk:'Penny Circle'\napplication-label-ml:'Penny Circle'\napplication-label-mn:'Penny Circle'\napplication-label-mr:'Penny Circle'\napplication-label-ms:'Penny Circle'\napplication-label-my:'Penny Circle'\napplication-label-nb:'Penny Circle'\napplication-label-ne:'Penny Circle'\napplication-label-nl:'Penny Circle'\napplication-label-or:'Penny Circle'\napplication-label-pa:'Penny Circle'\napplication-label-pl:'Penny Circle'\napplication-label-pt:'Penny Circle'\napplication-label-pt-BR:'Penny Circle'\napplication-label-pt-PT:'Penny Circle'\napplication-label-ro:'Penny Circle'\napplication-label-ru:'Penny Circle'\napplication-label-si:'Penny Circle'\napplication-label-sk:'Penny Circle'\napplication-label-sl:'Penny Circle'\napplication-label-sq:'Penny Circle'\napplication-label-sr:'Penny Circle'\napplication-label-sr-Latn:'Penny Circle'\napplication-label-sv:'Penny Circle'\napplication-label-sw:'Penny Circle'\napplication-label-ta:'Penny Circle'\napplication-label-te:'Penny Circle'\napplication-label-th:'Penny Circle'\napplication-label-tl:'Penny Circle'\napplication-label-tr:'Penny Circle'\napplication-label-uk:'Penny Circle'\napplication-label-ur:'Penny Circle'\napplication-label-uz:'Penny Circle'\napplication-label-vi:'Penny Circle'\napplication-label-zh-CN:'Penny Circle'\napplication-label-zh-HK:'Penny Circle'\napplication-label-zh-TW:'Penny Circle'\napplication-label-zu:'Penny Circle'\napplication-icon-160:'res/BW.xml'\napplication-icon-240:'res/BW.xml'\napplication-icon-320:'res/BW.xml'\napplication-icon-480:'res/BW.xml'\napplication-icon-640:'res/BW.xml'\napplication-icon-65534:'res/BW.xml'\napplication: label='Penny Circle' icon='res/BW.xml'\nlaunchable-activity: name='com.spendingbuddy.app.MainActivity'  label='' icon=''\nfeature-group: label=''\n  uses-feature-not-required: name='android.hardware.telephony'\n  uses-feature: name='android.hardware.faketouch'\n  uses-implied-feature: name='android.hardware.faketouch' reason='default feature for all apps'\n  uses-feature: name='android.hardware.screen.portrait'\n  uses-implied-feature: name='android.hardware.screen.portrait' reason='one or more activities have specified a portrait orientation'\nprovides-component:'notification-listener'\nmain\nother-activities\nother-receivers\nother-services\nsupports-screens: 'small' 'normal' 'large' 'xlarge'\nsupports-any-density: 'true'\nlocales: '--_--' 'af' 'am' 'ar' 'as' 'az' 'be' 'bg' 'bn' 'bs' 'ca' 'cs' 'da' 'de' 'el' 'en-AU' 'en-CA' 'en-GB' 'en-IN' 'en-XC' 'es' 'es-US' 'et' 'eu' 'fa' 'fi' 'fr' 'fr-CA' 'gl' 'gu' 'hi' 'hr' 'hu' 'hy' 'in' 'is' 'it' 'iw' 'ja' 'ka' 'kk' 'km' 'kn' 'ko' 'ky' 'lo' 'lt' 'lv' 'mk' 'ml' 'mn' 'mr' 'ms' 'my' 'nb' 'ne' 'nl' 'or' 'pa' 'pl' 'pt' 'pt-BR' 'pt-PT' 'ro' 'ru' 'si' 'sk' 'sl' 'sq' 'sr' 'sr-Latn' 'sv' 'sw' 'ta' 'te' 'th' 'tl' 'tr' 'uk' 'ur' 'uz' 'vi' 'zh-CN' 'zh-HK' 'zh-TW' 'zu'\ndensities: '160' '240' '320' '480' '640' '65534'\nnative-code: 'arm64-v8a'"
+      },
+      "manifest": {
+        "package": "com.spendingbuddy.app",
+        "version_name": "0.3.1",
+        "version_code": 4,
+        "min_sdk": 33,
+        "target_sdk": 36,
+        "label": "Penny Circle",
+        "debuggable": false,
+        "native_abis": [
+          "arm64-v8a"
+        ]
+      },
+      "zipalign_16kb": {
+        "exit_code": 0,
+        "output": ""
+      },
+      "signature": {
+        "exit_code": 0,
+        "output": "Verifies\nVerified using v1 scheme (JAR signing): false\nVerified using v2 scheme (APK Signature Scheme v2): false\nVerified using v3 scheme (APK Signature Scheme v3): true\nVerified using v3.1 scheme (APK Signature Scheme v3.1): false\nVerified using v4 scheme (APK Signature Scheme v4): false\nVerified for SourceStamp: false\nNumber of signers: 1\nSigner #1 certificate DN: CN=Penny Circle, OU=Android, O=Penny Circle, C=IN\nSigner #1 certificate SHA-256 digest: 84e2559af0440e8a514d154904b9a2a203b617a204c8c46968cb3d94782d98fd\nSigner #1 certificate SHA-1 digest: f38572046b88f9fbe9f814fb3a3b9c8f295a868a\nSigner #1 certificate MD5 digest: c6b0814869d73f85e0fe29dcd1000941\nSigner #1 key algorithm: RSA\nSigner #1 key size (bits): 3072\nSigner #1 public key SHA-256 digest: e69bd9ab0171953106570e260b938106f1656985f3c24acf470b0ccf969bbc94\nSigner #1 public key SHA-1 digest: e9de1fa117434c1cc801c6d9430450d29fad35b8\nSigner #1 public key MD5 digest: 47d18264579b5b30a95e10bf9ddf6083"
+      },
+      "arm64_native_libraries": [
+        {
+          "path": "lib/arm64-v8a/libandroidx.graphics.path.so",
+          "bytes": 10096,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        },
+        {
+          "path": "lib/arm64-v8a/libiroh_ffi.so",
+          "bytes": 12831624,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        },
+        {
+          "path": "lib/arm64-v8a/libjnidispatch.so",
+          "bytes": 168280,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 65536,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 65536,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        },
+        {
+          "path": "lib/arm64-v8a/libmlkit_google_ocr_pipeline.so",
+          "bytes": 11064544,
+          "elf_machine": 183,
+          "load_segments": [
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            },
+            {
+              "alignment_bytes": 16384,
+              "offset_address_congruent_16kb": true
+            }
+          ],
+          "passes_16kb": true
+        }
+      ],
+      "notices": [
+        {
+          "path": "assets/licenses/APACHE-2.0.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Android-SDK-terms.txt",
+          "sha256": "ab3abc7ae7588cbc7bb04d3e71347258836b476934113b66be0ef431b538e806",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Geist-OFL-1.1.txt",
+          "sha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Google-APIs-terms.txt",
+          "sha256": "dc5c2dc9e40c7eafca6bf2fc24f5c5377dd4ee72774fe015a269ff95f8e5d33c",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/Google-ML-Kit-terms.txt",
+          "sha256": "3725633042595c4c032aab110a032072708a183959fe8a891028525824705f56",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/JNA-APACHE-2.0.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/JNA-LICENSE.txt",
+          "sha256": "521bb271ac56e0e29a1b1b688b94af17d00d378fc8e63478d8c8b2a7c4a229d0",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/JNA-libffi-LICENSE.txt",
+          "sha256": "2c9c2acb9743e6b007b91350475308aee44691d96aa20eacef8e199988c8c388",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/ZXing-LICENSE.txt",
+          "sha256": "3f62881f0566227a24b12e5a754cc79f39aaa94883038e95c94812e1f50af42f",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/ZXing-NOTICE.txt",
+          "sha256": "4db4b60aace29ec6c5c4f13ca9cac1930d3c0c54bcc67dceead0c10771120e66",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/bundled-dependency-notices.txt",
+          "sha256": "8f5482863e90b35259fa4217ab77efcfad08316de727c84209b8a753463c4235",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/dependency-metadata.csv",
+          "sha256": "5bc4e4cb9f7772de078ce5ffadd081b72936540c5a52ba3da838267e88ee8f56",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/index.txt",
+          "sha256": "a6f7e1c91ea7c1cf5352a57a2a14ee2a433669c8b7a3955c590f2a2578eb9681",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/iroh-APACHE-2.0.txt",
+          "sha256": "903131e2786f073a942fbf8fae122d9e576e4dad758c6da7f9f2ba58fd8611ab",
+          "matches_source": true
+        },
+        {
+          "path": "assets/licenses/iroh-MIT.txt",
+          "sha256": "f169adb8124d3b005416d8485d00777c9a7bdd9099982c52a4493f9732e6d050",
+          "matches_source": true
+        }
+      ],
+      "privacy_entry_scan": {
+        "entries_scanned": 562,
+        "sensitive_name_matches": [],
+        "private_key_pem_payload_matches": [],
+        "scope": "All APK entry names plus plaintext private-key PEM markers in assets; no private signing file or password was read. This does not claim exhaustive detection of arbitrary opaque data."
+      },
+      "revision_assets": {},
+      "main_activity_compiled_patch": {
+        "dex": "classes3.dex",
+        "checks": {
+          "onCreate_restores_handled_share_key": true,
+          "onSaveInstanceState_saves_handled_share_key": true,
+          "clearDestination_consumes_intent_extra": true
+        },
+        "methods": {
+          "clearDestination": {
+            "invocations": [
+              "Landroid/content/Intent;->removeExtra",
+              "Lcom/spendingbuddy/app/MainActivity;->getIntent",
+              "Lkotlinx/coroutines/flow/MutableStateFlow;->setValue"
+            ],
+            "string_literals": [
+              "com.spendingbuddy.app.DESTINATION"
+            ]
+          },
+          "onCreate": {
+            "invocations": [
+              "Landroid/graphics/drawable/ColorDrawable;-><init>",
+              "Landroid/os/Bundle;->getString",
+              "Landroid/view/Window;->setBackgroundDrawable",
+              "Landroidx/activity/ComponentActivity;->onCreate",
+              "Landroidx/activity/EdgeToEdge;->enable",
+              "Landroidx/activity/SystemBarStyle$Companion;->dark",
+              "Landroidx/activity/SystemBarStyle$Companion;->light",
+              "Landroidx/activity/compose/ComponentActivityKt;->setContent$default",
+              "Landroidx/compose/runtime/internal/ComposableLambdaKt;->composableLambdaInstance",
+              "Landroidx/compose/ui/graphics/ColorKt;->toArgb-8_81llA",
+              "Lcom/spendingbuddy/app/MainActivity$$ExternalSyntheticLambda11;-><init>",
+              "Lcom/spendingbuddy/app/MainActivity;->getIntent",
+              "Lcom/spendingbuddy/app/MainActivity;->getWindow",
+              "Lcom/spendingbuddy/app/MainActivity;->handleIntent",
+              "Lcom/spendingbuddy/app/ThemeStore;->load",
+              "Lcom/spendingbuddy/app/ui/AppTheme$Companion;->fromId",
+              "Lcom/spendingbuddy/app/ui/AppTheme;->isDark",
+              "Lcom/spendingbuddy/app/ui/PennyTokens;->getBg-0d7_KjU",
+              "Lcom/spendingbuddy/app/ui/ThemeKt;->tokens"
+            ],
+            "string_literals": [
+              "handled_share_key"
+            ]
+          },
+          "onSaveInstanceState": {
+            "invocations": [
+              "Landroid/os/Bundle;->putString",
+              "Landroidx/activity/ComponentActivity;->onSaveInstanceState",
+              "Lkotlin/jvm/internal/Intrinsics;->checkNotNullParameter"
+            ],
+            "string_literals": [
+              "outState",
+              "handled_share_key"
+            ]
+          }
+        }
+      },
+      "main_activity_source": {
+        "path": "C:\\Users\\User\\spending-buddy-android\\app\\src\\main\\java\\com\\spendingbuddy\\app\\MainActivity.kt",
+        "sha256": "46de2c8f91649276130a9a2762dd25f3ec4b79365aed3846622cce20c4d5ec3a",
+        "compiled_class_modified_not_before_source": true,
+        "apk_modified_not_before_compiled_class": true,
+        "apk_modified_not_before_current_source": true
+      },
+      "artifact_metadata": {
+        "version": 3,
+        "artifactType": {
+          "type": "APK",
+          "kind": "Directory"
+        },
+        "applicationId": "com.spendingbuddy.app",
+        "variantName": "release",
+        "elements": [
+          {
+            "type": "SINGLE",
+            "filters": [],
+            "attributes": [],
+            "versionCode": 4,
+            "versionName": "0.3.1",
+            "outputFile": "app-release-unsigned.apk"
+          }
+        ],
+        "elementType": "File",
+        "baselineProfiles": [
+          {
+            "minApi": 28,
+            "maxApi": 30,
+            "baselineProfiles": [
+              "baselineProfiles/1/app-release-unsigned.dm"
+            ]
+          },
+          {
+            "minApi": 31,
+            "maxApi": 2147483647,
+            "baselineProfiles": [
+              "baselineProfiles/0/app-release-unsigned.dm"
+            ]
+          }
+        ],
+        "minSdkVersionForDexing": 33
+      },
+      "distribution_metadata": "Penny Circle production distribution\nPackage: com.spendingbuddy.app\nVersion: 0.3.1 (code 4)\nABI: arm64-v8a\nDebuggable: false\nAPK ZIP and ELF load-segment alignment: 16 KB verified\nBuilt UTC: 2026-11-13T19:49:10.0198893Z\nAPK: Penny-Circle-0.3.1-arm64.apk\nSHA-256: 7e02fabd51a36084ca9997658ec4feb2f5ab9d5b22ebc4bf0ab4364f11d25c19\nSigner #1 certificate SHA-256 digest: 84e2559af0440e8a514d154904b9a2a203b617a204c8c46968cb3d94782d98fd\nValidation: core tests, app debug unit tests, release lint, release assembly, signature verification.\nReal-device behavior requires separate verification.\nSource commit: a528e1e0b7fd0b96bb3ebac5c05c044add2542a5\n"
+    }
+  },
+  "checks": {
+    "release_manifest": true,
+    "release_four_arm64_libraries_16kb": true,
+    "release_zipalign_16kb": true,
+    "release_signing_expected": true,
+    "debug_hash_matches_parent_build": true,
+    "debug_signature_verified": true,
+    "debug_abis": true,
+    "both_15_notices_match_source": true,
+    "both_privacy_filename_and_pem_scans_clear": true,
+    "both_main_activity_patch_present_in_apk_dex": true,
+    "both_main_activity_source_predates_apk": true,
+    "release_hash_matches_build_owner": true,
+    "release_production_signature_verified": true,
+    "debug_android_debug_certificate": true,
+    "debug_debuggable_expected": true,
+    "release_latest_main_activity_compiled_class_included": true
+  },
+  "expected_release_sha256_supplied_by_build_owner": "7e02fabd51a36084ca9997658ec4feb2f5ab9d5b22ebc4bf0ab4364f11d25c19",
+  "result": "PASS"
+}

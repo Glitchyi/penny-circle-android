@@ -1,0 +1,24 @@
+{
+  "completed": "2026-11-14T01:22:53.9302028+05:30",
+  "devices": [
+    {
+      "size": "Physical size: 1080x2400",
+      "density": "Physical density: 420",
+      "serial": "emulator-5554",
+      "restoredExactBeforeLaunch": true,
+      "animator": "null",
+      "font": "1.0",
+      "sha256": "75e444a7ec8a78ea4116d3a638d4cfb716a928f53aa57e9dde53b2201cc5dba6"
+    },
+    {
+      "size": "Physical size: 1080x2400",
+      "density": "Physical density: 420",
+      "serial": "emulator-5556",
+      "restoredExactBeforeLaunch": true,
+      "animator": "null",
+      "font": "1.0",
+      "sha256": "cb09a6b28b7514e44e603e96138b054dea41ac8ca07f2b291071d63e1dc12bf6"
+    }
+  ],
+  "originalSnapshotsPreserved": true
+}

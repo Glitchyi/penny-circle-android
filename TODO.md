@@ -2,6 +2,22 @@
 
 Dated results belong in [BUILD-EVIDENCE.md](BUILD-EVIDENCE.md). [HANDOFF-AUTODETECT.md](HANDOFF-AUTODETECT.md) records continuity; historical counts do not describe the current tree.
 
+## Design fixes in 0.3.1 — all eight batches
+
+Signed 0.3.1/code 4 includes these changes with the existing production key. The original 0.3.0 APK remains unchanged. See [implementation plan](design-audit/IMPLEMENTATION-PLAN.md), [verification](design-audit/evidence/all-batches/VERIFICATION.md) and [deferred decisions](design-audit/DEFERRED.md).
+
+- [x] Exact paise/zero limits, checked seven-day helper, grouped summaries and measured maximum amount fitting.
+- [x] Adjacent opaque swipe panes, single navigation commit, retained per-tab state and motion cancellation.
+- [x] Independent notification destinations, warm routing and granted-permission Review controls.
+- [x] Editable local OCR review, retained drafts, recoverable save outcomes and protected backup recovery.
+- [x] Shared control contrast/focus/disabled states, field/status semantics, theme roles and cataloged copy.
+- [x] Circle generation-gated cancel/retry, explicit confirmations, retained drafts and honest delivery states.
+- [x] Consolidated core/app tests:264 passed, one optional online skip; release lint zero errors; debug/release assembly passed. Final correction/UI evidence is linked above.
+- [ ] Owner decisions: logo, canonical radius/shadow/spacing/icon family and figure-scale choices; broad findings listed in DEFERRED.md remain open.
+- [ ] Full physical-device TalkBack, haptics, OEM/Doze and frame timing; emulator samples do not establish the complete audit's blocked matrix.
+- [ ] F-Droid preparation remains deferred.
+- [ ] Next-audit cosmetic note: no-circle decorative illustration still blends accent2; keep it separate from the resolved shared routine-control findings.
+
 ## Implemented and exercised
 
 - [x] Native Android local-first expense/no-spend notebook, Today/Activity/Circle, daily and Monday–Sunday limits, four themes and optional rotary amount entry.

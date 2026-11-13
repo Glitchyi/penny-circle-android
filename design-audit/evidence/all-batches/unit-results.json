@@ -1,0 +1,14 @@
+{
+  "core": {
+    "tests": 175,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0
+  },
+  "app": {
+    "tests": 90,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  }
+}

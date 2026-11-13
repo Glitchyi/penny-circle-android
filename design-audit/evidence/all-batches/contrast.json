@@ -1,0 +1,56 @@
+[
+  {
+    "role": "Light Horizon button",
+    "foreground": "#FFFFFF",
+    "background": "#6A3DF5",
+    "result": "5.84:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Violet Night button",
+    "foreground": "#0D0B14",
+    "background": "#9D6BFF",
+    "result": "5.56:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Mint Night button",
+    "foreground": "#03120C",
+    "background": "#00E599",
+    "result": "11.56:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Signal Blue button",
+    "foreground": "#04101F",
+    "background": "#4D9BFF",
+    "result": "6.78:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Light selected subtitle",
+    "foreground": "#0B0B10",
+    "background": "#EEEBFB",
+    "result": "16.75:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Light keypad focus",
+    "foreground": "#0B0B10",
+    "background": "#F1F1F5",
+    "result": "17.43:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Violet keypad focus",
+    "foreground": "#EFEDF8",
+    "background": "#1E1A2D",
+    "result": "14.62:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Mint keypad focus",
+    "foreground": "#F4F7F6",
+    "background": "#181B1B",
+    "result": "16.08:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  },
+  {
+    "role": "Signal keypad focus",
+    "foreground": "#EEF2FA",
+    "background": "#171B26",
+    "result": "15.33:1  text pass (4.5)  large text pass (3.0)  non-text pass (3.0)"
+  }
+]

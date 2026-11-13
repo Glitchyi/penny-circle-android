@@ -4,11 +4,19 @@ A private spending notebook for a small circle of friends, built for Android wit
 
 ## Install
 
-Penny Circle 0.3.0 targets Android 13 or later. The production APK supports ARM64 phones; debug builds also support x86-64 emulators. Get distribution artifacts from [GitHub Releases](https://github.com/Glitchyi/penny-circle-android/releases/latest). The signed [0.3.0 release](https://github.com/Glitchyi/penny-circle-android/releases/tag/v0.3.0) is public with APK, SHA-256 and public metadata assets. Final artifact checks are recorded in [BUILD-EVIDENCE.md](BUILD-EVIDENCE.md).
+Penny Circle 0.3.1 targets Android 13 or later. The production APK supports ARM64 phones; debug builds also support x86-64 emulators. Get distribution artifacts from [GitHub Releases](https://github.com/Glitchyi/penny-circle-android/releases/latest). The signed [0.3.1 release](https://github.com/Glitchyi/penny-circle-android/releases/tag/v0.3.1) is public with APK, SHA-256 and public metadata assets. Final artifact checks are recorded in [BUILD-EVIDENCE.md](BUILD-EVIDENCE.md).
 
 Install the APK using Android's normal installation flow. Existing development/debug-certificate installations require a user-approved fresh install once to move to the production certificate. Uninstalling removes local app data. Subsequent production updates must reuse the same production signing key. Keep Android security protections enabled.
 
 The app name is Penny Circle; its package remains `com.spendingbuddy.app`.
+
+## Design fixes in 0.3.1
+
+The owner authorized all eight audit batches where possible. These changes are included in signed 0.3.1/code 4, using the existing production certificate. The prior 0.3.0 assets remain unchanged. Logo, radius, shadow and figure-scale choices remain open; F-Droid is deferred.
+
+Implemented changes preserve exact paise and zero-capable limits; fill adjacent panes during swipes; retain editable purchase, import and settings drafts on recoverable errors; separate notification destinations; clarify Circle progress, cancellation and confirmations; and improve shared controls, theme roles, accessibility labels and Android string catalogs. Protected local-data recovery requires an explicit successful restore or confirmed fresh start before writes resume.
+
+The consolidated suite passed 264 tests with one optional online skip. Release lint has zero errors, 69 warnings and two hints, and debug assembly and signed ARM64 release verification passed. Final emulator regression and correction results, artifact hashes and remaining device limitations are recorded in [all-batch verification](design-audit/evidence/all-batches/VERIFICATION.md). These scoped checks do not replace a fresh whole-app design audit or physical-device TalkBack, haptic, OEM and frame-timing testing.
 
 ## Everyday use
 
