@@ -7,3 +7,7 @@ signing.properties
 *.apk
 *.idsig
 .idea/
+.kotlin/
+*.hprof
+.DS_Store
+captures/
