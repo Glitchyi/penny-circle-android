@@ -9,7 +9,11 @@ import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.ui.graphics.toArgb
+import com.spendingbuddy.app.ui.AppTheme
+import com.spendingbuddy.app.ui.tokens
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -53,7 +57,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // Apply the saved theme before the first frame: window background and system bar icon style.
+        val savedTheme = AppTheme.fromId(ThemeStore.load(this))
+        val bg = savedTheme.tokens().bg.toArgb()
+        val bars = if (savedTheme.isDark) SystemBarStyle.dark(bg) else SystemBarStyle.light(bg, bg)
+        enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+        window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(bg))
         setContent { SpendingBuddyApp() }
         handleIntent(intent)
     }
@@ -62,6 +71,17 @@ class MainActivity : ComponentActivity() {
 
     fun onUiReady() { uiReady = true; handleIntent(intent) }
     fun clearDestination() { destination.value = null }
+
+    /** Makes the next cold start's system splash screen use the colours of the chosen theme (API 33+). */
+    fun applySplashTheme(themeId: String) {
+        val style = when (AppTheme.fromId(themeId)) {
+            AppTheme.LightHorizon -> R.style.Theme_Splash_LightHorizon
+            AppTheme.VioletNight -> R.style.Theme_Splash_VioletNight
+            AppTheme.MintNight -> R.style.Theme_Splash_MintNight
+            AppTheme.SignalBlue -> R.style.Theme_Splash_SignalBlue
+        }
+        runCatching { splashScreen.setSplashScreenTheme(style) }
+    }
 
     private fun handleIntent(intent: Intent?) {
         intent ?: return

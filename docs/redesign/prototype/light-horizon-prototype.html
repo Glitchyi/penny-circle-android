@@ -1,0 +1,603 @@
+<title>Penny Circle Light Horizon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout concept: a calm product-presentation page. Left column explains and lets you pick a variant; the phone is sticky on the right. The page itself takes on the chosen variant's colours so the phone is seen in context. */
+:root{--bg:#FAFAFB;--fg:#0B0B10;--muted:#6B6B7B;--line:#E3E3EA;--chip:#FFFFFF;--focus:#6A3DF5;--acc:#6A3DF5}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0D0B14;--fg:#EFEDF8;--muted:#8F89A6;--line:#2A2540;--chip:#151220;--focus:#9D6BFF;--acc:#9D6BFF;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0D0B14;--fg:#EFEDF8;--muted:#8F89A6;--line:#2A2540;--chip:#151220;--focus:#9D6BFF;--acc:#9D6BFF;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:'Geist','DM Sans',system-ui,sans-serif;padding-block:24px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));transition:background .6s ease,color .6s ease}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+.page{max-width:1120px;margin:0 auto}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid var(--line);margin-bottom:44px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:-.015em}
+.logo{width:18px;height:18px;border-radius:50%;background:var(--acc);box-shadow:0 0 20px var(--acc)}
+.mono,.meta,.eyebrow,.label{font-family:'Geist Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+.meta,.label{color:var(--muted)}
+.eyebrow{color:var(--acc)}
+.stage{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;grid-template-areas:"intro" "phone" "details"}
+@media(min-width:960px){.stage{grid-template-columns:minmax(0,1fr) 390px;column-gap:72px;grid-template-areas:"intro phone" "details phone"}.phone-wrap{position:sticky;top:24px}}
+.intro{grid-area:intro}.phone-wrap{grid-area:phone;display:flex;justify-content:center;align-self:start}.details{grid-area:details}
+h1{font-weight:600;font-size:clamp(40px,6.6vw,72px);letter-spacing:-.05em;line-height:.96;margin:14px 0 18px;text-wrap:balance}
+.lead{color:var(--muted);max-width:50ch;line-height:1.6;font-size:17px;margin:0 0 28px}
+.switch{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(max-width:520px){.switch{grid-template-columns:minmax(0,1fr)}}
+.switch button{text-align:left;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--chip);display:grid;gap:3px;min-height:92px;align-content:start;transition:border-color .25s,box-shadow .25s,transform .25s}
+.switch button:hover{transform:translateY(-1px)}
+.switch button[aria-selected=true]{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc),0 16px 34px -20px var(--acc)}
+.switch b{font-weight:600;font-size:15px;letter-spacing:-.01em}
+.switch small{color:var(--muted);font-size:13px;line-height:1.4}
+.sws{display:flex;margin-bottom:8px}.sws i{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);margin-right:-5px}
+.hint{font-size:13px;color:var(--muted);margin:16px 0 0;line-height:1.5}
+.block{margin-top:44px}
+.block>.label{display:block;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.notes h2{font-size:22px;font-weight:600;letter-spacing:-.03em;margin:0 0 12px}
+.notes ul{margin:0;padding:0;list-style:none;display:grid;gap:12px}
+.notes li{color:var(--muted);line-height:1.6;padding-left:16px;position:relative;font-size:15px}
+.notes li::before{content:"";position:absolute;left:0;top:.7em;width:6px;height:1px;background:var(--acc)}
+.notes b{color:var(--fg);font-weight:600}
+.swatches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media(max-width:520px){.swatches{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sw{border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:6px;background:var(--chip);min-width:0}
+.sw i{display:block;height:44px;border-radius:8px;border:1px solid var(--line)}
+.sw b{font-size:13px;font-weight:500}.sw code{font-family:'Geist Mono',monospace;font-size:11px;color:var(--muted)}
+.type{display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:18px 20px;background:var(--chip);margin-top:12px}
+.type .tn{font-weight:600;font-size:64px;letter-spacing:-.055em;line-height:.9;font-variant-numeric:tabular-nums}
+.type p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}.type p b{color:var(--fg);font-weight:600}
+.motion{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none}
+@media(max-width:520px){.motion{grid-template-columns:minmax(0,1fr)}}
+.motion li{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--chip);font-size:14px;line-height:1.4}
+.motion b{display:block;font-weight:600;margin-bottom:2px}.motion span{color:var(--muted);font-size:13px}
+.next{margin:0;padding:0;list-style:none;display:grid;gap:10px;counter-reset:s}
+.next li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;align-items:start;color:var(--muted);line-height:1.5;font-size:15px}
+.next li::before{counter-increment:s;content:counter(s);font-family:'Geist Mono',monospace;font-size:11px;color:var(--acc);border:1px solid var(--line);border-radius:50%;width:24px;height:24px;display:grid;place-items:center}
+.next b{color:var(--fg);font-weight:600}
+.foot{margin-top:52px;padding-top:18px;border-top:1px solid var(--line)}
+
+/* ---------- phone shell ---------- */
+.phone{position:relative;width:min(390px,100%);height:800px;border-radius:52px;border:9px solid #0c0c10;overflow:hidden;isolation:isolate;box-shadow:0 40px 80px -30px rgba(10,10,40,.45)}
+.screen{position:absolute;inset:0;overflow-y:auto;padding:52px 18px 150px;scrollbar-width:none}
+.screen::-webkit-scrollbar{display:none}
+.status{position:absolute;top:0;left:0;right:0;height:46px;display:flex;justify-content:space-between;align-items:center;padding:6px 26px 0;font-weight:700;font-size:14px;z-index:30;pointer-events:none}
+.num{font-variant-numeric:tabular-nums}
+.only-a,.only-b{display:none}
+.phone[data-c=a] .only-a{display:block}.phone[data-c=b] .only-b{display:block}
+.row{display:flex;align-items:center;gap:12px}
+.grow{flex:1;min-width:0}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.small{font-size:12px}
+
+/* ---------- shared structure ---------- */
+.greet{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.date{font-size:13px;letter-spacing:.04em;text-transform:uppercase;opacity:.7}
+.hero{position:relative;text-align:center;margin:6px 0 18px}
+.big{font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.item{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.item .amt{font-weight:700;font-variant-numeric:tabular-nums}
+.tag{font-size:11px;padding:3px 8px;border-radius:99px;font-weight:700}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:22px 4px 4px}
+.finish{width:100%;min-height:56px;margin-top:18px;font-weight:700;font-size:16px}
+.tabs{position:absolute;z-index:20;display:flex}
+.tabs button{flex:1;min-height:52px;font-weight:700;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.fab{position:absolute;z-index:25}
+.scrim{position:absolute;inset:0;z-index:40;opacity:0;pointer-events:none;transition:opacity .3s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;padding:14px 18px 22px;transform:translateY(105%);transition:transform .55s cubic-bezier(.2,1.1,.3,1);max-height:92%;overflow-y:auto}
+.sheet.on{transform:none}
+.grab{width:44px;height:5px;border-radius:9px;margin:0 auto 10px;opacity:.35;background:currentColor}
+.amount{font-family:inherit;font-variant-numeric:tabular-nums;text-align:center;line-height:1;margin:6px 0 8px}
+.modes{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.modes button{min-height:40px;padding:0 18px;font-weight:700;font-size:14px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad button{min-height:56px;font-size:24px;font-weight:700}
+.dial{display:none;touch-action:none;margin:0 auto;width:min(236px,100%);user-select:none}
+.dial svg{width:100%;display:block;touch-action:none}
+.dial g.wheel{transform-origin:110px 110px;transition:transform .6s cubic-bezier(.25,1.5,.4,1)}
+.dial.drag g.wheel{transition:none}
+.dialtools{display:flex;justify-content:center;gap:8px;margin-top:6px}
+.dialtools button{min-height:44px;padding:0 18px;font-weight:700}
+.cats{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.cats button{min-height:44px;padding:0 14px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:8px}
+.save{width:100%;min-height:58px;font-weight:800;font-size:17px;margin-top:4px}
+.toast{position:absolute;left:50%;top:60px;transform:translate(-50%,-140%);z-index:60;padding:10px 16px;font-weight:700;font-size:14px;transition:transform .5s cubic-bezier(.2,1.4,.4,1);white-space:nowrap}
+.toast.on{transform:translate(-50%,0)}
+.stamp{position:absolute;inset:0;display:grid;place-items:center;z-index:70;pointer-events:none;opacity:0}
+.stamp.on{animation:stampIn 1.9s both}
+@keyframes stampIn{0%{opacity:0;transform:scale(2.6) rotate(-14deg)}14%{opacity:1;transform:scale(1) rotate(-8deg)}80%{opacity:1;transform:scale(1) rotate(-8deg)}100%{opacity:0;transform:scale(.96) rotate(-8deg)}}
+.friend{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;flex:none}
+.nudge{min-height:44px;padding:0 14px;font-weight:700;font-size:14px;flex:none}
+.bar{height:8px;border-radius:9px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%}
+
+
+/* ================= RICH ENGINE (A-family, animation-heavy) ================= */
+.orb,.richbar{display:none}
+#fx{position:absolute;inset:0;width:100%;height:100%;z-index:90;pointer-events:none}
+.phone.rich .only-a{display:block}
+.phone.rich .hero{transform:perspective(800px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .3s ease-out;will-change:transform}
+.phone.rich .big{display:flex;align-items:flex-start;justify-content:center;line-height:1}
+.phone.rich .big small{margin:.12em 4px 0 0}
+.spentA{display:inline-flex}
+.od{display:inline-block;height:1em;overflow:hidden;line-height:1em;vertical-align:top}
+.odc{display:flex;flex-direction:column;transition:transform 1.2s cubic-bezier(.2,1.15,.3,1)}
+.odc i{display:block;height:1em;font-style:normal}
+.odc.c{width:.28em}
+@keyframes rise{from{opacity:0;transform:translateY(28px) scale(.95);filter:blur(8px)}}
+@keyframes screenIn{from{opacity:0;transform:translateX(34px) scale(.98);filter:blur(10px)}}
+@keyframes morph{0%{border-radius:46% 54% 60% 40%/50% 42% 58% 50%}33%{border-radius:60% 40% 44% 56%/42% 58% 42% 58%}66%{border-radius:40% 60% 54% 46%/58% 46% 54% 42%}100%{border-radius:54% 46% 40% 60%/46% 54% 46% 54%}}
+@keyframes orbspin{to{rotate:360deg}}
+@keyframes breathe{50%{translate:0 -6px}}
+@keyframes rip{from{r:10;opacity:.9;stroke-width:6}to{r:120;opacity:0;stroke-width:1}}
+@keyframes blobdrift{to{transform:translate(6%,4%) rotate(10deg) scale(1.1)}}
+.phone.rich .item,.phone.rich .friend{animation:rise .85s cubic-bezier(.2,1,.3,1) both;animation-delay:calc(var(--i,0)*90ms)}
+.phone.rich .screen.enter{animation:screenIn .65s cubic-bezier(.2,1,.3,1)}
+.phone.rich button{transition:transform .3s cubic-bezier(.3,1.7,.5,1),background .3s,box-shadow .3s}
+.phone.rich button:active{transform:scale(.93)}
+.phone.rich .tabs{--ti:0}
+.phone.rich .tabs::before{content:"";position:absolute;top:6px;bottom:6px;left:6px;width:calc((100% - 16px)/2);border-radius:inherit;background:var(--pill,#fff);box-shadow:var(--pillsh,0 8px 18px -8px rgba(50,40,140,.6));transform:translateX(calc(var(--ti)*(100% + 4px)));transition:transform .6s cubic-bezier(.3,1.7,.4,1)}
+.phone.rich .tabs button{position:relative}
+.phone.rich .tabs button[aria-current=true]{background:none;box-shadow:none}
+.phone.rich .sheet{transform:none;border-radius:0;clip-path:circle(0 at calc(100% - 60px) 140px);clip-path:circle(0 at calc(100% - 60px) calc(100% - 140px));transition:clip-path .85s cubic-bezier(.2,.9,.2,1)}
+.phone.rich .sheet.on{clip-path:circle(170% at calc(100% - 60px) calc(100% - 140px))}
+.phone.rich .sheet.on>*{animation:rise .7s cubic-bezier(.2,1,.3,1) both}
+.phone.rich .sheet.on>*:nth-child(2){animation-delay:.12s}.phone.rich .sheet.on>*:nth-child(3){animation-delay:.18s}.phone.rich .sheet.on>*:nth-child(4),.phone.rich .sheet.on>*:nth-child(5){animation-delay:.24s}.phone.rich .sheet.on>*:nth-child(6){animation-delay:.3s}.phone.rich .sheet.on>*:nth-child(7){animation-delay:.36s}
+.phone.rich .fab{animation:breathe 3.4s ease-in-out infinite}
+.phone.rich .dial svg .rip{fill:none;stroke:var(--accent,#4B45F0);animation:rip .9s ease-out forwards;pointer-events:none}
+.phone.rich .dial .wheel{filter:drop-shadow(0 8px 14px rgba(0,0,0,.25))}
+.phone.rich .ring .val{stroke:hsl(var(--hue,150),88%,60%);filter:drop-shadow(0 0 8px hsla(var(--hue,150),95%,60%,.7))}
+
+
+/* minimal base */
+.phone.min{background:var(--bg);color:var(--tx);font-family:'Geist','DM Sans',system-ui,sans-serif;font-weight:400;font-size:15px}
+.phone.min::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:var(--bgfx)}
+.phone.min .status{color:var(--tx);font-family:'Geist Mono',monospace;font-size:12px;font-weight:500}
+.phone.min .screen{padding-top:58px}
+.phone.min .greet{margin-bottom:6px}
+.phone.min .date{font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.1em;color:var(--mu);opacity:1}
+.phone.min .greet h2{font-weight:600;font-size:22px;letter-spacing:-.025em;margin:6px 0 0}
+.phone.min .ring,.phone.min .orb{display:none}
+.phone.min .hero{height:auto;padding:0;margin:18px 0 20px;transform:none;text-align:left}
+.phone.min .hero::before{content:"SPENT TODAY";display:block;font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;color:var(--mu)}
+.phone.min .heronum{position:static;display:block;text-align:left}
+.phone.min .big{font-weight:600;font-size:96px;letter-spacing:-.055em;justify-content:flex-start;margin:6px 0 0 -3px;color:var(--tx)}
+.phone.min .big small{font-size:.36em;color:var(--mu);margin:.18em 6px 0 0;font-weight:500;letter-spacing:0}
+.phone.min .cap{color:var(--mu);font-size:14px;margin-top:8px;font-weight:400}
+.phone.min .richbar{display:block;height:4px;margin:16px 0 0;border-radius:9px;background:var(--bd);overflow:hidden}
+.phone.min .richbar i{display:block;height:100%;width:50%;border-radius:9px;background:var(--ac);box-shadow:0 0 14px var(--glow);transition:width 1.1s cubic-bezier(.2,1,.3,1)}
+.phone.min .chips{margin-top:14px;gap:6px}
+.phone.min .chip{background:var(--s);border:1px solid var(--bd);border-radius:99px;padding:5px 11px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;color:var(--mu)}
+.phone.min .sec{border:0;margin:24px 2px 8px;padding:0}
+.phone.min .sec h3{font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--mu);margin:0}
+.phone.min .sec .small{font-family:'Geist Mono',monospace;color:var(--mu);opacity:1}
+.phone.min .list{gap:0;margin-top:0;border:1px solid var(--bd);border-radius:14px;background:var(--s);overflow:hidden}
+.phone.min .item,.phone.min .friend{background:none;border:0;box-shadow:none;border-radius:0;border-bottom:1px solid var(--bd);padding:14px 16px;backdrop-filter:none}
+.phone.min .item:last-child,.phone.min .friend:last-child{border-bottom:0}
+.phone.min .item .dot{width:8px;height:8px;box-shadow:0 0 10px currentColor}
+.phone.min .item .grow div:first-child,.phone.min .friend .grow div:first-child{font-weight:500;font-size:15px}
+.phone.min .item .grow div+div,.phone.min .friend .grow div+div{font-size:12px;color:var(--mu);opacity:1}
+.phone.min .item .amt{font-family:'Geist Mono',monospace;font-weight:500;font-size:15px}
+.phone.min .tag,.phone.min .tag.imp{background:none;border:1px solid #F2555A;color:#F2555A;border-radius:6px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.phone.min .finish{background:var(--s);color:var(--tx);border:1px solid var(--bd);border-radius:12px;font-weight:500;font-size:15px;box-shadow:none;transition:border-color .2s,background .2s}
+.phone.min .finish:hover{border-color:var(--ac)}
+.phone.min .tabs{left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:0;border-top:1px solid var(--bd);border-radius:0;box-shadow:none;padding:4px 12px 18px;gap:0}
+.phone.min .tabs::before{top:-1px;bottom:auto;height:2px;left:12px;width:calc((100% - 24px)/2);border-radius:0;background:var(--ac);box-shadow:0 0 12px var(--glow);transform:translateX(calc(var(--ti)*100%))}
+.phone.min .tabs button{font-weight:500;font-size:13px;color:var(--mu)}
+.phone.min .tabs button[aria-current=true]{color:var(--tx)}
+.phone.min .fab{right:18px;bottom:86px;width:56px;height:56px;border-radius:16px;background:var(--ac);color:var(--on);font-size:28px;font-weight:500;animation:none;box-shadow:0 0 0 1px rgba(255,255,255,.14) inset,0 12px 30px -8px var(--glow)}
+.phone.min .fab:hover{transform:translateY(-2px)}
+.phone.min .scrim{background:var(--scrim)}
+.phone.min .sheet{background:var(--s);color:var(--tx);border-top:1px solid var(--bd);border-radius:0;box-shadow:none}
+.phone.min .grab{display:none}
+.phone.min .amount{font-weight:600;font-size:76px;letter-spacing:-.05em;text-align:left;margin:2px 0 10px;color:var(--tx)}
+.phone.min .modes{display:inline-flex;width:max-content;gap:2px;justify-content:flex-start;padding:3px;border:1px solid var(--bd);border-radius:10px;background:var(--bg)}
+.phone.min .modes button{min-height:36px;padding:0 16px;border-radius:7px;font-weight:500;font-size:13px;color:var(--mu)}
+.phone.min .modes button[aria-pressed=true]{background:var(--s2);color:var(--tx)}
+.phone.min .cats button{border:1px solid var(--bd);border-radius:99px;background:none;color:var(--tx);font-weight:500;font-size:13px}
+.phone.min .cats button[aria-pressed=true]{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 14%,transparent)}
+.phone.min .cats button[data-k=Impulse][aria-pressed=true]{border-color:#F2555A;background:rgba(242,85,90,.14)}
+.phone.min .pad{gap:8px}
+.phone.min .pad button{border:1px solid var(--bd);border-radius:12px;background:var(--bg);font-family:'Geist Mono',monospace;font-weight:500;font-size:22px;color:var(--tx)}
+.phone.min .pad button:active{background:var(--s2);transform:scale(.97)}
+.phone.min .save{background:var(--ac);color:var(--on);border-radius:12px;font-weight:600;font-size:16px;box-shadow:0 10px 26px -10px var(--glow);margin-top:10px}
+.phone.min .dialtools button{border:1px solid var(--bd);border-radius:10px;background:none;color:var(--tx);font-weight:500;font-size:13px}
+.phone.min .toast{background:var(--tx);color:var(--bg);border-radius:10px;font-family:'Geist Mono',monospace;font-size:12px;font-weight:500}
+.phone.min .stamp div{background:var(--s);border:1px solid var(--bd);border-radius:22px;padding:28px 34px;text-align:center;font-weight:600;font-size:36px;line-height:1;letter-spacing:-.035em;box-shadow:0 0 90px -12px var(--glow);color:var(--tx);width:auto;height:auto;display:block}
+.phone.min .stamp span{display:block;font-family:'Geist Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.08em;color:var(--ac);margin-top:12px;text-transform:uppercase}
+.phone.min .av{width:36px;height:36px;background:var(--s2);border:1px solid var(--bd);color:var(--tx);font-family:'Geist Mono',monospace;font-weight:500;font-size:13px}
+.phone.min .bar{height:3px;background:var(--bd);border-radius:9px}.phone.min .bar i{background:var(--ac);border-radius:9px}
+.phone.min .nudge{border:1px solid var(--bd);border-radius:10px;background:none;color:var(--tx);font-weight:500;font-size:13px}
+.phone.min .nudge[disabled]{color:var(--mu);opacity:.7}
+.phone.min .dial .wheelbody{fill:var(--s);stroke:var(--bd);stroke-width:2}.phone.min .dial .hole{fill:var(--bg);stroke:var(--bd);stroke-width:1.5}.phone.min .dial .num{fill:var(--tx);font-family:'Geist Mono',monospace;font-weight:500}.phone.min .dial .stopmark{fill:var(--ac)}.phone.min .dial .core{fill:var(--ac)}.phone.min .dial .zero{fill:var(--on);font-family:'Geist Mono',monospace}
+.phone.min .dial svg .rip{stroke:var(--ac)}
+.phone.min .dial .wheel{filter:none}
+/* ================= LIGHT HORIZON SYSTEM (M) in light and three dark moods ================= */
+.phone[data-c=m]{--bg:#FAFAFB;--s:#FFFFFF;--s2:#F1F1F5;--bd:#E3E3EA;--rule:#0B0B10;--tx:#0B0B10;--mu:#6B6B7B;--ac:#6A3DF5;--on:#FFFFFF;--arc:106,61,245;--glow:rgba(106,61,245,.38);--glass:rgba(255,255,255,.72);--shadow:0 20px 36px -26px rgba(40,30,120,.45);--scrim:rgba(12,12,24,.32);--wheel:#0B0B10;--hole:#FFFFFF;--wnum:#0B0B10;--bgfx:radial-gradient(rgba(10,10,20,.07) 1px,transparent 1.3px) 0 0/22px 22px,radial-gradient(70% 34% at 50% 0%,rgba(106,61,245,.16),transparent 72%),#FAFAFB}
+.phone[data-c=d1]{--bg:#0D0B14;--s:#151220;--s2:#1E1A2D;--bd:#2A2540;--rule:rgba(239,237,248,.3);--tx:#EFEDF8;--mu:#8F89A6;--ac:#9D6BFF;--on:#FFFFFF;--arc:157,107,255;--glow:rgba(157,107,255,.5);--glass:rgba(21,18,32,.72);--shadow:0 24px 40px -26px rgba(0,0,0,.9);--scrim:rgba(3,2,8,.68);--wheel:#1E1A2D;--hole:#0D0B14;--wnum:#EFEDF8;--bgfx:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.3px) 0 0/22px 22px,radial-gradient(70% 34% at 50% 0%,rgba(157,107,255,.26),transparent 72%),#0D0B14}
+.phone[data-c=d2]{--bg:#08090A;--s:#101212;--s2:#181B1B;--bd:#252929;--rule:rgba(244,247,246,.28);--tx:#F4F7F6;--mu:#8D9593;--ac:#00E599;--on:#03120C;--arc:0,229,153;--glow:rgba(0,229,153,.5);--glass:rgba(16,18,18,.72);--shadow:0 24px 40px -26px rgba(0,0,0,.9);--scrim:rgba(0,0,0,.7);--wheel:#181B1B;--hole:#08090A;--wnum:#F4F7F6;--bgfx:radial-gradient(70% 34% at 50% 0%,rgba(0,229,153,.20),transparent 72%),linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px) 0 0/100% 56px,linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px) 0 0/56px 100%,#08090A}
+.phone[data-c=d3]{--bg:#090B11;--s:#10131B;--s2:#171B26;--bd:#232938;--rule:rgba(238,242,250,.28);--tx:#EEF2FA;--mu:#8993A8;--ac:#4D9BFF;--on:#04101F;--arc:77,155,255;--glow:rgba(77,155,255,.5);--glass:rgba(16,19,27,.72);--shadow:0 24px 40px -26px rgba(0,0,0,.9);--scrim:rgba(2,3,8,.7);--wheel:#171B26;--hole:#090B11;--wnum:#EEF2FA;--bgfx:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1.3px) 0 0/22px 22px,radial-gradient(70% 34% at 50% 0%,rgba(77,155,255,.22),transparent 72%),#090B11}
+.phone.mx .marquee{display:flex;position:absolute;top:0;left:0;right:0;height:24px;background:var(--tx);color:var(--bg);overflow:hidden;z-index:31;align-items:center;font-family:'Geist Mono',monospace;font-weight:500;font-size:10.5px;letter-spacing:.14em;white-space:nowrap}
+.phone.mx .marquee div{display:flex;gap:26px;animation:mq 20s linear infinite;padding-left:26px}
+.phone.mx .status{top:24px;padding-top:0}
+.phone.mx .screen{padding-top:82px}
+.phone.mx .greet{border-top:4px solid var(--tx);padding-top:8px}
+.phone.mx .greet h2{font-weight:700;font-size:21px;text-transform:uppercase;letter-spacing:-.005em}
+.phone.mx .date{color:var(--ac)}
+.phone.mx .hero{text-align:center}
+.phone.mx .hero::before{content:"01  SPENT TODAY";text-align:center}
+.phone.mx .heronum{text-align:center}
+.phone.mx .big{justify-content:center;font-size:108px;margin-left:0}
+.phone.mx .big small{color:var(--ac)}
+.phone.mx .cap{max-width:none}
+.phone.mx .richbar{display:none}
+.phone.mx .chips{justify-content:center}
+.phone.mx .hero::after{content:"";display:block;height:84px;margin:10px -18px 0;border-top:1px solid rgba(var(--arc),.75);border-radius:50% 50% 0 0/100% 100% 0 0;background:radial-gradient(60% 100% at 50% 0%,rgba(var(--arc),.24),transparent 72%);box-shadow:0 -16px 40px -14px rgba(var(--arc),.55)}
+.phone.mx .sec{border-top:4px solid var(--tx);padding-top:8px;margin:20px 2px 8px}
+.phone.mx .sec h3::before{content:"02  ";color:var(--ac)}
+.phone.mx .list{background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-color:var(--bd);border-radius:18px;box-shadow:var(--shadow)}
+.phone.mx .item,.phone.mx .friend{border-bottom:1px solid var(--rule)}
+.phone.mx .item:last-child,.phone.mx .friend:last-child{border-bottom:0}
+.phone.mx .item .dot{border-radius:0;box-shadow:none}
+.phone.mx .item .grow div:first-child{text-transform:uppercase;font-weight:600;font-size:14px}
+.phone.mx .finish{background:var(--tx);color:var(--bg);border:0;border-radius:12px;box-shadow:5px 5px 0 var(--ac);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center;padding:0 20px}
+.phone.mx .finish::after{content:"\2192";font-size:22px}
+.phone.mx .finish:hover{border:0}
+.phone.mx .finish:active{transform:translate(5px,5px)!important;box-shadow:0 0 0 var(--ac)}
+.phone.mx .fab{left:18px;right:18px;bottom:86px;width:auto;height:54px;border-radius:99px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:22px;background:var(--ac);color:var(--on);box-shadow:4px 4px 0 var(--tx)}
+.phone.mx .fab::after{content:"Add purchase";font-size:15px;font-weight:700}
+.phone.mx .fab:hover{transform:translateY(-2px)}
+.phone.mx.rich .sheet{clip-path:circle(0 at 50% calc(100% - 112px))}
+.phone.mx.rich .sheet.on{clip-path:circle(170% at 50% calc(100% - 112px))}
+.phone.mx .sheet{border-top:4px solid var(--tx)}
+.phone.mx .pad{gap:0;border-top:1px solid var(--rule);border-left:1px solid var(--rule);border-radius:0}
+.phone.mx .pad button{border:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);border-radius:0;background:var(--s)}
+.phone.mx .pad button:active{background:var(--ac);color:var(--on);transform:none}
+.phone.mx .save{background:var(--ac);color:var(--on);border-radius:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;box-shadow:5px 5px 0 var(--tx);margin-top:14px}
+.phone.mx .save:active{transform:translate(5px,5px)!important;box-shadow:none}
+.phone.mx .toast{box-shadow:4px 4px 0 var(--ac);border-radius:0;text-transform:uppercase}
+.phone.mx .stamp div{background:var(--ac);color:var(--on);border:3px solid var(--tx);border-radius:0;box-shadow:9px 9px 0 var(--tx);font-weight:800;font-size:46px;text-transform:uppercase;letter-spacing:-.02em;line-height:.95}
+.phone.mx .stamp span{color:var(--on)}
+.phone.mx .av{border-radius:0;background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.phone.mx .nudge{border:2px solid var(--tx);border-radius:0;font-weight:700;text-transform:uppercase;font-size:12px}
+.phone.mx .dial .wheelbody{fill:var(--wheel);stroke:var(--bd);stroke-width:1.5}.phone.mx .dial .hole{fill:var(--hole);stroke:none}.phone.mx .dial .num{fill:var(--wnum)}.phone.mx .dial .core{fill:var(--ac)}.phone.mx .dial .stopmark{fill:var(--ac)}.phone.mx .dial .zero{fill:var(--on)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="page">
+  <div class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true"></span>Penny Circle</div>
+    <div class="meta">Design direction 02</div>
+  </div>
+  <main class="stage">
+    <header class="intro">
+      <div class="eyebrow">Light Horizon &middot; light and dark</div>
+      <h1>One system, after dark</h1>
+      <p class="lead">Light Horizon is the base. Below it in light and in three dark moods: same layout, same motion, same working rotary dial. Pick the dark that feels right and the whole page follows.</p>
+      <div class="switch" role="tablist" aria-label="Variant">
+        <button role="tab" aria-selected="true" data-c="d1"><span class="sws" aria-hidden="true"><i style="background:#0D0B14"></i><i style="background:#1E1A2D"></i><i style="background:#9D6BFF"></i></span><b>Violet Night</b><small>Deep indigo-black with a violet glow.</small></button>
+        <button role="tab" aria-selected="false" data-c="d2"><span class="sws" aria-hidden="true"><i style="background:#08090A"></i><i style="background:#181B1B"></i><i style="background:#00E599"></i></span><b>Mint Night</b><small>Near-black with a mint horizon, the closest to a launch-page hero.</small></button>
+        <button role="tab" aria-selected="false" data-c="d3"><span class="sws" aria-hidden="true"><i style="background:#090B11"></i><i style="background:#171B26"></i><i style="background:#4D9BFF"></i></span><b>Signal Blue</b><small>Cool graphite with an electric blue accent.</small></button>
+        <button role="tab" aria-selected="false" data-c="m"><span class="sws" aria-hidden="true"><i style="background:#FAFAFB"></i><i style="background:#FFFFFF"></i><i style="background:#6A3DF5"></i></span><b>Light Horizon</b><small>The one you liked. White, hairlines, violet.</small></button>
+      </div>
+      <p class="hint" id="hintLine"></p>
+    </header>
+
+    <section class="phone-wrap" aria-label="Interactive prototype">
+    <div class="phone" id="phone" data-c="d1">
+      <div class="marquee only-b" aria-hidden="true"><div id="mq"></div></div>
+      <div class="status"><span class="num">9:41</span><span>5G &nbsp;&#9646;&#9646;&#9646;</span></div>
+
+      <!-- TODAY -->
+      <section class="screen" id="s-today" aria-label="Today">
+        <div class="greet">
+          <div><div class="date">Tuesday &middot; 10 November</div><h2>Your shared diary</h2></div>
+          <div class="chip" style="display:none"></div>
+        </div>
+        <div class="hero">
+          <svg class="ring only-a" viewBox="0 0 246 246" aria-hidden="true">
+            <defs>
+              <linearGradient id="gA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6A63FF"/><stop offset="1" stop-color="#FF9E6B"/></linearGradient>
+              <linearGradient id="gW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8E94FF"/><stop offset="1" stop-color="#4B45F0"/></linearGradient>
+            <linearGradient id="gG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB08A"/><stop offset="1" stop-color="#FF4F7E"/></linearGradient><linearGradient id="gGel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFC09A"/><stop offset="1" stop-color="#FF5E7E"/></linearGradient></defs>
+            <circle class="trk" cx="123" cy="123" r="104" fill="none" stroke-width="20"/>
+            <circle class="val" id="ringVal" cx="123" cy="123" r="104" fill="none" stroke-width="20" stroke-linecap="round" transform="rotate(-90 123 123)" stroke-dasharray="653.5" stroke-dashoffset="653.5"/>
+          </svg>
+          <div class="orb" aria-hidden="true"></div><div class="heronum only-a"><div class="big num"><small>&#8377;</small><span class="spentA">250</span></div><div class="cap" id="capA">&#8377;250 left of &#8377;500</div></div>
+          <div class="richbar"><i id="rbar"></i></div><div class="only-b"><div class="big num"><small>&#8377;</small><span class="spentB">250</span></div>
+            <div class="cap" id="capB">&#8377;250 left today</div>
+            <div class="bigbar"><i id="barB" style="width:50%"></i></div>
+          </div>
+          <div class="chips"><span class="chip">This week &#8377;1,240 / &#8377;3,500</span><span class="chip">&#9673; 6-day streak</span></div>
+        </div>
+
+        <div class="sec"><h3>Today</h3><span class="small" style="opacity:.65" id="count">3 purchases</span></div>
+        <div class="list" id="list"></div>
+        <button class="finish" id="finishBtn">Finish today</button>
+      </section>
+
+      <!-- CIRCLE -->
+      <section class="screen" id="s-circle" aria-label="Circle" hidden>
+        <div class="greet"><div><div class="date">The Chai Gang &middot; 4 friends</div><h2>Spend side by side</h2></div></div>
+        <div class="list" id="friends"></div>
+        <p class="small" style="opacity:.7;margin:16px 4px 0;line-height:1.5">Totals and status only. Nobody sees what you bought unless you choose Full details.</p>
+      </section>
+
+      <nav class="tabs" aria-label="Main">
+        <button data-go="today" aria-current="true"><span aria-hidden="true">&#9673;</span>Today</button>
+        <button data-go="circle"><span aria-hidden="true">&#9679;&#9679;</span>Circle</button>
+      </nav>
+      <button class="fab" id="fab" aria-label="Add purchase"><span class="only-a" style="display:none">+</span><span class="only-b" style="display:none">+<br>ADD</span></button>
+
+      <div class="scrim" id="scrim"></div>
+      <div class="sheet" id="sheet" role="dialog" aria-label="Add purchase" aria-modal="true">
+        <div class="grab"></div>
+        <div class="amount num" id="amount" aria-live="polite">&#8377;0</div>
+        <div class="modes" role="group" aria-label="Input method">
+          <button id="mKey" aria-pressed="true">Keypad</button><button id="mDial" aria-pressed="false">Dial</button>
+        </div>
+        <div class="pad" id="pad"></div>
+        <div class="dial" id="dial">
+          <svg viewBox="0 0 220 220" id="dsvg" aria-label="Rotary dial. Hold a number hole and turn clockwise to the stop.">
+            <circle class="stopmark" id="stop" r="8"/>
+            <g class="wheel" id="wheel">
+              <circle class="wheelbody" cx="110" cy="110" r="100"/>
+              <g id="holes"></g>
+              <circle class="core" cx="110" cy="110" r="26"/>
+              <text class="num zero" x="110" y="119" text-anchor="middle" font-size="26" font-weight="800">0</text>
+            </g>
+          </svg>
+          <div class="dialtools"><button id="dUndo">Undo</button><button id="dClear">Clear</button></div>
+        </div>
+        <div class="cats" id="cats" role="group" aria-label="Category"></div>
+        <button class="save" id="save">Save purchase</button>
+      </div>
+
+      <canvas id="fx" aria-hidden="true"></canvas><div class="toast" id="toast" role="status"></div>
+      <div class="stamp" id="stamp" aria-hidden="true"><div>Day<br>done<span>No shame. Just facts.</span></div></div>
+    </div>
+  </section>
+
+  
+
+    <div class="details">
+      <section class="block"><span class="label">About this variant</span><aside class="notes" id="notes"></aside></section>
+      <section class="block"><span class="label">Colour</span><div class="swatches" id="swatches"></div>
+        <div class="type"><div class="tn num" aria-hidden="true">&#8377;250</div><p><b>Geist</b> at weight 600 for the total, headings and buttons. <b>Geist Mono</b> for labels, dates and amounts. One accent, used for what is live, pressable or finished.</p></div>
+      </section>
+      <section class="block"><span class="label">Motion</span>
+        <ul class="motion">
+          <li><b>Rolling total</b><span>Digits turn like an odometer when you add a purchase.</span></li>
+          <li><b>Bloom sheet</b><span>The add sheet opens out of the button you pressed.</span></li>
+          <li><b>Rows rise in</b><span>Purchases and friends arrive one by one.</span></li>
+          <li><b>Tab line</b><span>A glowing line slides between Today and Circle.</span></li>
+          <li><b>Dial ripple</b><span>A ripple leaves the stop each time a digit lands.</span></li>
+          <li><b>Coin burst</b><span>Small particles on save, confetti when the day is finished.</span></li>
+        </ul>
+      </section>
+      <section class="block"><span class="label">If you choose one</span>
+        <ol class="next">
+          <li><span><b>Theme and type.</b> Colours, Geist fonts and spacing as Compose tokens, with light and dark from one definition.</span></li>
+          <li><span><b>Hero and list.</b> The centred total with its horizon, then the ruled purchase list and the tab bar.</span></li>
+          <li><span><b>Add sheet and dial.</b> The bloom-out sheet, ruled keypad and the existing rotary dial restyled.</span></li>
+          <li><span><b>Finish and effects.</b> The stamp, coin burst and confetti, each checked on the emulator.</span></li>
+        </ol>
+      </section>
+    </div>
+  </main>
+  <div class="foot meta">Penny Circle &middot; example data only</div>
+</div>
+
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s)}, $$=function(s){return Array.prototype.slice.call(document.querySelectorAll(s))};
+  var phone=$('#phone');
+  var CATS={Food:'#F59E0B',Transport:'#0EA5E9',Shopping:'#A855F7',Bills:'#10B981',Impulse:'#E5484D'};
+  var state={limit:500,items:[{n:'Chai and samosa',c:'Food',a:40},{n:'Auto to college',c:'Transport',a:120},{n:'Late-night snacks order',c:'Impulse',a:90}],amt:'',cat:'Food',mode:'key',shown:0};
+
+  /* ---------- concept switch + notes ---------- */
+  var NOTES={
+    a:'<h2>A &middot; Soft Glass</h2><ul><li><b>Materials.</b> Frosted, light-bending glass cards over a slow-drifting colour field, with a floating pill tab bar. Draws on the translucent material language Apple introduced with iOS 26.</li><li><b>Shape and motion.</b> Big soft corners, a ring that fills as you spend, a + that springs and morphs. Follows the oversized-shape, springy-motion direction of Material 3 Expressive.</li><li><b>Type.</b> Bricolage Grotesque numerals, tight and heavy, so the number you care about is the loudest thing on screen.</li><li><b>Dial.</b> A glass wheel in the same indigo as the ring. Hold a hole, turn it clockwise to the stop, release.</li></ul>',
+    b:'<h2>B &middot; Loud Ledger</h2><ul><li><b>Attitude.</b> Sunflower yellow, black outlines, hard offset shadows. A neo-brutalist take of the kind that wins on Awwwards, made for a diary your friends will actually screenshot.</li><li><b>One giant number.</b> Today’s spend fills the screen in condensed 176 px type, with a striped progress slab under it.</li><li><b>Tape and stickers.</b> A ticker runs across the top, the add button is a spinning sticker, the finished day gets a stamp.</li><li><b>Tone.</b> Impulse is red and spelled out in words. Over-limit days stay calm: facts, then tomorrow.</li></ul>'
+  };
+  var HINTS={a:'Try: tap the + button, switch to Dial, hold a numbered hole and turn it clockwise to the stop.',b:'Try: slap the ADD sticker, switch to DIAL, hold a hole and crank it clockwise to the stop. Then FINISH TODAY.'};
+  function setConcept(c){
+    phone.setAttribute('data-c',c);phone.classList.add('rich','min','mx');fitFx();
+    $$('.switch button').forEach(function(b){b.setAttribute('aria-selected',b.dataset.c===c?'true':'false')});
+    $('#notes').innerHTML=NOTES[c];paintSite(c); $('#hintLine').textContent=HINTS[c];
+    var fabA=$('.fab .only-a'), fabB=$('.fab .only-b'); fabA.style.display=c!=='b'?'block':'none'; fabB.style.display=c==='b'?'block':'none';
+    render(true);
+  }
+  $$('.switch button').forEach(function(b){b.addEventListener('click',function(){setConcept(b.dataset.c)})});
+
+  /* marquee */
+  var mqText=['NO SHAME','JUST FACTS','LOG IT','FINISH THE DAY','TOGETHER, SMALL','10 AM GRACE'];
+  var mqHtml=''; for(var r=0;r<4;r++){mqText.forEach(function(t){mqHtml+='<span>'+t+' ✦</span>'})}
+  $('#mq').innerHTML=mqHtml;
+
+  /* ---------- today ---------- */
+  function total(){return state.items.reduce(function(s,i){return s+i.a},0)}
+  function money(n){return '₹'+n.toLocaleString('en-IN')}
+  function tween(to){
+    var from=state.shown, t0=null, dur=700; if(phone.classList.contains('rich')){setSpentRich(to);state.shown=to;return}
+    function step(t){ if(!t0)t0=t; var p=Math.min(1,(t-t0)/dur), e=1-Math.pow(1-p,3), v=Math.round(from+(to-from)*e);
+      $$('.spentA,.spentB').forEach(function(n){n.textContent=v.toLocaleString('en-IN')});
+      if(p<1)requestAnimationFrame(step); else state.shown=to; }
+    requestAnimationFrame(step);
+  }
+  function render(instant){
+    var t=total(), left=state.limit-t, pct=Math.min(1,t/state.limit);
+    if(instant){state.shown=t;if(phone.classList.contains('rich')){setSpentRich(t)}else{$$('.spentA,.spentB').forEach(function(n){n.textContent=t.toLocaleString('en-IN')})}} else tween(t);
+    var capText=left>=0?money(left)+' left of '+money(state.limit):money(-left)+' over today. Tomorrow starts fresh.';
+    $('#capA').textContent=capText; $('#capB').textContent=left>=0?money(left)+' left today':money(-left)+' over. Fresh start tomorrow.';
+    phone.style.setProperty('--p',pct.toFixed(3));phone.style.setProperty('--hue',Math.round(165-pct*140));var rb=$('#rbar');if(rb)rb.style.width=(pct*100)+'%';$('#ringVal').style.strokeDashoffset=(653.5*(1-pct)).toFixed(1);
+    $('#barB').style.width=(pct*100)+'%';
+    $('#count').textContent=state.items.length+(state.items.length===1?' purchase':' purchases');
+    var html='';
+    var ix=0;state.items.slice().reverse().forEach(function(i){
+      var imp=i.c==='Impulse';
+      html+='<div class="item" style="--i:'+(ix++)+'"><span class="dot" data-k="'+i.c+'" style="background:'+CATS[i.c]+'"></span><div class="grow"><div style="font-weight:700">'+i.n+'</div><div class="small" style="opacity:.65">'+i.c+'</div></div>'+(imp?'<span class="tag imp">Impulse</span>':'')+'<div class="amt">'+money(i.a)+'</div></div>';
+    });
+    $('#list').innerHTML=html;
+  }
+
+  /* ---------- circle ---------- */
+  var FR=[{n:'Aarav',s:'Under limit',p:.42,ok:1},{n:'Meera',s:'Not finished yet today',p:.7,ok:0},{n:'Kabir',s:'₹60 over. Fresh start tomorrow',p:1,ok:0},{n:'You',s:'₹250 left',p:.5,ok:1,me:1}];
+  function renderFriends(){
+    var h=''; FR.forEach(function(f,i){
+      h+='<div class="friend" style="--i:'+i+'"><div class="av">'+f.n.charAt(0)+'</div><div class="grow"><div style="font-weight:700">'+f.n+'</div><div class="small" style="opacity:.7">'+f.s+'</div><div class="bar"><i style="width:'+(f.p*100)+'%"></i></div></div>'+(f.me||f.ok&&!f.nud?'':'<button class="nudge" data-i="'+i+'"'+(f.nud?' disabled':'')+'>'+(f.nud?'Nudged':'Nudge')+'</button>')+'</div>';
+    }); $('#friends').innerHTML=h;
+    $$('.nudge').forEach(function(b){b.addEventListener('click',function(){FR[b.dataset.i].nud=1;renderFriends();toast('Nudge sent to '+FR[b.dataset.i].n)})});
+  }
+
+  /* ---------- nav ---------- */
+  $$('.tabs button').forEach(function(b){b.addEventListener('click',function(){
+    var g=b.dataset.go; $$('.tabs button').forEach(function(x){x.setAttribute('aria-current',x===b?'true':'false')});
+    $('#s-today').hidden=g!=='today'; $('#s-circle').hidden=g!=='circle'; $('#fab').style.display=g==='today'?'':'none'; var sc=g==='today'?$('#s-today'):$('#s-circle');sc.classList.remove('enter');void sc.offsetWidth;sc.classList.add('enter');$('.tabs').style.setProperty('--ti',g==='circle'?1:0);
+  })});
+
+  /* ---------- toast + stamp ---------- */
+  var tt; function toast(m){var t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},1800)}
+  $('#finishBtn').addEventListener('click',function(){var s=$('#stamp');s.classList.remove('on');void s.offsetWidth;s.classList.add('on');confetti()});
+
+  /* ---------- add sheet ---------- */
+  function openSheet(){state.amt='';drawAmt();$('#sheet').classList.add('on');$('#scrim').classList.add('on')}
+  function closeSheet(){$('#sheet').classList.remove('on');$('#scrim').classList.remove('on')}
+  $('#fab').addEventListener('click',openSheet); $('#scrim').addEventListener('click',closeSheet);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeSheet()});
+  function drawAmt(){$('#amount').textContent='₹'+(state.amt||'0')}
+  function press(k){
+    var a=state.amt;
+    if(k==='del'){a=a.slice(0,-1)}
+    else if(k==='.'){ if(a.indexOf('.')<0)a=(a||'0')+'.' }
+    else { if(a.indexOf('.')>=0&&a.split('.')[1].length>=2)return; if(a.replace('.','').length>=7)return; a=(a==='0')?k:a+k }
+    state.amt=a; drawAmt();
+  }
+  var pad=''; ['1','2','3','4','5','6','7','8','9','.','0','del'].forEach(function(k){pad+='<button data-k="'+k+'" aria-label="'+(k==='del'?'Delete last':k==='.'?'Decimal point':'Digit '+k)+'">'+(k==='del'?'⌫':k)+'</button>'});
+  $('#pad').innerHTML=pad; $$('#pad button').forEach(function(b){b.addEventListener('click',function(){press(b.dataset.k)})});
+  var cats=''; Object.keys(CATS).forEach(function(k,i){cats+='<button data-k="'+k+'" aria-pressed="'+(i===0)+'"><span class="dot" style="background:'+CATS[k]+'"></span>'+k+'</button>'});
+  $('#cats').innerHTML=cats; $$('#cats button').forEach(function(b){b.addEventListener('click',function(){state.cat=b.dataset.k;$$('#cats button').forEach(function(x){x.setAttribute('aria-pressed',x===b)})})});
+  function setMode(m){state.mode=m;$('#mKey').setAttribute('aria-pressed',m==='key');$('#mDial').setAttribute('aria-pressed',m==='dial');$('#pad').style.display=m==='key'?'grid':'none';$('#dial').style.display=m==='dial'?'block':'none'}
+  $('#mKey').addEventListener('click',function(){setMode('key')}); $('#mDial').addEventListener('click',function(){setMode('dial')});
+  $('#dUndo').addEventListener('click',function(){press('del')}); $('#dClear').addEventListener('click',function(){state.amt='';drawAmt()});
+  $('#save').addEventListener('click',function(){
+    var v=parseFloat(state.amt||'0'); if(!(v>0)){toast('Enter an amount above ₹0');return}
+    var names={Food:'Snacks and meals',Transport:'Ride',Shopping:'Shopping',Bills:'Bill',Impulse:'Impulse buy'};
+    state.items.push({n:names[state.cat],c:state.cat,a:Math.round(v)}); closeSheet(); render(false); coinBurst(); toast('Saved '+money(Math.round(v))+'. Undo?');
+  });
+
+  /* ---------- rotary dial ---------- */
+  var CX=110,CY=110,ORBIT=72,HOLE_R=15,STOP=48, deg=Math.PI/180;
+  function holeAngle(d){return (18-30*(d-1))}
+  var holesSvg=''; for(var d=1;d<=9;d++){var a=holeAngle(d)*deg,x=CX+ORBIT*Math.cos(a),y=CY+ORBIT*Math.sin(a);
+    holesSvg+='<circle class="hole" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+HOLE_R+'"/><text class="num" x="'+x.toFixed(1)+'" y="'+(y+6).toFixed(1)+'" text-anchor="middle" font-size="18" font-weight="800">'+d+'</text>'}
+  $('#holes').innerHTML=holesSvg;
+  $('#stop').setAttribute('cx',(CX+104*Math.cos(STOP*deg)).toFixed(1)); $('#stop').setAttribute('cy',(CY+104*Math.sin(STOP*deg)).toFixed(1));
+  var svg=$('#dsvg'), wheel=$('#wheel'), dialBox=$('#dial'), g=null;
+  function toSvg(e){var r=svg.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*220,y:(e.clientY-r.top)/r.height*220}}
+  function ang(p){return Math.atan2(p.y-CY,p.x-CX)/deg}
+  svg.addEventListener('pointerdown',function(e){
+    var p=toSvg(e), hit=null, dc=Math.hypot(p.x-CX,p.y-CY);
+    for(var d=1;d<=9;d++){var a=holeAngle(d)*deg,hx=CX+ORBIT*Math.cos(a),hy=CY+ORBIT*Math.sin(a); if(Math.hypot(p.x-hx,p.y-hy)<=HOLE_R*1.5){hit=d;break}}
+    g={digit:hit,center:hit===null&&dc<=30,last:ang(p),rot:0,start:p,moved:0,target:hit?30*hit:0};
+    if(hit||g.center){svg.setPointerCapture(e.pointerId);dialBox.classList.add('drag');e.preventDefault()} else g=null;
+  });
+  svg.addEventListener('pointermove',function(e){
+    if(!g||!g.digit)return; var p=toSvg(e), a=ang(p), dlt=a-g.last; while(dlt>180)dlt-=360; while(dlt<-180)dlt+=360;
+    g.last=a; g.rot=Math.max(0,Math.min(g.target,g.rot+dlt)); wheel.style.transform='rotate('+g.rot+'deg)';
+  });
+  function endDrag(e){
+    if(!g)return; var p=toSvg(e); dialBox.classList.remove('drag');
+    if(g.digit&&g.rot>=g.target-4){press(String(g.digit));ripple()}
+    else if(g.center&&Math.hypot(p.x-g.start.x,p.y-g.start.y)<8){press('0')}
+    wheel.style.transform='rotate(0deg)'; g=null;
+  }
+  svg.addEventListener('pointerup',endDrag); svg.addEventListener('pointercancel',function(){if(g){dialBox.classList.remove('drag');wheel.style.transform='rotate(0deg)';g=null}});
+
+    /* ---------- rich engine: new concepts, odometer, particles, ripple, tilt ---------- */
+  Object.assign(NOTES,{
+    a2:'<h2>A2 &middot; Aurora Orb</h2><ul><li><b>Alive.</b> The ring becomes a liquid orb that breathes, morphs and turns slowly. Its size and colour follow how much of the day you have spent: calm teal at the start, warm coral near the limit.</li><li><b>Motion.</b> Digits roll like an odometer, the add button expands into the sheet from where you tapped, the list rises in one card at a time, and a coin burst plays when you save.</li><li><b>Hold the phone.</b> Move the pointer over it and the hero tilts and the colour field follows you.</li></ul>',
+    a3:'<h2>A3 &middot; Midnight Glass</h2><ul><li><b>Luminous.</b> Dark glass over a slow aurora, with a ring that glows in the colour of your spending and a bold, bright total.</li><li><b>Dial.</b> A neon-rimmed wheel that sends a ripple out each time a digit lands.</li><li><b>Finish.</b> Finishing the day fires confetti and a glowing badge.</li></ul>',
+    a4:'<h2>A4 &middot; Liquid Gel</h2><ul><li><b>Squishy.</b> Warm sunset colours, glossy gel buttons and a tab pill that overshoots and settles like jelly.</li><li><b>Type.</b> Syne, wide and a little odd, for the numbers and headings.</li><li><b>Spring.</b> Everything you press squashes and rebounds.</li></ul>',
+    a5:'<h2>A5 &middot; Depth Deck</h2><ul><li><b>Depth.</b> The hero card tilts toward your pointer in 3D. Purchases sit stacked like wallet cards; hover or tap the stack and it fans out.</li><li><b>Colour.</b> Deep ocean blues with a progress bar that shifts hue as you spend.</li></ul>'
+  });
+  Object.assign(HINTS,{a2:'Try: add a purchase and watch the orb change size and colour, the digits roll, and the coins burst.',a3:'Try: use the dial and watch a ripple leave the stop each time a digit lands, then Finish today for confetti.',a4:'Try: switch tabs and watch the pill overshoot like jelly.',a5:'Try: move your pointer over the hero card, then hover the stack of purchases.'});
+  NOTES.x='<h2>A &times; E &times; B &middot; Glass Ledger</h2><ul><li><b>From A.</b> Frosted glass panels over a slow aurora, the floating pill tab bar, the sheet that blooms out of the add button, rolling digits and the coin burst.</li><li><b>From E.</b> The Swiss structure: a 4 px rule above each section, numbered labels, a left-aligned 132 px total, ruled rows, square markers and one red.</li><li><b>From B.</b> Attitude in small doses: the red ticker across the top, hard offset shadows on the main buttons and the hero, the spinning ADD sticker, and a stamped DAY CLOSED badge.</li><li><b>Rule of thumb.</b> Glass is the material, the grid is the structure, and B only shows up where something is pressable or finished.</li></ul>';HINTS.x='Try: press the red ADD sticker, enter an amount on the ruled keypad or the dial, save, then press FINISH TODAY.';COPYX=1;
+  NOTES.r='<h2>R &middot; Violet Grid</h2><ul><li><b>Reference.</b> The quiet, dark, dotted-canvas feel of a modern infrastructure dashboard. Nothing decorative: hairline borders, one violet accent, small mono labels.</li><li><b>Structure.</b> Purchases are rows in a single bordered list, like services in a project. The total is the only large thing on screen.</li><li><b>Motion.</b> Digits roll, rows rise in, the tab indicator slides, and the add sheet opens out of the button. Nothing bounces.</li></ul>';NOTES.n='<h2>N &middot; Mint Horizon</h2><ul><li><b>Reference.</b> The hero of a modern database product site: a centred headline-sized number, a glowing mint horizon under it, a faint grid, and a pill call to action.</li><li><b>Hero.</b> The glow arc and number are the whole first impression. Add purchase is a full-width mint pill, the way a landing page puts its main button.</li><li><b>Restraint.</b> Black, white, one green. The green only marks what is live, pressable or finished.</li></ul>';NOTES.l='<h2>L &middot; Clean Light</h2><ul><li><b>Idea.</b> The same system in daylight: white surfaces, hairline borders, a dotted canvas and one violet accent.</li><li><b>Why.</b> Many people log purchases outdoors. This is the version for bright sun and for anyone who prefers light mode.</li></ul>';HINTS.r='Try: add a purchase and watch the total roll and the bar fill.';HINTS.n='Try: tap the mint Add purchase pill, then Finish today.';HINTS.l='Try: add a purchase, then switch to the Circle tab.';
+  NOTES.m='<h2>M &middot; Light Horizon</h2><ul><li><b>Base: L.</b> White surfaces, hairline borders, the dotted canvas and one violet accent.</li><li><b>From N.</b> The centred, headline-sized total with a glowing horizon arc under it (violet here), and Add purchase as a full-width pill docked above the tabs.</li><li><b>From the Glass Ledger.</b> E\u2019s 4 px rules and numbered section labels, ruled rows and ruled keypad; B\u2019s hard offset shadows on Finish, Save and the toast, plus a slim black ticker; A\u2019s frosted panels, sliding tab line, bloom-out sheet, rolling digits and coin burst.</li><li><b>Balance.</b> Most of the screen is quiet. The loud details only appear on buttons and on the finished-day stamp.</li></ul>';HINTS.m='Try: tap the violet Add purchase pill, use the ruled keypad or the dial, save, then press Finish today.';
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function isRich(){return phone.classList.contains('rich')}
+  function setSpentRich(v){
+    var s=v.toLocaleString('en-IN'), el=$('.spentA'), key=s.replace(/\d/g,'0');
+    if(el.dataset.shape!==key||!el.querySelector('.od')){
+      var h=''; s.split('').forEach(function(ch){ if(ch===','){h+='<span class="odc c"><i>,</i></span>'}else{h+='<span class="od"><span class="odc">'+'0123456789'.split('').map(function(n){return '<i>'+n+'</i>'}).join('')+'</span></span>'} });
+      el.innerHTML=h; el.dataset.shape=key; void el.offsetWidth;
+    }
+    var cols=el.querySelectorAll('.od .odc'), digits=s.replace(/,/g,'').split('');
+    for(var i=0;i<cols.length;i++){cols[i].style.transform='translateY('+(-digits[i])+'em)'}
+    el.setAttribute('aria-label',s);
+  }
+  /* particles */
+  var fx=$('#fx'), ctx=fx.getContext('2d'), P=[], raf=0;
+  function fitFx(){var r=phone.getBoundingClientRect(),d=window.devicePixelRatio||1;fx.width=Math.max(1,r.width*d);fx.height=Math.max(1,r.height*d);ctx.setTransform(d,0,0,d,0,0)}
+  window.addEventListener('resize',fitFx);
+  function palette(){var v=VARIANTS[phone.getAttribute('data-c')];if(v)return [v.ac,v.ac,v.tx,v.mu];var h=parseInt(phone.style.getPropertyValue('--hue'))||150;return ['hsl('+h+',90%,62%)','hsl('+(h+70)+',90%,66%)','hsl('+(h+150)+',90%,68%)','#FFD66B','#fff']}
+  function spawn(x,y,n,spd,grav,kind,spread){
+    var cols=palette();
+    for(var i=0;i<n;i++){var a=(spread?(-Math.PI/2+(Math.random()-.5)*spread):Math.random()*Math.PI*2),s=spd*(.45+Math.random()*.8);
+      P.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:3+Math.random()*4,c:cols[i%cols.length],l:1,g:grav,k:kind,rot:Math.random()*6,vr:(Math.random()-.5)*.35})}
+    if(!raf)raf=requestAnimationFrame(loop);
+  }
+  function loop(){
+    var r=fx.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height);
+    P=P.filter(function(p){p.l-=.012;return p.l>0&&p.y<r.height+30});
+    P.forEach(function(p){p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.rot+=p.vr;
+      ctx.globalAlpha=Math.max(0,Math.min(1,p.l*1.5));ctx.fillStyle=p.c;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+      if(p.k==='conf'){ctx.fillRect(-p.r,-p.r*.5,p.r*2,p.r)}else{ctx.shadowColor=p.c;ctx.shadowBlur=10;ctx.beginPath();ctx.arc(0,0,p.r,0,6.283);ctx.fill()}
+      ctx.restore()});
+    raf=P.length?requestAnimationFrame(loop):0; if(!raf)ctx.clearRect(0,0,r.width,r.height);
+  }
+  function coinBurst(){if(!isRich()||reduce)return;var r=phone.getBoundingClientRect();spawn(r.width/2,r.height-300,46,7,.28,'dot',0)}
+  function confetti(){if(!isRich()||reduce)return;var r=phone.getBoundingClientRect();spawn(r.width*.2,r.height*.35,60,9,.3,'conf',1.4);spawn(r.width*.8,r.height*.35,60,9,.3,'conf',1.4)}
+  function ripple(){
+    if(!isRich()||reduce)return; var c=document.createElementNS('http://www.w3.org/2000/svg','circle'); c.setAttribute('class','rip');
+    c.setAttribute('cx',$('#stop').getAttribute('cx')); c.setAttribute('cy',$('#stop').getAttribute('cy')); svg.appendChild(c); setTimeout(function(){if(c.parentNode)c.parentNode.removeChild(c)},950);
+  }
+  /* pointer: colour field + hero tilt */
+  phone.addEventListener('pointermove',function(e){
+    if(!isRich())return; var r=phone.getBoundingClientRect(), nx=(e.clientX-r.left)/r.width, ny=(e.clientY-r.top)/r.height;
+    phone.style.setProperty('--mx',(nx*100).toFixed(1)+'%'); phone.style.setProperty('--my',(ny*100).toFixed(1)+'%');
+    phone.style.setProperty('--rx',((ny-.4)*-9).toFixed(2)+'deg'); phone.style.setProperty('--ry',((nx-.5)*12).toFixed(2)+'deg');
+  });
+  phone.addEventListener('pointerleave',function(){phone.style.setProperty('--rx','0deg');phone.style.setProperty('--ry','0deg')});
+
+    /* ---------- variants + page theming ---------- */
+  var VARIANTS={
+    m:{n:'Light Horizon',dark:0,bg:'#FAFAFB',s:'#FFFFFF',bd:'#E3E3EA',tx:'#0B0B10',mu:'#6B6B7B',ac:'#6A3DF5'},
+    d1:{n:'Violet Night',dark:1,bg:'#0D0B14',s:'#151220',bd:'#2A2540',tx:'#EFEDF8',mu:'#8F89A6',ac:'#9D6BFF'},
+    d2:{n:'Mint Night',dark:1,bg:'#08090A',s:'#101212',bd:'#252929',tx:'#F4F7F6',mu:'#8D9593',ac:'#00E599'},
+    d3:{n:'Signal Blue',dark:1,bg:'#090B11',s:'#10131B',bd:'#232938',tx:'#EEF2FA',mu:'#8993A8',ac:'#4D9BFF'}
+  };
+  NOTES.m='<h2>Light Horizon</h2><ul><li><b>The base.</b> White surfaces, hairline borders, a dotted canvas and a single violet accent. The centred total sits on a glowing horizon.</li><li><b>Structure.</b> Swiss-style 4 px rules and numbered labels, ruled rows and a ruled keypad, with hard offset shadows only on the buttons you press.</li><li><b>When to use it.</b> Daylight, and anyone who prefers light mode.</li></ul>';
+  NOTES.d1='<h2>Violet Night</h2><ul><li><b>Mood.</b> Deep indigo-black, a violet glow behind the total and a faint dotted canvas. The closest dark twin of Light Horizon.</li><li><b>Buttons.</b> Finish is a pale slab with a violet shadow; Add purchase and Save are violet.</li><li><b>Text on violet</b> is white, which keeps it readable at small sizes.</li></ul>';
+  NOTES.d2='<h2>Mint Night</h2><ul><li><b>Mood.</b> Near-black with a mint horizon and a hairline grid. The strongest hero of the four, in the spirit of a launch page.</li><li><b>Accent.</b> Mint is bright, so text on it is near-black, never white.</li><li><b>Trade-off.</b> It is the most striking, and the one to avoid if you want something quieter.</li></ul>';
+  NOTES.d3='<h2>Signal Blue</h2><ul><li><b>Mood.</b> Cool graphite and an electric blue accent. Neutral and professional, the least expressive of the three.</li><li><b>Why choose it.</b> Blue reads as calm and trustworthy for money, and it separates cleanly from the red used for impulse purchases.</li></ul>';
+  HINTS.m='Try: tap the violet Add purchase pill, use the keypad or the dial, then save.';
+  HINTS.d1=HINTS.d2=HINTS.d3='Try: tap Add purchase, switch to Dial, hold a hole, turn it clockwise to the stop, then press Finish today.';
+  function paintSite(c){
+    var v=VARIANTS[c], r=document.documentElement.style;
+    r.setProperty('--bg',v.bg); r.setProperty('--fg',v.tx); r.setProperty('--muted',v.mu); r.setProperty('--line',v.bd); r.setProperty('--chip',v.s); r.setProperty('--focus',v.ac); r.setProperty('--acc',v.ac);
+    r.colorScheme=v.dark?'dark':'light';
+    var sw=[['Background',v.bg],['Surface',v.s],['Border',v.bd],['Text',v.tx],['Muted',v.mu],['Accent',v.ac]], h='';
+    sw.forEach(function(x){h+='<div class="sw"><i style="background:'+x[1]+'"></i><b>'+x[0]+'</b><code>'+x[1]+'</code></div>'});
+    $('#swatches').innerHTML=h;
+  }
+
+  renderFriends(); setMode('key'); setConcept('d1');
+})();
+</script>

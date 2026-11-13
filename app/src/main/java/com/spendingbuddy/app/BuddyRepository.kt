@@ -32,6 +32,9 @@ import javax.crypto.spec.GCMParameterSpec
  *
  * All instances in one process share a single state and serialization lock.
  */
+/** Valid values for [BuddyState.theme]. Keep in sync with the app theme list in ui/Theme.kt. */
+internal val THEME_IDS = listOf("light_horizon", "violet_night", "mint_night", "signal_blue")
+
 class BuddyRepository private constructor(context: Context) {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -109,6 +112,7 @@ class BuddyRepository private constructor(context: Context) {
     }
     /** "keypad" or "dial". */
     fun setAmountInput(mode: String) { require(mode == "keypad" || mode == "dial"); mutate { it.copy(amountInput = mode) } }
+    fun setTheme(id: String) { require(id in THEME_IDS); mutate { it.copy(theme = id) } }
     fun setFriendAlerts(enabled: Boolean) = mutate { it.copy(friendAlerts = enabled) }
 
     // ---- Circle ----

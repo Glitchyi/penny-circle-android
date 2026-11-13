@@ -2,25 +2,46 @@ package com.spendingbuddy.app.ui
 
 import com.spendingbuddy.app.rupees
 import com.spendingbuddy.app.IMPULSE
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.Today
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.spendingbuddy.app.ThemeStore
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -67,9 +88,9 @@ private const val ONBOARDING = "onboarding"
 private class TopLevel(val route: String, val label: String, val icon: ImageVector)
 
 private val topLevel = listOf(
-    TopLevel(TODAY, "Today", Icons.Rounded.Today),
-    TopLevel(ACTIVITY, "Activity", Icons.Rounded.BarChart),
-    TopLevel(CIRCLE, "Circle", Icons.Rounded.Groups)
+    TopLevel(TODAY, "Today", PennyIcons.Today),
+    TopLevel(ACTIVITY, "Activity", PennyIcons.Activity),
+    TopLevel(CIRCLE, "Circle", PennyIcons.Circle)
 )
 
 /** The one place that reads per-member reachability from the manager's status. */
@@ -83,6 +104,11 @@ fun SpendingBuddyApp() {
     val repo = remember { BuddyRepository.get(context) }
     val peerManager = remember { PeerSyncManager.get(context) }
     val state by repo.state.collectAsState()
+    // Keep the synchronous copy used for the first frame (MainActivity.onCreate) in step with app state.
+    LaunchedEffect(state.theme) {
+        ThemeStore.save(context, state.theme)
+        activity?.applySplashTheme(state.theme)
+    }
     val peerStatus by peerManager.status.collectAsState()
     val loadProblem by repo.loadProblem.collectAsState()
     val nav = rememberNavController()
@@ -125,7 +151,7 @@ fun SpendingBuddyApp() {
 
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-    val bottomBar: @Composable () -> Unit = { TopLevelBar(currentRoute) { nav.goTopLevel(it) } }
+    val bottomBar: @Composable () -> Unit = { TopLevelBar(currentRoute, haptics = state.haptics) { nav.goTopLevel(it) } }
 
     LaunchedEffect(activity) {
         activity?.onUiReady()
@@ -148,7 +174,7 @@ fun SpendingBuddyApp() {
         peerStatus.lastError?.let { snackbar.showSnackbar("Sync problem: $it", duration = SnackbarDuration.Short) }
     }
 
-    SpendingBuddyTheme {
+    SpendingBuddyTheme(AppTheme.fromId(state.theme)) {
         loadProblem?.let { reason ->
             AlertDialog(
                 onDismissRequest = {},
@@ -287,6 +313,7 @@ fun SpendingBuddyApp() {
                     state = state,
                     onBack = { nav.popBackStack() },
                     onName = repo::updateName,
+                    onTheme = { repo.setTheme(it) },
                     onLimits = { nav.navigate(LIMITS) },
                     onCircle = if (state.group != null) ({ nav.navigate(CIRCLE_SETTINGS) }) else null,
                     onPresets = { nav.navigate(PRESETS) },
@@ -344,13 +371,15 @@ fun SpendingBuddyApp() {
                 val finish = { nav.navigate(TODAY) { popUpTo(ONBOARDING) { inclusive = true } } }
                 OnboardingScreen(
                     step = onboardingStep,
+                    theme = state.theme,
+                    onTheme = { repo.setTheme(it) },
                     name = onboardingName,
                     daily = onboardingDaily,
                     weekly = onboardingWeekly,
                     onName = { onboardingName = it },
                     onDaily = { onboardingDaily = it },
                     onWeekly = { onboardingWeekly = it },
-                    onNext = { if (onboardingStep < 2) onboardingStep += 1 },
+                    onNext = { if (onboardingStep < 3) onboardingStep += 1 },
                     onSkip = {
                         completeOnboarding(repo, onboardingName, onboardingDaily, onboardingWeekly)
                         finish()
@@ -374,18 +403,86 @@ private fun NavHostController.goTopLevel(route: String) {
     }
 }
 
-/** Material 3 navigation bar shared by the three top-level destinations. */
+/** Penny Circle tab bar shared by the three top-level destinations, with a sliding indicator. */
 @Composable
-private fun TopLevelBar(currentRoute: String?, onSelect: (String) -> Unit) {
-    Column {
-        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-        NavigationBar(containerColor = MaterialTheme.colorScheme.surface, tonalElevation = 0.dp) {
-            topLevel.forEach { item ->
-                NavigationBarItem(
-                    selected = currentRoute == item.route,
-                    onClick = { onSelect(item.route) },
-                    icon = { Icon(item.icon, null) },
-                    label = { Text(item.label) }
+private fun TopLevelBar(currentRoute: String?, haptics: Boolean = true, onSelect: (String) -> Unit) {
+    val tokens = LocalPennyTokens.current
+    val reduced = LocalReducedMotion.current
+    val view = LocalView.current
+    val primary = MaterialTheme.colorScheme.primary
+    val selectedIndex = topLevel.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    val hasSelection = topLevel.any { it.route == currentRoute }
+    Column(Modifier.background(tokens.bg.copy(alpha = if (tokens.dark) 0.72f else 0.80f)).navigationBarsPadding()) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, tokens.accent.copy(alpha = 0.55f), tokens.accent2.copy(alpha = 0.55f), Color.Transparent)
+                    )
+                )
+        )
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val itemWidth = maxWidth / topLevel.size
+            val indicatorX by animateDpAsState(
+                targetValue = itemWidth * selectedIndex + 16.dp,
+                animationSpec = if (reduced) snap() else spring(dampingRatio = 0.6f, stiffness = 380f),
+                label = "tabIndicator"
+            )
+            Row(Modifier.fillMaxWidth().selectableGroup()) {
+                topLevel.forEach { item ->
+                    val isSelected = currentRoute == item.route
+                    val tint by animateColorAsState(
+                        if (isSelected) primary else tokens.muted,
+                        animationSpec = if (reduced) snap<Color>() else spring<Color>(),
+                        label = "tabTint"
+                    )
+                    val labelColor by animateColorAsState(
+                        if (isSelected) tokens.text else tokens.muted,
+                        animationSpec = if (reduced) snap<Color>() else spring<Color>(),
+                        label = "tabLabel"
+                    )
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 56.dp)
+                            .then(
+                                if (isSelected) Modifier.background(
+                                    Brush.verticalGradient(listOf(tokens.accent.copy(alpha = 0.16f), Color.Transparent))
+                                ) else Modifier
+                            )
+                            .selectable(selected = isSelected, role = Role.Tab, onClick = {
+                                if (!isSelected) {
+                                    onSelect(item.route)
+                                    if (haptics) view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                }
+                            })
+                            .padding(top = 10.dp, bottom = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(item.icon, null, tint = tint)
+                        Text(
+                            item.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = labelColor,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            if (hasSelection) {
+                Box(
+                    Modifier
+                        .offset { IntOffset(indicatorX.roundToPx(), 0) }
+                        .width(itemWidth - 32.dp)
+                        .height(3.dp)
+                        .background(
+                            Brush.horizontalGradient(listOf(tokens.accent, tokens.accent2)),
+                            RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp)
+                        )
                 )
             }
         }

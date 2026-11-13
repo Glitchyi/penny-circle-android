@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Groups
@@ -108,7 +110,7 @@ private fun NoCircleContent(
         modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Icon(Icons.Rounded.Groups, null, tint = MaterialTheme.colorScheme.primary)
+        Icon(Icons.Rounded.Groups, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
         Text("Spend side by side", style = MaterialTheme.typography.headlineSmall)
         Text(
             "A circle is a small group of friends who see each other's day, send nudges and suggest limits. The admin approves everyone who joins.",
@@ -156,9 +158,11 @@ private fun CircleContent(
     val pendingSuggestions = state.suggestions.filter { it.status == "pending" }
     val requests = state.pendingJoins.filter { it.expiresAt > nowMs }
     var suggestTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
 
     LazyColumn(
-        modifier.fillMaxSize(),
+        modifier.fillMaxSize().scrollFadingEdges(listState, bottom = 40.dp),
+        state = listState,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {

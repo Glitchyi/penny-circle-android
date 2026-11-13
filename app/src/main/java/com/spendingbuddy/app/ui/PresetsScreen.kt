@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -38,6 +39,7 @@ fun PresetsScreen(
     // editing: null = closed, "" = new, otherwise preset id
     var editing by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmDelete by rememberSaveable { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
@@ -46,7 +48,7 @@ fun PresetsScreen(
             if (state.presets.size < MAX_PRESETS) ExtendedFloatingActionButton(onClick = { editing = "" }, icon = { Icon(Icons.Rounded.Add, null) }, text = { Text("New preset") })
         }
     ) { pad ->
-        LazyColumn(Modifier.fillMaxSize().padding(pad), contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(pad).scrollFadingEdges(listState), state = listState, contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item { Text("Only on this phone. Presets fill in the category and reason when you add a purchase.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (state.presets.isEmpty()) item {
                 NotebookSurface(Modifier.fillMaxWidth()) {

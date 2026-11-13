@@ -9,6 +9,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -21,7 +22,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -50,13 +53,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -75,11 +76,6 @@ private const val ROTARY_START_ANGLE = 0.3141593f // 18 degrees: digit 1 starts 
 private const val ROTARY_HOLE_STEP = -0.5235988f // -30 degrees: each next hole needs 30 degrees more.
 private const val ROTARY_STOP_ANGLE = 0.83775806f // 48 degrees: fixed stop at lower-right.
 private const val ROTARY_TICK_ANGLE = 0.36651915f // 21 degrees; deliberately gentle, sparse ticks.
-
-private val ForestGreen = Color(0xFF12392E)
-private val Cream = Color(0xFFF7F4E9)
-private val Lime = Color(0xFFD7F566)
-private val MutedGreen = Color(0xFF47685D)
 
 /**
  * Normalizes an angle to [0, 2PI). Kept pure so gesture boundary cases can be unit tested.
@@ -140,7 +136,7 @@ private fun rotaryPoint(center: Offset, radius: Float, angle: Float): Offset =
 
 private fun rotaryHitDigit(point: Offset, center: Offset, radius: Float): Int? {
     val holeOrbit = radius * 0.655f
-    val holeRadius = radius * 0.115f
+    val holeRadius = radius * 0.17f
     var nearest: Int? = null
     var nearestDistance = Float.MAX_VALUE
     for (digit in 1..ROTARY_HOLE_COUNT) {
@@ -202,7 +198,8 @@ fun RotaryAmountInput(
     value: String,
     onValueChange: (String) -> Unit,
     haptics: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onUseKeypad: (() -> Unit)? = null
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -213,11 +210,18 @@ fun RotaryAmountInput(
     val wheel = remember { Animatable(0f) }
     var interactiveRotation by remember { mutableStateOf(0f) }
     var interactionLocked by remember { mutableStateOf(false) }
-    var keypadVisible by rememberSaveable { mutableStateOf(true) }
+    var keypadVisible by rememberSaveable { mutableStateOf(false) }
     var undoValue by rememberSaveable { mutableStateOf<String?>(null) }
     val latestValue = rememberUpdatedState(value)
     val latestOnValueChange = rememberUpdatedState(onValueChange)
     val latestHaptics = rememberUpdatedState(haptics)
+
+    // Theme colours are read here because the Canvas draw scope cannot read MaterialTheme.
+    val wheelColor = MaterialTheme.colorScheme.primary
+    val holeColor = MaterialTheme.colorScheme.surface
+    val ringColor = MaterialTheme.colorScheme.onPrimary
+    val centreColor = MaterialTheme.colorScheme.primaryContainer
+    val mutedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     fun commitValue(next: String) {
         if (next == latestValue.value) return
@@ -249,67 +253,41 @@ fun RotaryAmountInput(
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.Center
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Amount",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MutedGreen
-                )
-                Text(
-                    text = "₹${value.trim().removePrefix("₹").ifBlank { "0" }}",
-                    style = MaterialTheme.typography.displaySmall,
-                    color = ForestGreen,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Row {
-                TextButton(onClick = undoAction, enabled = undoValue != null) { Text("Undo") }
-                TextButton(onClick = clearAction, enabled = value.isNotEmpty()) { Text("Clear") }
-            }
+            OutlinedButton(
+                onClick = undoAction,
+                enabled = undoValue != null,
+                modifier = Modifier.heightIn(min = 48.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) { Text("Undo") }
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = clearAction,
+                enabled = value.isNotEmpty(),
+                modifier = Modifier.heightIn(min = 48.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) { Text("Clear") }
         }
+        Spacer(Modifier.height(8.dp))
 
-        Spacer(Modifier.height(4.dp))
         Text(
             text = "Touch a number hole, turn clockwise to the stop, then release",
             style = MaterialTheme.typography.bodySmall,
-            color = MutedGreen,
+            color = mutedTextColor,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
         )
         Spacer(Modifier.height(4.dp))
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text("Input:", style = MaterialTheme.typography.labelLarge, color = MutedGreen)
-            TextButton(
-                onClick = { keypadVisible = false },
-                modifier = Modifier.semantics {
-                    role = Role.RadioButton
-                    selected = !keypadVisible
-                    contentDescription = "Dial only"
-                }
-            ) { Text(if (keypadVisible) "Dial" else "Dial ✓") }
-            TextButton(
-                onClick = { keypadVisible = true },
-                modifier = Modifier.semantics {
-                    role = Role.RadioButton
-                    selected = keypadVisible
-                    contentDescription = "Dial with keypad"
-                }
-            ) { Text(if (keypadVisible) "Keypad ✓" else "Keypad") }
-        }
-
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 340.dp)
-                .aspectRatio(1f)
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
         ) {
             Canvas(
                 modifier = Modifier
+                    .widthIn(max = 280.dp)
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .semantics {
@@ -317,7 +295,10 @@ fun RotaryAmountInput(
                         contentDescription = "Rotary dial for entering the amount. Optional touch gesture: place a finger in a numbered hole and turn clockwise to the stop."
                         stateDescription = "Current amount ${value.trim().removePrefix("₹").ifBlank { "0" }} rupees"
                         customActions = listOf(
-                            CustomAccessibilityAction("Use keypad instead") { keypadVisible = true; true },
+                            CustomAccessibilityAction("Use keypad instead") {
+                                onUseKeypad?.invoke() ?: run { keypadVisible = true }
+                                true
+                            },
                             CustomAccessibilityAction("Enter digit zero") { commitValue(appendRotaryDigit(latestValue.value, 0)); true }
                         )
                     }
@@ -410,18 +391,18 @@ fun RotaryAmountInput(
                 val radius = minOf(size.width, size.height) / 2f
                 val wheelRadius = radius * 0.89f
                 val holeOrbit = radius * 0.655f
-                val holeRadius = radius * 0.115f
+                val holeRadius = radius * 0.14f
                 val wheelRotation = if (interactionLocked) wheel.value else interactiveRotation
 
-                drawCircle(ForestGreen, wheelRadius, center)
+                drawCircle(wheelColor, wheelRadius, center)
                 drawCircle(
-                    color = Cream.copy(alpha = 0.12f),
+                    color = ringColor.copy(alpha = 0.12f),
                     radius = wheelRadius * 0.88f,
                     center = center,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = radius * 0.012f)
                 )
                 drawCircle(
-                    color = Cream.copy(alpha = 0.09f),
+                    color = ringColor.copy(alpha = 0.09f),
                     radius = wheelRadius * 0.74f,
                     center = center,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = radius * 0.008f)
@@ -431,13 +412,13 @@ fun RotaryAmountInput(
                     val angle = rotaryHoleAngle(digit) + wheelRotation
                     val hole = rotaryPoint(center, holeOrbit, angle)
                     drawCircle(Color.Black.copy(alpha = 0.18f), holeRadius * 1.08f, hole + Offset(0f, radius * 0.012f))
-                    drawCircle(Cream, holeRadius, hole)
+                    drawCircle(holeColor, holeRadius, hole)
                 }
 
                 val centreRadius = radius * 0.235f
-                drawCircle(Lime, centreRadius, center)
+                drawCircle(centreColor, centreRadius, center)
                 drawCircle(
-                    color = ForestGreen.copy(alpha = 0.25f),
+                    color = wheelColor.copy(alpha = 0.25f),
                     radius = centreRadius,
                     center = center,
                     style = androidx.compose.ui.graphics.drawscope.Stroke(width = radius * 0.012f)
@@ -445,12 +426,12 @@ fun RotaryAmountInput(
 
                 val stop = rotaryPoint(center, wheelRadius * 1.02f, ROTARY_STOP_ANGLE)
                 val stopBase = rotaryPoint(center, wheelRadius * 0.76f, ROTARY_STOP_ANGLE)
-                drawLine(ForestGreen, stopBase, stop, strokeWidth = radius * 0.035f)
-                drawCircle(Lime, radius * 0.067f, stop)
+                drawLine(wheelColor, stopBase, stop, strokeWidth = radius * 0.035f)
+                drawCircle(centreColor, radius * 0.067f, stop)
 
                 drawIntoCanvas { canvas ->
                     val numberPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = ForestGreen.toArgb()
+                        color = wheelColor.toArgb()
                         textAlign = Paint.Align.CENTER
                         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                         textSize = radius * 0.105f
@@ -462,7 +443,7 @@ fun RotaryAmountInput(
                         canvas.nativeCanvas.drawText(digit.toString(), hole.x, hole.y + numberOffset, numberPaint)
                     }
                     val zeroPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                        color = ForestGreen.toArgb()
+                        color = wheelColor.toArgb()
                         textAlign = Paint.Align.CENTER
                         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
                         textSize = radius * 0.14f
@@ -478,7 +459,7 @@ fun RotaryAmountInput(
             Text(
                 text = "Accessible digit keypad",
                 style = MaterialTheme.typography.labelLarge,
-                color = ForestGreen,
+                color = wheelColor,
                 modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
             )
             RotaryKeypad(
@@ -536,6 +517,6 @@ private fun RowScope.RotaryKey(label: String, description: String, onClick: () -
         },
         contentPadding = ButtonDefaults.ContentPadding
     ) {
-        Text(label, style = MaterialTheme.typography.titleMedium, color = ForestGreen)
+        Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
     }
 }

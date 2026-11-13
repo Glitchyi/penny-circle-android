@@ -1,0 +1,65 @@
+# Handoff: Penny Circle redesign (written 2026-11-10, keep this file updated)
+
+Read this first if you are a new Claude session picking up the redesign. Then read `AGENTS.md` (product rules) and `TODO.md` (status). The older `HANDOFF.md` is only about building and device testing; some of its rules are repeated below.
+
+## The user and how they like to work
+- Wants a very polished, animated, modern Android app. Likes: A (Soft Glass), E (Swiss editorial), some of B (loud), and most of all **L / M "Light Horizon"** (clean light system, centred total on a glowing horizon arc). Disliked: H to K (board, riso, bauhaus, hazard) and A2 to A5.
+- Latest direction (2026-11-10, in progress): **remove the two heavy 4dp rules** on Today, **gradient/aurora background** (it looked bland), **bolder accent colour**, and **real glass effects**. Also: **change the app logo to match the theme**. The user said **libraries may be added**.
+- Wants subagents to do the coding using **Haiku at low effort**, with raters scoring design and implementation. Usage was near 90% when this was written: keep replies short, avoid re-reading big files, avoid extra rating rounds.
+- Keep explanations short and plain. Ask before anything hard to undo. Windows 11, PowerShell 5.1 (no `&&`).
+
+## Hard rules (do not break)
+- **Never uninstall the app, clear its data, or reinstall over a different signature on the user's real phones** without a yes from the user for that phone. (The emulator `emulator-5554` is a test device: clearing it is fine. The app was uninstalled from the Xiaomi 15 earlier with the user's OK.)
+- Do not turn off Play Protect or other security controls. Do not commit unless the user asks. The repo's `HANDOFF.md` says commits carry NO AI attribution and to ask the user for the git name/email; the session's attribution reminder says otherwise. The repo rule is the user's own project rule: ask the user before the first commit.
+- Do not add a backend. Screenshots/OCR stay on device. Say "not tested" for anything not tested.
+
+## Environment
+- Repo: `C:\Users\User\spending-buddy-android` (branch master, **nothing from this redesign is committed**, 38+ changed paths).
+- Build: `$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot'; .\gradlew.bat :core:test :app:testDebugUnitTest :app:lintRelease :app:assembleDebug --console=plain`. Last full result: BUILD SUCCESSFUL, app tests 61, core tests 77 (1 skipped), release lint OK. APK: `app\build\outputs\apk\debug\app-debug.apk` (116 MB, debug-signed).
+- SDK: `%LOCALAPPDATA%\Android\Sdk` (command-line tools only, licences accepted, no Android Studio). adb: `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe`. scrcpy 5.0.1 with its own adb: `C:\Users\User\Documents\AOSP\tools\scrcpy\scrcpy-win64-v5.0.1\`.
+- Emulator: AVD `penny_test` (Android 16, API 36, x86_64), serial `emulator-5554`. Launch: `%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd penny_test -no-snapshot`.
+- **Xiaomi 15 (serial 4edd8e46): USB link drops during large transfers** (cable/port). Never verified on a real phone. Try another cable/port or wireless debugging. Phone facts: model 24129PN74I, Android 16, HyperOS 3.0, arm64, 4096 page size, 1200x2670 @ 520 dpi.
+- Tools copied into this repo for safety: `docs/redesign/` (specs, capture scripts, prototype HTML). The originals are in a session temp folder that will vanish.
+
+## Design system ("Light Horizon", 4 themes)
+- Themes (id): `light_horizon`, `violet_night`, `mint_night`, `signal_blue`. Tokens in `app/.../ui/Theme.kt`: `PennyTokens(bg, surface, surface2, border, rule, text, muted, accent, accent2, accent3, onAccent, danger, dark)`; `LocalPennyTokens`, `LocalReducedMotion`, `PennyType.Mono/Sans` (Geist, Geist Mono variable fonts in `res/font`). `BuddyState.theme` persisted; `ThemeStore` keeps a synchronous copy for the first frame; per-theme splash styles in `res/values/themes.xml` applied with `SplashScreen.setSplashScreenTheme`.
+- Web prototype of the system: https://claude.ai/artifact/C1KiDt4FMz3AVmvDZaZEqL (Light Horizon + three dark variants). Other concepts: https://claude.ai/artifact/MLo1MRWGq74TjSHoe3ccEV.
+- Compose building blocks (all in `app/src/main/java/com/spendingbuddy/app/ui/`): `RollingAmount` (odometer, Indian grouping), `HorizonArc`, `HardShadowButton`, `DottedCanvas` (to be replaced by aurora), `FadingEdges` (scroll-aware edge fades), `Responsive` (hero font fit, compact mode, 640dp cap), `PennyIcons` (custom line icons), `RocketCelebration` (finish rocket + haptic sequence), `ThemePicker`.
+
+## Done so far
+1. Phase 1: four themes, picker on onboarding step 2 and in Settings, fonts, first-frame theme + per-theme splash, tests.
+2. Phase 2: Today screen in the Light Horizon style (rolling total with paise, horizon arc, ruled purchase panel, hard-shadow buttons, tab bar with sliding indicator + tab semantics), custom icon set, scroll-edge fades on every list, responsive fixes (checked by simulating 1200x2670@520, 1080x2400@420, 720x1600@320 and 1.5x font on the emulator).
+3. Finish celebration: rocket flight + starburst once per finished day; haptics verified in `dumpsys vibrator_manager` (heavy-click ignition, ramped rumble, QUICK_RISE/CLICK/THUD burst, CONFIRM). Feel on real hardware untested.
+4. Ratings so far (Haiku design / Sonnet implementation): phase 1 design 7, impl 7; phase 2 design 6, impl 7. Raters plateau at 6-7; do not loop on them.
+5. Cleanup: removed Baloo/Mukta fonts and dead `AppNavBar`; docs updated (`AGENTS.md` visual direction, `TODO.md`).
+
+## IN PROGRESS when this was written (verify first with `git status`, then build)
+- **Written but NOT yet compiled** (a Haiku agent finished them; expect small import/API fixes): `AuroraBackground.kt` (`Modifier.auroraBackground(animate)`), `GlassSurface.kt` (`Modifier.glass(shape, strength)`, `GlassCard`), `AccentButton.kt` (gradient + glow, press spring, haptic), plus `secondary: Color` (last param) on `HorizonArc` and `brush: Brush?` (last param) on `RollingAmount`. `Theme.kt` already has `accent2/accent3` (done and compiled-by-agent only). Agent's own doubts: whether `Text` ignores `brush` when `color` is also set (if the gradient total does not show, pass `Color.Unspecified` when brush != null); whether `Brush.verticalGradient(vararg pairs, startY, endY)` compiles; `HorizonArc.horizonFade` uses `verticalGradient` without `endY` (possible pre-existing bug, check the fade looks right). NEXT STEP: run the build and fix errors.
+- **Library decision (user allowed libraries): Haze for real backdrop blur.** Latest is 2.1.0 but it needs Compose UI 1.12 / Kotlin 2.4; the project uses Compose BOM `2025.08.00` (UI 1.9) and Kotlin plugin 2.x. **Use `dev.chrisbanes.haze:haze:1.6.10`** (needs ui 1.8.0, Kotlin 2.1.0). 1.7.x needs ui 1.9.3 / Kotlin 2.2.21 (would need a BOM bump). Kotlin plugin is 2.2.21 and AGP 8.13.0 (checked), so Kotlin is fine for either 1.6.10 or 1.7.x; only the Compose UI version differs (BOM 2025.08.00 = UI 1.9.0). Add to `app/build.gradle.kts` (`implementation("dev.chrisbanes.haze:haze:1.6.10")`). The GitHub README has no API text; use the docs site https://chrisbanes.github.io/haze/ . API for 1.6.x (verify against https://github.com/chrisbanes/haze/tree/1.6.10): `val hazeState = rememberHazeState()`, `Modifier.hazeSource(hazeState)` on the content that is blurred, `Modifier.hazeEffect(hazeState) { ... }` on the glass surface. If it does not compile quickly, fall back to the translucency-only `Modifier.glass`.
+
+## NEXT (in order)
+1. Restyle `TodayScreen` (`ui/Screens.kt`): remove BOTH `HorizontalDivider(thickness = 4.dp ...)` rules (top bar and the "02 PURCHASES" header); replace `dottedCanvas()` by `auroraBackground()` and delete `DottedCanvas.kt`; hero inside a glass card; purchases panel and chips as glass; Add purchase = `AccentButton` (gradient + glow, no hard shadow); Finish today = glass/outlined secondary (or accent), keep the rocket trigger; total drawn with an accent gradient `brush` via `RollingAmount`; arc with `secondary = accent2`.
+2. Tab bar glass in `AppNav.kt` `TopLevelBar` (translucent/blur, gradient top highlight).
+3. **New app logo** (user request): adaptive icon matching the theme. Suggested: background gradient violet `#6A3DF5` to pink `#FF6FB5` to sky `#4FC3FF`; foreground in the 66dp safe zone of a 108x108 viewport: a white ring (r 26, stroke 5), a half-disc "sun on the horizon" inside it plus a horizontal line at y=62, and three small dots below (friends / dial holes); add a `<monochrome>` layer for themed icons. Files: `res/drawable/ic_launcher_background.xml`, `ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml`, `res/mipmap-anydpi-v26/ic_launcher.xml` (read the existing ones first; the current icon is an indigo disc with a white ring and six coloured dots). Check it on the emulator home screen.
+4. Build, run tests, reinstall on the emulator, capture all 4 themes (`docs/redesign/tools/capture-today.ps1`), look at the result, show the user.
+5. Phase 3: add-purchase sheet blooming out of the button, ruled keypad restyled to the new look, restyled rotary dial with ripples (the dial logic in `RotaryDial.kt` is tested; do not touch the gesture maths).
+6. Phase 4: coin burst on save, restyle Activity and Circle screens. Phase 5: Android platform features: predictive back, themed icon (above), launcher shortcuts, Glance widget, quick-settings tile, system photo picker, notification actions, optional biometric lock.
+7. Real-device pass on the Xiaomi 15 and OnePlus Nord CE (haptics, layout), then ask the user about committing.
+
+## Workflow that works
+- Write a spec file with exact contracts -> launch Haiku agents (`model: haiku`, `effort: low`) on DISJOINT files in parallel -> run Gradle yourself -> fix compile errors (agents very often forget imports or use wrong packages; fix them directly, it is cheap) -> install on the emulator -> capture screenshots with the scripts -> view 1-2 images yourself -> optionally one Haiku design rater + one Sonnet code rater.
+- Agents must not run Gradle/adb/git. Only one agent may edit a given file at a time.
+- Capture scripts need the app in a known state; `capture-onboarding.ps1` clears app data (emulator only) and ends inside Settings (press back). `seed-purchases.ps1` adds purchases through the UI. `rocket-test.ps1` runs the whole finish flow and captures frames and the vibrator log. `capture-profiles.ps1` simulates phone sizes with `wm size`/`wm density`/`font_scale` and resets them afterwards.
+
+## Known issues / not done
+- Nothing tested on a real phone. APK is large because debug + iroh native libs (no R8; do not enable R8 without checking iroh JNI and kotlinx.serialization).
+- Design rater complaints still open: warm category tiles clash with some accents; unselected chip contrast; rows all show "Food" in the demo data.
+- `Settings` chips use `Pill` now; the add-sheet still has the old layout (phase 3).
+
+## UPDATE (latest, 2026-11-10 late): aurora + glass + new logo are DONE and verified on the emulator
+- Done and building (app tests 61, core tests 77, release lint OK): both heavy 4dp rules removed; `auroraBackground()` (animated theme-colour gradient, replaces the deleted `DottedCanvas.kt`); `Modifier.glass()` frosted panels on the hero card, chips, purchases panel and tab bar; `AccentButton` (gradient + glow) for Add purchase; Finish today is now a glass button with a gradient border; the total is drawn with an accent gradient (`RollingAmount(brush=)`), `HorizonArc(secondary=)`; theme tokens `accent2/accent3`; glass tab bar with gradient indicator.
+- Lessons: do NOT put `Modifier.shadow` under a translucent fill (Android's shadow shows through as a dark inner rectangle); the arc glow needs a soft top fade (arc crest moved down 14dp).
+- New launcher icon (violet-pink-sky gradient disc, white ring, half-sun on a horizon, three dots, monochrome layer for themed icons) is in `res/drawable/ic_launcher_*.xml`. Checked on the emulator home screen; the white glow was reduced afterwards (`#2EFFFFFF`), not re-viewed.
+- Haze was NOT added: real backdrop blur is optional. The current glass is translucency + edge highlight + sheen over the aurora. If the user wants real blur, use `dev.chrisbanes.haze:haze:1.6.10` (see above).
+- **Emulator gotcha:** with `-gpu swiftshader_indirect` the emulator crashed when the new aurora/glass screens rendered ("device not found" mid-script). Start it with `-gpu host` instead: `emulator.exe -avd penny_test -no-snapshot -no-boot-anim -gpu host`. Then wait for `sys.boot_completed`.
+- Remaining NEXT list above still applies from step 5 on (add sheet bloom + new keypad/dial look, coin burst, Activity/Circle/Settings restyle with glass + aurora, platform features, real-device check, ask about committing). Settings, Activity, Circle and the add sheet still use the older flat look and do not have the aurora background yet.

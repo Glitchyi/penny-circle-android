@@ -214,6 +214,8 @@ data class BuddyState(
     val onboardingDone: Boolean = false,
     /** "keypad" | "dial" — the rotary dial is an optional, playful input mode. */
     val amountInput: String = "keypad",
+    /** App look: "light_horizon" | "violet_night" | "mint_night" | "signal_blue". Older states load as the light default. */
+    val theme: String = "light_horizon",
     val lastCategory: String = "Food",
     /** Personal presets (this phone only: not part of circle snapshots; included in the user's own backup). Older states load as empty. */
     val presets: List<Preset> = emptyList(),

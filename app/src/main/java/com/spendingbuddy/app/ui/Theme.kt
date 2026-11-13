@@ -3,23 +3,36 @@
 package com.spendingbuddy.app.ui
 
 import android.app.Activity
+import android.provider.Settings
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.spendingbuddy.app.R
 
@@ -71,23 +84,18 @@ data class CategoryColor(val container: Color, val content: Color, val accent: C
 
 object CategoryColors {
     val names: List<String> get() = PennyPalette.categories.keys.toList()
-    fun forCategory(name: String): CategoryColor {
+    fun forCategory(name: String, dark: Boolean = false): CategoryColor {
         val t = PennyPalette.categories.entries.firstOrNull { it.key.equals(name.trim(), ignoreCase = true) }?.value ?: PennyPalette.fallback
+        if (dark) {
+            val accent = c(t.third)
+            return CategoryColor(
+                container = accent.copy(alpha = 0.18f),
+                content = lerp(accent, Color.White, 0.45f),
+                accent = accent
+            )
+        }
         return CategoryColor(c(t.first), c(t.second), c(t.third))
     }
-}
-
-/** Compatibility aliases for older call sites; prefer MaterialTheme.colorScheme and CategoryColors. */
-object NotebookColors {
-    val Paper = c(PennyPalette.Background)
-    val PaperRaised = c(PennyPalette.Surface)
-    val Rule = c(PennyPalette.Hairline)
-    val Ink = c(PennyPalette.Primary)
-    val InkDeep = c(PennyPalette.Text)
-    val Muted = c(PennyPalette.TextMuted)
-    val Marigold = c(PennyPalette.Tertiary)
-    val Margin = c(PennyPalette.Error)
-    val Leaf = c(PennyPalette.Secondary)
 }
 
 /** Small, consistent radii. */
@@ -97,62 +105,177 @@ object PennyShapes {
     val Large = RoundedCornerShape(12.dp)
 }
 
-private val Baloo = FontFamily(Font(R.font.baloo2_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))))
-private val Mukta = FontFamily(
-    Font(R.font.mukta_regular, FontWeight.Normal),
-    Font(R.font.mukta_medium, FontWeight.Medium),
-    Font(R.font.mukta_semibold, FontWeight.SemiBold),
-    Font(R.font.mukta_bold, FontWeight.Bold)
+/** The app's visual looks. `id` is the stored value in BuddyState.theme. */
+enum class AppTheme(val id: String, val label: String, val mood: String, val isDark: Boolean) {
+    LightHorizon("light_horizon", "Light Horizon", "White, hairlines, violet.", false),
+    VioletNight("violet_night", "Violet Night", "Indigo-black, violet glow.", true),
+    MintNight("mint_night", "Mint Night", "Black, mint horizon.", true),
+    SignalBlue("signal_blue", "Signal Blue", "Graphite, electric blue.", true);
+
+    companion object {
+        fun fromId(id: String?): AppTheme = values().firstOrNull { it.id == id } ?: LightHorizon
+    }
+}
+
+/** Semantic colour tokens for one theme. Read via LocalPennyTokens. */
+@Immutable
+class PennyTokens(
+    val bg: Color,
+    val surface: Color,
+    val surface2: Color,
+    val border: Color,
+    val rule: Color,
+    val text: Color,
+    val muted: Color,
+    val accent: Color,
+    val accent2: Color,
+    val accent3: Color,
+    val onAccent: Color,
+    val danger: Color,
+    val dark: Boolean
 )
+
+fun AppTheme.tokens(): PennyTokens = when (this) {
+    AppTheme.LightHorizon -> PennyTokens(
+        bg = c(0xFAFAFB), surface = c(0xFFFFFF), surface2 = c(0xF1F1F5), border = c(0xE3E3EA),
+        rule = c(0x0B0B10), text = c(0x0B0B10), muted = c(0x6B6B7B), accent = c(0x6A3DF5),
+        accent2 = c(0xFF6FB5), accent3 = c(0x4FC3FF), onAccent = c(0xFFFFFF), danger = c(0xB91C1C), dark = false
+    )
+    AppTheme.VioletNight -> PennyTokens(
+        bg = c(0x0D0B14), surface = c(0x151220), surface2 = c(0x1E1A2D), border = c(0x34304D),
+        rule = c(0xEFEDF8).copy(alpha = 0.30f), text = c(0xEFEDF8), muted = c(0x8F89A6), accent = c(0x9D6BFF),
+        accent2 = c(0xFF5FA2), accent3 = c(0x4B7BFF), onAccent = c(0x0D0B14), danger = c(0xFF6B6B), dark = true
+    )
+    AppTheme.MintNight -> PennyTokens(
+        bg = c(0x08090A), surface = c(0x101212), surface2 = c(0x181B1B), border = c(0x2E3434),
+        rule = c(0xF4F7F6).copy(alpha = 0.28f), text = c(0xF4F7F6), muted = c(0x8D9593), accent = c(0x00E599),
+        accent2 = c(0x22D3EE), accent3 = c(0xA3E635), onAccent = c(0x03120C), danger = c(0xFF6B6B), dark = true
+    )
+    AppTheme.SignalBlue -> PennyTokens(
+        bg = c(0x090B11), surface = c(0x10131B), surface2 = c(0x171B26), border = c(0x2C3447),
+        rule = c(0xEEF2FA).copy(alpha = 0.28f), text = c(0xEEF2FA), muted = c(0x8993A8), accent = c(0x4D9BFF),
+        accent2 = c(0x22D3EE), accent3 = c(0x8B5CF6), onAccent = c(0x04101F), danger = c(0xFF6B6B), dark = true
+    )
+}
+
+val LocalPennyTokens = compositionLocalOf { AppTheme.LightHorizon.tokens() }
+
+/** True when reduced motion is on (system animator duration scale is 0). Provided by SpendingBuddyTheme. */
+val LocalReducedMotion = compositionLocalOf { false }
+
+private val Geist = FontFamily(
+    Font(R.font.geist_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.geist_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.geist_variable, FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.geist_variable, FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700)))
+)
+
+private val GeistMono = FontFamily(
+    Font(R.font.geist_mono_variable, FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.geist_mono_variable, FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500)))
+)
+
+/** Font families for direct use in components (for example amounts use Mono). */
+object PennyType {
+    val Mono: FontFamily = GeistMono
+    val Sans: FontFamily = Geist
+}
 
 private fun typography() = Typography(
-    displayLarge = TextStyle(fontFamily = Baloo, fontWeight = FontWeight.ExtraBold, fontSize = 56.sp, lineHeight = 62.sp),
-    displayMedium = TextStyle(fontFamily = Baloo, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
-    displaySmall = TextStyle(fontFamily = Baloo, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 30.sp),
-    headlineSmall = TextStyle(fontFamily = Baloo, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleLarge = TextStyle(fontFamily = Mukta, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp),
-    titleMedium = TextStyle(fontFamily = Mukta, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
-    bodyLarge = TextStyle(fontFamily = Mukta, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
-    bodyMedium = TextStyle(fontFamily = Mukta, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-    labelLarge = TextStyle(fontFamily = Mukta, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = Mukta, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+    displayLarge = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = 56.sp, lineHeight = 62.sp, letterSpacing = (-0.03).em),
+    displayMedium = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.03).em),
+    displaySmall = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.03).em),
+    headlineSmall = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
+    titleLarge = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp),
+    titleMedium = TextStyle(fontFamily = Geist, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp),
+    bodyLarge = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+    labelLarge = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = Geist, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
 )
 
-private val PennyColors = lightColorScheme(
-    primary = c(PennyPalette.Primary), onPrimary = c(PennyPalette.OnPrimary),
-    primaryContainer = c(PennyPalette.PrimaryContainer), onPrimaryContainer = c(PennyPalette.OnPrimaryContainer),
-    secondary = c(PennyPalette.Secondary), onSecondary = c(PennyPalette.OnSecondary),
-    secondaryContainer = c(PennyPalette.SecondaryContainer), onSecondaryContainer = c(PennyPalette.OnSecondaryContainer),
-    tertiary = c(PennyPalette.Tertiary), onTertiary = c(PennyPalette.OnTertiary),
-    tertiaryContainer = c(PennyPalette.TertiaryContainer), onTertiaryContainer = c(PennyPalette.OnTertiaryContainer),
-    background = c(PennyPalette.Background), onBackground = c(PennyPalette.Text),
-    surface = c(PennyPalette.Surface), onSurface = c(PennyPalette.Text),
-    surfaceVariant = c(PennyPalette.SurfaceVariant), onSurfaceVariant = c(PennyPalette.TextMuted),
-    surfaceTint = Color.Transparent,
-    surfaceContainerLowest = c(PennyPalette.Surface), surfaceContainerLow = c(PennyPalette.Surface),
-    surfaceContainer = c(PennyPalette.Surface), surfaceContainerHigh = c(PennyPalette.SurfaceVariant),
-    surfaceContainerHighest = c(PennyPalette.SurfaceVariant),
-    outline = c(PennyPalette.Outline), outlineVariant = c(PennyPalette.Hairline),
-    error = c(PennyPalette.Error), onError = c(PennyPalette.OnError),
-    errorContainer = c(PennyPalette.ErrorContainer), onErrorContainer = c(PennyPalette.OnErrorContainer)
-)
+private val PennyTypography: Typography = typography()
 
 private val PennyMaterialShapes = Shapes(
     extraSmall = PennyShapes.Small, small = PennyShapes.Small, medium = PennyShapes.Medium,
     large = PennyShapes.Large, extraLarge = PennyShapes.Large
 )
 
-/** Penny Circle theme: light mode only, no dynamic colour. */
 @Composable
-fun SpendingBuddyTheme(content: @Composable () -> Unit) {
+private fun anim(target: Color, spec: AnimationSpec<Color>): Color = animateColorAsState(target, spec, label = "theme").value
+
+/** True when the system animator duration scale is 0 (reduced motion / animations off). */
+@Composable
+fun rememberReducedMotion(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
+}
+
+/** Penny Circle theme with selectable looks. Colours animate when the theme changes. */
+@Composable
+fun SpendingBuddyTheme(theme: AppTheme = AppTheme.LightHorizon, content: @Composable () -> Unit) {
+    val t = remember(theme) { theme.tokens() }
+    val reduceMotion = rememberReducedMotion()
+    val spec: AnimationSpec<Color> = if (reduceMotion) snap() else tween(450)
+    val a = PennyTokens(
+        bg = anim(t.bg, spec), surface = anim(t.surface, spec), surface2 = anim(t.surface2, spec), border = anim(t.border, spec),
+        rule = anim(t.rule, spec), text = anim(t.text, spec), muted = anim(t.muted, spec), accent = anim(t.accent, spec),
+        accent2 = anim(t.accent2, spec), accent3 = anim(t.accent3, spec), onAccent = anim(t.onAccent, spec), danger = anim(t.danger, spec), dark = t.dark
+    )
+    val colorScheme: ColorScheme = if (!a.dark) {
+        lightColorScheme(
+            primary = a.accent, onPrimary = a.onAccent,
+            primaryContainer = a.surface2, onPrimaryContainer = a.text,
+            secondary = a.accent, onSecondary = a.onAccent,
+            secondaryContainer = a.surface2, onSecondaryContainer = a.text,
+            tertiary = a.accent, onTertiary = a.onAccent,
+            tertiaryContainer = a.surface2, onTertiaryContainer = a.text,
+            background = a.bg, onBackground = a.text,
+            surface = a.surface, onSurface = a.text,
+            surfaceVariant = a.surface2, onSurfaceVariant = a.muted,
+            surfaceTint = Color.Transparent,
+            surfaceContainerLowest = a.surface, surfaceContainerLow = a.surface,
+            surfaceContainer = a.surface, surfaceContainerHigh = a.surface2,
+            surfaceContainerHighest = a.surface2,
+            outline = a.muted, outlineVariant = a.border,
+            error = a.danger, onError = a.bg,
+            errorContainer = a.surface2, onErrorContainer = a.danger,
+            inverseSurface = a.text, inverseOnSurface = a.bg
+        )
+    } else {
+        darkColorScheme(
+            primary = a.accent, onPrimary = a.onAccent,
+            primaryContainer = a.surface2, onPrimaryContainer = a.text,
+            secondary = a.accent, onSecondary = a.onAccent,
+            secondaryContainer = a.surface2, onSecondaryContainer = a.text,
+            tertiary = a.accent, onTertiary = a.onAccent,
+            tertiaryContainer = a.surface2, onTertiaryContainer = a.text,
+            background = a.bg, onBackground = a.text,
+            surface = a.surface, onSurface = a.text,
+            surfaceVariant = a.surface2, onSurfaceVariant = a.muted,
+            surfaceTint = Color.Transparent,
+            surfaceContainerLowest = a.surface, surfaceContainerLow = a.surface,
+            surfaceContainer = a.surface, surfaceContainerHigh = a.surface2,
+            surfaceContainerHighest = a.surface2,
+            outline = a.muted, outlineVariant = a.border,
+            error = a.danger, onError = a.bg,
+            errorContainer = a.surface2, onErrorContainer = a.danger,
+            inverseSurface = a.text, inverseOnSurface = a.bg
+        )
+    }
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as? Activity)?.window ?: return@SideEffect
             val controller = WindowCompat.getInsetsController(window, view)
-            controller.isAppearanceLightStatusBars = true
-            controller.isAppearanceLightNavigationBars = true
+            if (controller.isAppearanceLightStatusBars == t.dark) controller.isAppearanceLightStatusBars = !t.dark
+            if (controller.isAppearanceLightNavigationBars == t.dark) controller.isAppearanceLightNavigationBars = !t.dark
         }
     }
-    MaterialTheme(colorScheme = PennyColors, typography = typography(), shapes = PennyMaterialShapes, content = content)
+    CompositionLocalProvider(LocalPennyTokens provides a, LocalReducedMotion provides reduceMotion) {
+        MaterialTheme(colorScheme = colorScheme, typography = PennyTypography, shapes = PennyMaterialShapes, content = content)
+    }
 }

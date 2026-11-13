@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.SpendingBuddy" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
@@ -10,4 +10,35 @@
         <item name="android:statusBarColor">#F8FAFC</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
     </style>
+
+    <!-- One splash style per app theme. MainActivity calls SplashScreen.setSplashScreenTheme (API 33)
+         whenever the user picks a theme, so the NEXT cold start shows a splash in the chosen colours. -->
+    <style name="Theme.Splash.LightHorizon" parent="Theme.SpendingBuddy">
+        <item name="android:windowSplashScreenBackground">#FAFAFB</item>
+    </style>
+    <style name="Theme.Splash.VioletNight" parent="Theme.SpendingBuddy">
+        <item name="android:windowSplashScreenBackground">#0D0B14</item>
+        <item name="android:windowBackground">#0D0B14</item>
+        <item name="android:navigationBarColor">#0D0B14</item>
+        <item name="android:statusBarColor">#0D0B14</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+    <style name="Theme.Splash.MintNight" parent="Theme.SpendingBuddy">
+        <item name="android:windowSplashScreenBackground">#08090A</item>
+        <item name="android:windowBackground">#08090A</item>
+        <item name="android:navigationBarColor">#08090A</item>
+        <item name="android:statusBarColor">#08090A</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+    <style name="Theme.Splash.SignalBlue" parent="Theme.SpendingBuddy">
+        <item name="android:windowSplashScreenBackground">#090B11</item>
+        <item name="android:windowBackground">#090B11</item>
+        <item name="android:navigationBarColor">#090B11</item>
+        <item name="android:statusBarColor">#090B11</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
 </resources>
+

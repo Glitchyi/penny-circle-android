@@ -2,6 +2,8 @@ package com.spendingbuddy.app.ui
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -41,6 +44,7 @@ fun SettingsScreen(
     state: BuddyState,
     onBack: () -> Unit,
     onName: (String) -> Unit,
+    onTheme: (String) -> Unit,
     onLimits: () -> Unit,
     onCircle: (() -> Unit)?,
     onPresets: (() -> Unit)?,
@@ -55,13 +59,15 @@ fun SettingsScreen(
     snackbar: SnackbarHostState? = null
 ) {
     var name by rememberSaveable { mutableStateOf(state.name) }
+    val listState = rememberLazyListState()
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { snackbar?.let { SnackbarHost(it) } },
         topBar = { ScreenTitle("Settings", onBack) }
     ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize().padding(padding),
+            Modifier.fillMaxSize().padding(padding).scrollFadingEdges(listState, bottom = 40.dp),
+            state = listState,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -79,22 +85,27 @@ fun SettingsScreen(
             if (onPresets != null) item { SettingsButton("Presets", onPresets) }
             item {
                 Text(
+                    "Appearance",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 16.dp)
+                )
+                ThemePicker(
+                    selectedId = state.theme,
+                    onSelect = onTheme,
+                    modifier = Modifier.padding(top = 8.dp),
+                    haptics = state.haptics
+                )
+            }
+            item {
+                Text(
                     "Amount entry",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(top = 16.dp)
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(
-                        selected = state.amountInput == "keypad",
-                        onClick = { onAmountInput("keypad") },
-                        label = { Text("Keypad") }
-                    )
+                    Pill("Keypad", state.amountInput == "keypad", onClick = { onAmountInput("keypad") })
                     Spacer(Modifier.width(8.dp))
-                    FilterChip(
-                        selected = state.amountInput == "dial",
-                        onClick = { onAmountInput("dial") },
-                        label = { Text("Rotary dial") }
-                    )
+                    Pill("Rotary dial", state.amountInput == "dial", onClick = { onAmountInput("dial") })
                 }
             }
             item { SettingSwitch("Haptics", state.haptics, onHaptics) }
@@ -141,8 +152,8 @@ fun SettingsScreen(
 private fun SettingsButton(text: String, onClick: () -> Unit) {
     TextButton(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-        contentPadding = PaddingValues(vertical = 14.dp, horizontal = 8.dp)
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        contentPadding = PaddingValues(vertical = 14.dp, horizontal = 0.dp)
     ) {
         Text(text, Modifier.weight(1f))
         Icon(Icons.Rounded.ChevronRight, null)
@@ -207,6 +218,8 @@ fun LimitsScreen(state: BuddyState, onBack: () -> Unit, onSave: (Long, Long) -> 
 @Composable
 fun OnboardingScreen(
     step: Int,
+    theme: String,
+    onTheme: (String) -> Unit,
     name: String,
     daily: String,
     weekly: String,
@@ -222,10 +235,10 @@ fun OnboardingScreen(
             Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 Text("Penny Circle", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
                 Text(
-                    "Step ${step + 1} of 3",
+                    "Step ${step + 1} of 4",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 12.dp)
@@ -247,6 +260,21 @@ fun OnboardingScreen(
                     }
 
                     1 -> {
+                        Text(
+                            "Pick a look",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(top = 38.dp)
+                        )
+                        Text(
+                            "You can change it any time in Settings.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                        ThemePicker(selectedId = theme, onSelect = onTheme, modifier = Modifier.padding(top = 20.dp))
+                    }
+
+                    2 -> {
                         Text(
                             "Pick a daily limit",
                             style = MaterialTheme.typography.headlineSmall,
@@ -291,11 +319,11 @@ fun OnboardingScreen(
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Button(
-                    onClick = if (step == 2) onReminders else onNext,
+                    onClick = if (step == 3) onReminders else onNext,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
-                ) { Text(if (step == 2) "Turn on reminders" else "Continue") }
+                ) { Text(if (step == 3) "Turn on reminders" else "Continue") }
                 TextButton(onClick = onSkip, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(if (step == 2) "Not now" else "Skip")
+                    Text(if (step == 3) "Not now" else "Skip")
                 }
             }
         }

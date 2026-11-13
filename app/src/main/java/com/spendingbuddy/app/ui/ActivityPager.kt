@@ -71,7 +71,7 @@ private fun WeekPage(state: BuddyState, now: ZonedDateTime, pagesBack: Int, page
         groups.associate { g -> val at = i; i += 1 + g.purchases.size; g.date to at }
     }
     LazyColumn(
-        Modifier.fillMaxSize(), state = listState,
+        Modifier.fillMaxSize().scrollFadingEdges(listState), state = listState,
         contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 96.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item(key = "summary") {
